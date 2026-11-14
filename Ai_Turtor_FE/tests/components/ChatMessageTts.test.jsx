@@ -92,8 +92,17 @@ describe('ChatMessageList TTS action', () => {
     expect(screen.getAllByRole('button', { name: 'Đọc câu trả lời của AI Tutor' })).toHaveLength(1);
   });
 
-  it('renders curriculum starter suggestions as clickable study chips', () => {
+  it('renders curriculum chapter suggestions with show-more paging', () => {
     const onStudySuggestion = vi.fn();
+    const chapters = [
+      'Tổng quan về Pascal',
+      'Cấu trúc rẽ nhánh',
+      'Kiểu dữ liệu',
+      'Hàm và thủ tục',
+      'Mảng một chiều',
+      'Con trỏ',
+      'File',
+    ];
     render(
       <ChatMessageList
         {...baseProps}
@@ -104,21 +113,27 @@ describe('ChatMessageList TTS action', () => {
           sessionComplete: true,
           answer: `## 4. Gợi ý học tập
 
-Bạn có thể bắt đầu bằng cách hỏi AI Tutor:
+Các chương trong tài liệu môn học (chọn một chương để bắt đầu):
 
-- Tôi muốn tìm hiểu về Tổng quan về Pascal.
-- Kiểm tra kiến thức của tôi về Cấu trúc rẽ nhánh & Vòng lặp.
+${chapters.map((title) => `- ${title}`).join('\n')}
 
-**Mẹo:** Hãy chọn một chủ đề cụ thể.`,
+**Mẹo:** Chọn một chương cụ thể.`,
         }]}
       />,
     );
 
-    const studyButtons = screen.getAllByRole('button', { name: /Học ngay/ });
-    expect(studyButtons).toHaveLength(2);
-    fireEvent.click(studyButtons[0]);
+    expect(screen.getAllByRole('button', { name: /Học ngay/ })).toHaveLength(5);
+    fireEvent.click(screen.getByRole('button', { name: /Hiển thị thêm/ }));
+    expect(screen.getAllByRole('button', { name: /Học ngay/ })).toHaveLength(7);
+    fireEvent.click(screen.getByRole('button', { name: /Ẩn bớt/ }));
+    expect(screen.getAllByRole('button', { name: /Học ngay/ })).toHaveLength(5);
+    fireEvent.change(screen.getByRole('searchbox', { name: /Tìm bài học/ }), {
+      target: { value: 'Con trỏ' },
+    });
+    expect(screen.getAllByRole('button', { name: /Học ngay/ })).toHaveLength(1);
+    fireEvent.click(screen.getAllByRole('button', { name: /Học ngay/ })[0]);
     expect(onStudySuggestion).toHaveBeenCalledWith(expect.objectContaining({
-      text: 'Tôi muốn tìm hiểu về Tổng quan về Pascal.',
+      text: 'Con trỏ',
       curriculumStarter: true,
     }));
   });
@@ -215,3 +230,4 @@ Bạn có thể bắt đầu bằng cách hỏi AI Tutor:
     expect(screen.queryByText('Đã học')).not.toBeInTheDocument();
   });
 });
+

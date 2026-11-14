@@ -38,7 +38,9 @@ class CourseMaterialIndexManagementAuthorizationTest {
                 new CourseMaterialAccessPolicy(),
                 mock(HumanLearningService.class),
                 mock(ExpertCoTrainingService.class),
-                mock(CourseMaterialIndexExecutor.class)
+                mock(CourseMaterialIndexExecutor.class),
+                new ReindexProgressTracker(),
+                new ReindexCancellation()
         );
     }
 

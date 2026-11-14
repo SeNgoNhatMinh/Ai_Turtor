@@ -21,4 +21,7 @@ public class IntentClassifyRequest {
     private String planItemId;
     private String clickedSuggestion;
     private String learningActionType;
+
+    /** When true, ambiguous turns return NEEDS_AGENT so the n8n AI Agent decides. */
+    private Boolean deferAgent;
 }

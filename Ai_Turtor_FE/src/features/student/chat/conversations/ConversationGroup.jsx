@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useLayoutEffect, useRef, useState } from 'react';
 import { Input, Typography } from 'antd';
 import EntityActionMenu from '../../../../components/common/EntityActionMenu';
 import { formatSessionTime, getSessionQuestionCount } from './sessionUtils';
@@ -8,6 +8,56 @@ const MENU_ITEMS = [
   { key: 'rename', label: 'Đổi tên' },
   { key: 'delete', label: 'Xóa', danger: true },
 ];
+
+function fullTitleWidth(sample, title) {
+  const probe = document.createElement('span');
+  const computed = getComputedStyle(sample);
+  probe.textContent = title;
+  probe.style.position = 'fixed';
+  probe.style.left = '-10000px';
+  probe.style.whiteSpace = 'nowrap';
+  probe.style.font = computed.font;
+  probe.style.letterSpacing = computed.letterSpacing;
+  document.body.appendChild(probe);
+  const width = probe.getBoundingClientRect().width;
+  probe.remove();
+  return width;
+}
+
+function SessionTitleMarquee({ title }) {
+  const trackRef = useRef(null);
+  const [shift, setShift] = useState(0);
+
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) return undefined;
+
+    const measure = () => {
+      const extra = Math.ceil(fullTitleWidth(track, title) - track.clientWidth);
+      setShift(extra > 4 ? extra + 8 : 0);
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, [title]);
+
+  const duration = Math.max(1.2, shift / 42);
+
+  return (
+    <span
+      className={`session-title-marquee${shift > 0 ? ' is-overflow' : ''}`}
+      ref={trackRef}
+      style={{
+        '--marquee-shift': `${shift}px`,
+        '--marquee-duration': `${duration.toFixed(2)}s`,
+      }}
+    >
+      <span className="session-title-marquee__text">{title}</span>
+    </span>
+  );
+}
 
 const ConversationItem = memo(function ConversationItem({
   session,
@@ -57,7 +107,7 @@ const ConversationItem = memo(function ConversationItem({
               disabled={isMutating}
             />
           ) : (
-            <Text ellipsis>{session.title || 'Cuộc trò chuyện mới'}</Text>
+            <SessionTitleMarquee title={session.title || 'Cuộc trò chuyện mới'} />
           )}
         </div>
         <div className="session-item-meta">

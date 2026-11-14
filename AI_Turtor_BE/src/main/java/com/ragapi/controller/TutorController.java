@@ -4,8 +4,10 @@ import com.ragapi.dto.AiQueryRequest;
 import com.ragapi.dto.AiQueryResponse;
 import com.ragapi.dto.CodeMentorRequest;
 import com.ragapi.dto.CourseRagAnswer;
+import com.ragapi.dto.HarnessLogRequest;
 import com.ragapi.dto.IntentClassification;
 import com.ragapi.dto.IntentClassifyRequest;
+import com.ragapi.dto.IntentGuardRequest;
 import com.ragapi.dto.RagQueryIntent;
 import com.ragapi.dto.RagSourceEvidence;
 import com.ragapi.dto.SuggestionItem;
@@ -13,13 +15,20 @@ import com.ragapi.dto.TutorIntentContext;
 import com.ragapi.entity.QuestionEscalation;
 import com.ragapi.entity.TutorSession;
 import com.ragapi.service.AiConversationService;
+import com.ragapi.service.ChatGenerationGate;
 import com.ragapi.service.CodeMentorService;
+import com.ragapi.service.CourseCurriculumOverviewService;
+import com.ragapi.service.HarnessLogService;
 import com.ragapi.service.course.gateway.CourseAnswerGateway;
 import com.ragapi.service.ImprovePlanService;
 import com.ragapi.service.IntentClassifierService;
 import com.ragapi.service.LearningPathGroundingService;
 import com.ragapi.service.MentorEscalationService;
 import com.ragapi.service.PedagogicalDirectiveService;
+import com.ragapi.service.behavior.plan.StudentLearningContext;
+import com.ragapi.service.behavior.plan.StudentLearningContextService;
+import com.ragapi.service.behavior.plan.TeachingOrchestrator;
+import com.ragapi.service.behavior.plan.TeachingPlan;
 import com.ragapi.service.StudentCourseMemoryService;
 import com.ragapi.service.StudentDailyQuestionQuotaService;
 import com.ragapi.service.StudentQuestionNormalizationService;
@@ -45,9 +54,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.UUID;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -74,9 +89,14 @@ public class TutorController {
     private final StudentDailyQuestionQuotaService questionQuotaService;
     private final StudentQuestionNormalizationService questionNormalizationService;
     private final PedagogicalDirectiveService pedagogicalDirectiveService;
+    private final TeachingOrchestrator teachingOrchestrator;
+    private final StudentLearningContextService studentLearningContextService;
     private final TutorSessionService tutorSessionService;
     private final ImprovePlanService improvePlanService;
     private final LearningPathGroundingService learningPathGroundingService;
+    private final CourseCurriculumOverviewService curriculumOverviewService;
+    private final HarnessLogService harnessLogService;
+    private final ChatGenerationGate generationGate;
 
     @GetMapping("/tutor/students/{studentId}/courses/{courseId}/question-quota")
     @Operation(summary = "Get today's per-course question quota for a student")
@@ -132,25 +152,17 @@ public class TutorController {
                     question,
                     codeSnippet,
                     courseId,
-                    intentContext
+                    intentContext,
+                    Boolean.TRUE.equals(request.getDeferAgent())
             );
 
-            Map<String, Object> body = new java.util.LinkedHashMap<>();
-            body.put("studentId", request.getStudentId() == null ? "" : request.getStudentId());
-            body.put("courseId", request.getCourseId() == null ? "" : request.getCourseId());
-            body.put("classId", request.getClassId() == null ? "" : request.getClassId());
-            body.put("message", question);
-            body.put("mode", intent.getMode());
-            body.put("reason", intent.getReason());
-            body.put("confidence", intent.getConfidence());
-            body.put("subIntent", intent.getSubIntent());
-            body.put("domain", intent.getDomain());
-            body.put("answerPolicy", intent.getAnswerPolicy());
-            body.put("requiresCourseMaterial", intent.getRequiresCourseMaterial());
-            body.put("routingStrategy", intent.getRoutingStrategy());
+            Map<String, Object> body = classificationBody(request.getStudentId(), request.getCourseId(), request.getClassId(), question, intent);
             body.put("improvePlanId", request.getImprovePlanId());
             body.put("planItemId", request.getPlanItemId());
             body.put("clickedSuggestion", request.getClickedSuggestion());
+            if ("NEEDS_AGENT".equals(intent.getRoutingStrategy())) {
+                body.put("recentHistory", intentContext.recentHistory() == null ? "" : intentContext.recentHistory());
+            }
             return ResponseEntity.ok(body);
         } catch (StudentDailyQuestionQuotaService.QuestionQuotaExceededException e) {
             String message = StudentFacingMessages.dailySessionComplete(e.getCourseId());
@@ -168,6 +180,101 @@ public class TutorController {
         }
     }
 
+    @PostMapping("/tutor/intent-guard")
+    @Operation(summary = "Apply harness policy to the n8n AI Agent decision")
+    public ResponseEntity<?> guardIntent(@RequestBody IntentGuardRequest request, Authentication authentication) {
+        try {
+            if (request == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "request body is required"));
+            }
+            String rawQuestion = request.getMessage() != null && !request.getMessage().isBlank()
+                    ? request.getMessage()
+                    : request.getQuestion();
+            String question = normalizeStudentQuestion(
+                    requireMaxLength(rawQuestion, "question", STUDENT_QUESTION_MAX_LENGTH)
+            );
+            String courseId = requireText(request.getCourseId(), "courseId");
+            String mode = request.getMode() == null ? "" : request.getMode().trim().toUpperCase(Locale.ROOT);
+            IntentClassification proposed = mode.isBlank() ? null : IntentClassification.builder()
+                    .mode(mode)
+                    .subIntent(request.getSubIntent())
+                    .domain(request.getDomain())
+                    .reason(request.getReason() == null || request.getReason().isBlank()
+                            ? "n8n AI Agent selected the worker"
+                            : request.getReason().trim())
+                    .confidence(request.getConfidence() == null ? 0.8 : request.getConfidence())
+                    .requiresCourseMaterial(IntentClassifierService.MODE_RAG.equals(mode))
+                    .routingStrategy("HARNESS_AGENT")
+                    .answerPolicy("Decision from the n8n harness agent")
+                    .build();
+            IntentClassification intent = intentClassifierService.applyHarnessAgentDecision(
+                    question, proposed, request.getDomain());
+            return ResponseEntity.ok(classificationBody("", courseId, "", question, intent));
+        } catch (StudentDailyQuestionQuotaService.QuestionQuotaExceededException e) {
+            String message = StudentFacingMessages.dailySessionComplete(e.getCourseId());
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
+                    "error", message, "message", message,
+                    "code", "DAILY_COURSE_QUESTION_LIMIT_REACHED", "courseId", e.getCourseId(),
+                    "dailyLimit", e.getDailyLimit(), "remaining", 0, "resetAt", e.getResetAt().toString()
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Intent guard failed", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Server error: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/tutor/workers/refuse")
+    @Operation(summary = "Run the harness refuse worker. Does not retrieve course material.")
+    public ResponseEntity<?> refuseWorker(
+            @RequestBody AiQueryRequest request,
+            @RequestParam(value = "userId", required = false) String userId,
+            @RequestParam(value = "userName", required = false) String userName,
+            @RequestParam(value = "userEmail", required = false) String userEmail,
+            Authentication authentication
+    ) {
+        AiQueryRequest routed = request == null ? new AiQueryRequest() : request;
+        routed.setHarnessMode(IntentClassifierService.MODE_REFUSE);
+        routed.setHarnessSubIntent("OFF_TOPIC");
+        if (routed.getHarnessReason() == null || routed.getHarnessReason().isBlank()) {
+            routed.setHarnessReason("Harness selected the refuse worker");
+        }
+        return query(routed, userId, userName, userEmail, authentication, null);
+    }
+
+    @PostMapping("/tutor/workers/curriculum")
+    @Operation(summary = "Run the harness curriculum worker for a course greeting.")
+    public ResponseEntity<?> curriculumWorker(
+            @RequestBody AiQueryRequest request,
+            @RequestParam(value = "userId", required = false) String userId,
+            @RequestParam(value = "userName", required = false) String userName,
+            @RequestParam(value = "userEmail", required = false) String userEmail,
+            Authentication authentication
+    ) {
+        AiQueryRequest routed = request == null ? new AiQueryRequest() : request;
+        routed.setHarnessMode(IntentClassifierService.MODE_CURRICULUM);
+        routed.setHarnessSubIntent(IntentClassifierService.MODE_CURRICULUM);
+        if (routed.getHarnessReason() == null || routed.getHarnessReason().isBlank()) {
+            routed.setHarnessReason("Harness selected the curriculum worker");
+        }
+        return query(routed, userId, userName, userEmail, authentication, null);
+    }
+
+    @PostMapping("/ai/generations/cancel")
+    public ResponseEntity<?> cancelGeneration(
+            @RequestBody(required = false) Map<String, String> body,
+            Authentication authentication
+    ) {
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Unauthenticated"));
+        }
+        String traceId = body == null ? "" : body.getOrDefault("traceId", "");
+        boolean cancelled = generationGate.cancel(traceId, authentication.getName());
+        return ResponseEntity.ok(Map.of("cancelled", cancelled));
+    }
+
     @PostMapping("/ai/query")
     @Operation(summary = "Ask the AI tutor using intent classification")
     public ResponseEntity<?> query(
@@ -175,8 +282,11 @@ public class TutorController {
             @RequestParam(value = "userId", required = false) String userId,
             @RequestParam(value = "userName", required = false) String userName,
             @RequestParam(value = "userEmail", required = false) String userEmail,
-            Authentication authentication
+            Authentication authentication,
+            HttpServletRequest httpRequest
     ) {
+        String generationTraceId = "";
+        boolean quotaCharged = false;
         try {
             if (request == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "request body is required"));
@@ -184,18 +294,22 @@ public class TutorController {
             if (isStudent(authentication)) {
                 userId = authentication.getName();
             }
+            generationTraceId = resolveGenerationTraceId(request, httpRequest);
+            generationGate.bind(generationTraceId, userId);
             String question = normalizeStudentQuestion(
                     requireMaxLength(resolveQuestion(request), "question", STUDENT_QUESTION_MAX_LENGTH)
             );
             String codeSnippet = optionalCodeSnippet(request.getCodeSnippet(), "codeSnippet");
             String courseId = requireText(request.getCourseId(), "courseId");
             String classId = normalizeScopeValue(request.getClassId());
+            // Support level only — teaching behaviors are resolved after final intent routing.
             PedagogicalDirectiveService.TutorGuidanceSnapshot tutorGuidance =
                     pedagogicalDirectiveService.resolveTutorGuidance(userId, courseId, classId);
             String canonicalSupportLevel = tutorGuidance.supportLevel();
             boolean persistTurn = !Boolean.FALSE.equals(request.getPersist());
             if (isStudent(authentication) && persistTurn && !Boolean.TRUE.equals(request.getQuotaConsumed())) {
                 questionQuotaService.consume(authentication.getName(), courseId);
+                quotaCharged = true;
             }
             String recentHistoryContext = "";
             try {
@@ -223,6 +337,7 @@ public class TutorController {
                     log.debug("Tutor session unavailable for intent context: {}", sessionError.getMessage());
                 }
             }
+            long routeStarted = System.nanoTime();
             String routingMode = HarnessRouting.normalizeMode(request.getHarnessMode());
             IntentClassification intent;
             if (routingMode != null) {
@@ -238,20 +353,17 @@ public class TutorController {
                 );
                 routingMode = intent.getMode();
             }
-            String requestedMode = normalizeStudentRequestedMode(request.getRequestedMode());
-            if (requestedMode != null && !IntentClassifierService.MODE_ESCALATE.equals(routingMode)) {
-                routingMode = requestedMode;
-                applyStudentRequestedMode(intent, requestedMode);
-            }
-            if (!persistTurn) {
+            boolean workerLocked = IntentClassifierService.MODE_REFUSE.equals(routingMode)
+                    || IntentClassifierService.MODE_CURRICULUM.equals(routingMode);
+            if (!workerLocked && !persistTurn) {
                 routingMode = IntentClassifierService.MODE_RAG;
             }
-            if (isUnderstandingRemediation(question)) {
+            if (!workerLocked && isUnderstandingRemediation(question)) {
                 routingMode = IntentClassifierService.MODE_RAG;
             }
             boolean guidedLesson = request != null
                     && "GUIDED_LESSON".equalsIgnoreCase(request.getInteractionType());
-            if (guidedLesson) {
+            if (!workerLocked && guidedLesson) {
                 routingMode = IntentClassifierService.MODE_RAG;
                 intent.setMode(IntentClassifierService.MODE_RAG);
                 intent.setSubIntent("LESSON_TEACH");
@@ -269,7 +381,7 @@ public class TutorController {
                     ? remediationIntent
                     : buildSourceBackedIntent(request, question);
             RagQueryIntent provenanceIntent = improvePlanIntent != null ? improvePlanIntent : sourceBackedIntent;
-            if (provenanceIntent != null) {
+            if (!workerLocked && provenanceIntent != null) {
                 routingMode = IntentClassifierService.MODE_RAG;
                 intent.setMode(IntentClassifierService.MODE_RAG);
                 intent.setSubIntent(guidedLesson ? "LESSON_TEACH" : "EXPLAIN_CONCEPT");
@@ -283,7 +395,7 @@ public class TutorController {
                     question = "Ôn tập theo Improve Plan: " + improvePlanIntent.getLearningObjective();
                 }
             }
-            if (StudentChatIntentDetector.isLessonStart(question)) {
+            if (!workerLocked && StudentChatIntentDetector.isLessonStart(question)) {
                 routingMode = IntentClassifierService.MODE_RAG;
                 intent.setMode(IntentClassifierService.MODE_RAG);
                 intent.setSubIntent("LESSON_TEACH");
@@ -293,11 +405,12 @@ public class TutorController {
                     intent.setRoutingStrategy("GUIDED_LESSON");
                 }
             }
-            log.info("Tutor routing decision: mode={}, harnessMode={}, subIntent={}, strategy={}, confidence={}, improvePlanId={}, planItemId={}",
+            log.info("Tutor routing decision: worker={}, harnessMode={}, subIntent={}, strategy={}, confidence={}, improvePlanId={}, planItemId={}",
                     routingMode, request.getHarnessMode(), intent.getSubIntent(),
                     intent.getRoutingStrategy(), intent.getConfidence(),
                     improvePlanIntent == null ? null : improvePlanIntent.getImprovePlanId(),
                     improvePlanIntent == null ? null : improvePlanIntent.getPlanItemId());
+            logRouteDecision(courseId, request.getConversationId(), userId, intent, routingMode, routeStarted);
 
             if (IntentClassifierService.MODE_CODE.equals(routingMode)) {
                 return handleCodeMentorIntent(request, question, courseId, classId, userId, intent);
@@ -309,7 +422,28 @@ public class TutorController {
             }
 
             String pedagogicalContext = tutorGuidance.tutorContext();
-            String learnerContext = studentCourseMemoryService.buildTutorContext(userId, courseId);
+            String understandingSignals = "";
+            try {
+                understandingSignals = aiConversationService.buildRecentUnderstandingSignals(
+                        request.getConversationId(), userId);
+            } catch (RuntimeException signalError) {
+                log.warn("Understanding-check signals unavailable; continuing without them: {}",
+                        signalError.getMessage());
+            }
+            StudentLearningContext learningContext = studentLearningContextService.resolve(
+                    userId,
+                    courseId,
+                    classId,
+                    question,
+                    sessionTopic,
+                    recentHistoryContext,
+                    understandingSignals
+            );
+            String learnerContext = learningContext.promptBlock();
+            // Keep a short memory fallback when structured context is empty but course memory exists.
+            if (learnerContext.isBlank()) {
+                learnerContext = studentCourseMemoryService.buildTutorContext(userId, courseId);
+            }
             if (improvePlanIntent != null) {
                 learnerContext = appendTutorContext(learnerContext, improvePlanContextBlock(improvePlanIntent));
             }
@@ -318,17 +452,10 @@ public class TutorController {
                         ? "- Recent session history:\n" + recentHistoryContext
                         : learnerContext + "\n- Recent session history:\n" + recentHistoryContext;
             }
-            try {
-                String understandingSignals = aiConversationService.buildRecentUnderstandingSignals(
-                        request.getConversationId(), userId);
-                if (!understandingSignals.isBlank()) {
-                    String block = "- Recent understanding-check results in this conversation (oldest first):\n"
-                            + understandingSignals;
-                    learnerContext = learnerContext.isBlank() ? block : learnerContext + "\n" + block;
-                }
-            } catch (RuntimeException signalError) {
-                log.warn("Understanding-check signals unavailable; continuing without them: {}",
-                        signalError.getMessage());
+            if (!understandingSignals.isBlank()) {
+                String block = "- Recent understanding-check results in this conversation (oldest first):\n"
+                        + understandingSignals;
+                learnerContext = learnerContext.isBlank() ? block : learnerContext + "\n" + block;
             }
             if (!persistTurn) {
                 String checkHint = "- The student is checking their multiple-choice answer to the current lesson. "
@@ -344,19 +471,39 @@ public class TutorController {
                             : learnerContext + "\n" + chapterHints;
                 }
             }
-            boolean conversationalInteraction = Boolean.FALSE.equals(intent.getRequiresCourseMaterial())
+            boolean refuseWorker = IntentClassifierService.MODE_REFUSE.equals(routingMode)
+                    || (Boolean.FALSE.equals(intent.getRequiresCourseMaterial())
                     && ("CONVERSATIONAL".equals(intent.getSubIntent())
-                    || "OFF_TOPIC".equals(intent.getSubIntent()));
+                    || "OFF_TOPIC".equals(intent.getSubIntent())));
             String teachingMode = persistTurn ? intent.getSubIntent() : "EXPLAIN_CONCEPT";
+            boolean learningPathOnly = "LEARNING_PATH".equalsIgnoreCase(teachingMode)
+                    || StudentChatIntentDetector.isTopiclessStudyRequest(question);
+            TeachingPlan teachingPlan = null;
+            if (!refuseWorker && !learningPathOnly) {
+                String domain = intent.getDomain() != null && !intent.getDomain().isBlank()
+                        ? intent.getDomain()
+                        : request.getHarnessDomain();
+                teachingPlan = teachingOrchestrator.resolvePlan(
+                        userId, courseId, classId, question, domain, teachingMode, sessionSupportLevel);
+                String planBlock = teachingOrchestrator.promptBlock(teachingPlan);
+                if (!planBlock.isBlank()) {
+                    // Style rules first so a long support-level note cannot push them out.
+                    pedagogicalContext = pedagogicalContext.isBlank()
+                            ? planBlock
+                            : planBlock + "\n" + pedagogicalContext;
+                }
+            }
             if ("LEARNING_PATH".equalsIgnoreCase(teachingMode)) {
                 pedagogicalContext = appendTutorContext(
                         pedagogicalContext,
                         learningPathSupportContext(sessionSupportLevel)
                 );
             }
-            if ("LESSON_TEACH".equalsIgnoreCase(teachingMode)
+            // When a TeachingPlan prompt block already carries ACTIVE SUPPORT LEVEL, do not paste again.
+            if (teachingPlan == null
+                    && ("LESSON_TEACH".equalsIgnoreCase(teachingMode)
                     || "LESSON_DEEP_PATH".equalsIgnoreCase(teachingMode)
-                    || !"STANDARD".equalsIgnoreCase(sessionSupportLevel)) {
+                    || !"STANDARD".equalsIgnoreCase(sessionSupportLevel))) {
                 pedagogicalContext = appendTutorContext(
                         pedagogicalContext,
                         supportLevelTutorContext(sessionSupportLevel)
@@ -394,29 +541,47 @@ public class TutorController {
                             : learnerContext + "\n" + followUpHint;
                 }
             }
+            boolean courseGreeting = IntentClassifierService.MODE_CURRICULUM.equals(routingMode);
             CourseRagAnswer ragAnswer;
-            if (conversationalInteraction) {
+            if (courseGreeting) {
+                intent.setMode(IntentClassifierService.MODE_CURRICULUM);
+                intent.setSubIntent(IntentClassifierService.MODE_CURRICULUM);
+                intent.setRequiresCourseMaterial(false);
+                ragAnswer = CourseRagAnswer.builder()
+                        .answer(curriculumOverviewService.newChatWelcomeMarkdown(courseId))
+                        .confidence(1.0)
+                        .sources(List.of())
+                        .sourceEvidence(List.of())
+                        .groundingType("COURSE_CURRICULUM")
+                        .escalationRecommended(false)
+                        .build();
+            } else if (refuseWorker) {
                 ragAnswer = courseAnswerService.answerTutorInteraction(
                         question, courseId, intent.getSubIntent(),
                         pedagogicalContext, learnerContext, recentHistoryContext);
             } else if (provenanceIntent != null) {
                 ragAnswer = courseAnswerService.askWithImprovePlanContext(
-                        question, courseId, classId, pedagogicalContext, learnerContext, provenanceIntent);
+                        question, courseId, classId, pedagogicalContext, learnerContext,
+                        provenanceIntent, teachingPlan);
             } else if ("LEARNING_PATH".equalsIgnoreCase(teachingMode)
                     || StudentChatIntentDetector.isTopiclessStudyRequest(question)) {
                 ragAnswer = courseAnswerService.retrieveLearningPath(
                         question, courseId, classId, pedagogicalContext, learnerContext, retrievalHint);
+            } else if (teachingPlan != null || !pedagogicalContext.isBlank() || !learnerContext.isBlank()) {
+                ragAnswer = courseAnswerService.askWithPersonalizedTutorContext(
+                        question, courseId, classId, pedagogicalContext, learnerContext,
+                        teachingMode, retrievalHint, teachingPlan);
             } else {
-                ragAnswer = (pedagogicalContext.isBlank() && learnerContext.isBlank())
-                        ? courseAnswerService.askWithConfidence(question, courseId, classId, teachingMode, retrievalHint)
-                        : courseAnswerService.askWithPersonalizedTutorContext(
-                                question, courseId, classId, pedagogicalContext, learnerContext,
-                                teachingMode, retrievalHint);
+                ragAnswer = courseAnswerService.askWithConfidence(
+                        question, courseId, classId, teachingMode, retrievalHint);
             }
             String answer = ragAnswer.getAnswer();
-            List<SuggestionItem> lessonSuggestions = LearningPathParser.parseLessonSuggestions(answer);
-            if ("LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())
-                    || StudentChatIntentDetector.isTopiclessStudyRequest(question)) {
+            List<SuggestionItem> lessonSuggestions = courseGreeting
+                    ? List.of()
+                    : LearningPathParser.parseLessonSuggestions(answer);
+            if (!courseGreeting
+                    && ("LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())
+                    || StudentChatIntentDetector.isTopiclessStudyRequest(question))) {
                 lessonSuggestions = learningPathGroundingService.ground(
                         courseId,
                         question,
@@ -426,6 +591,20 @@ public class TutorController {
                 );
                 applyGroundedLearningPath(ragAnswer, lessonSuggestions, sessionSupportLevel);
                 answer = ragAnswer.getAnswer();
+            } else if (teachingPlan != null
+                    && answer != null
+                    && !answer.isBlank()
+                    && !StudentFacingMessages.isUnavailableMessage(answer)) {
+                String sessionKey = request.getTutorSessionId();
+                if (ragAnswer.getCacheHitMetadata() != null) {
+                    teachingOrchestrator.commitCacheHit(teachingPlan, sessionKey);
+                } else {
+                    teachingOrchestrator.commitApplied(teachingPlan, sessionKey);
+                }
+            } else if (teachingPlan != null
+                    && (answer == null || answer.isBlank() || StudentFacingMessages.isUnavailableMessage(answer))) {
+                teachingOrchestrator.commitFailed(
+                        teachingPlan, request.getTutorSessionId(), "Generation returned no usable answer");
             }
 
             QuestionEscalation questionEscalation = null;
@@ -434,6 +613,7 @@ public class TutorController {
             String assistantMessageId = null;
             TutorSession tutorSessionState = null;
 
+            generationGate.checkpoint();
             if (persistTurn && userId != null && !userId.isBlank()) {
                 if (courseId != null && !courseId.isBlank()) {
                     studentCourseMemoryService.recordInteraction(
@@ -465,7 +645,7 @@ public class TutorController {
                         question,
                         answer,
                         questionEscalation != null ? questionEscalation.getId() : null,
-                        IntentClassifierService.MODE_RAG,
+                        routingMode,
                         ragAnswer.getConfidence(),
                         ragAnswer.getSources(),
                         ragAnswer.getSourceEvidence(),
@@ -494,7 +674,7 @@ public class TutorController {
 
             AiQueryResponse response = new AiQueryResponse();
             boolean escalated = questionEscalation != null;
-            response.setMode(IntentClassifierService.MODE_RAG);
+            response.setMode(routingMode);
             response.setIntentReason(intent.getReason());
             response.setIntentConfidence(intent.getConfidence());
             applyIntentMetadata(response, intent);
@@ -537,6 +717,20 @@ public class TutorController {
             applyDailyQuota(response, userId, courseId);
 
             return ResponseEntity.ok(response);
+        } catch (ChatGenerationGate.GenerationCancelledException cancelled) {
+            if (quotaCharged && userId != null) {
+                try {
+                    questionQuotaService.releaseOne(userId, request == null ? null : request.getCourseId());
+                } catch (RuntimeException refundError) {
+                    log.warn("Could not refund a cancelled question: {}", refundError.getMessage());
+                }
+            }
+            log.info("Student stopped generation for trace {}", generationTraceId);
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                    "cancelled", true,
+                    "answer", "",
+                    "code", "GENERATION_CANCELLED"
+            ));
         } catch (StudentDailyQuestionQuotaService.QuestionQuotaExceededException e) {
             String message = StudentFacingMessages.dailySessionComplete(e.getCourseId());
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
@@ -584,10 +778,41 @@ public class TutorController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            if (e instanceof ChatGenerationGate.GenerationCancelledException || isCancelledCause(e)) {
+                if (quotaCharged && userId != null) {
+                    try {
+                        questionQuotaService.releaseOne(userId, request == null ? null : request.getCourseId());
+                    } catch (RuntimeException refundError) {
+                        log.warn("Could not refund a cancelled question: {}", refundError.getMessage());
+                    }
+                }
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                        "cancelled", true,
+                        "answer", "",
+                        "code", "GENERATION_CANCELLED"
+                ));
+            }
             log.error("Unexpected error during AI query", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Server error: " + e.getMessage()));
+        } finally {
+            generationGate.release(generationTraceId);
         }
+    }
+
+    private static String resolveGenerationTraceId(AiQueryRequest request, HttpServletRequest httpRequest) {
+        String header = httpRequest == null ? "" : httpRequest.getHeader("X-Trace-Id");
+        if (header != null && !header.isBlank()) return header.trim();
+        return "";
+    }
+
+    private static boolean isCancelledCause(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof ChatGenerationGate.GenerationCancelledException) return true;
+            current = current.getCause();
+        }
+        return false;
     }
 
     private void applyGroundedLearningPath(
@@ -698,32 +923,47 @@ public class TutorController {
         response.setRoutingStrategy(intent.getRoutingStrategy());
     }
 
-    private String normalizeStudentRequestedMode(String value) {
-        String mode = HarnessRouting.normalizeMode(value);
-        if (IntentClassifierService.MODE_RAG.equals(mode) || IntentClassifierService.MODE_CODE.equals(mode)) {
-            return mode;
+    private void logRouteDecision(
+            String courseId,
+            String conversationId,
+            String studentId,
+            IntentClassification intent,
+            String worker,
+            long startedNanos
+    ) {
+        try {
+            long latencyMs = Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
+            HarnessLogRequest logRequest = new HarnessLogRequest();
+            logRequest.setTraceId(currentTraceId());
+            logRequest.setConversationId(conversationId);
+            logRequest.setStudentId(studentId);
+            logRequest.setCourseId(courseId);
+            logRequest.setWorkflowName("Student Chat Harness");
+            logRequest.setNodeName("Harness Router");
+            logRequest.setMode(worker);
+            logRequest.setEventType("ROUTE_DECIDED");
+            logRequest.setStatus("SUCCESS");
+            Map<String, Object> metadata = new LinkedHashMap<>();
+            metadata.put("worker", worker == null ? "" : worker);
+            metadata.put("strategy", intent == null || intent.getRoutingStrategy() == null ? "" : intent.getRoutingStrategy());
+            metadata.put("subIntent", intent == null || intent.getSubIntent() == null ? "" : intent.getSubIntent());
+            metadata.put("latencyMs", latencyMs);
+            logRequest.setMetadata(metadata);
+            harnessLogService.createLog(logRequest);
+        } catch (RuntimeException error) {
+            log.warn("Harness route log skipped: {}", error.getMessage());
         }
-        return null;
     }
 
-    private void applyStudentRequestedMode(IntentClassification intent, String mode) {
-        intent.setMode(mode);
-        intent.setRoutingStrategy("STUDENT_SELECTED_MODE");
-        if (IntentClassifierService.MODE_CODE.equals(mode)) {
-            if (intent.getSubIntent() == null
-                    || !intent.getSubIntent().matches("DEBUG_CODE|EXPLAIN_ERROR|CODE_REVIEW|ALGORITHM_HINT|DATA_STRUCTURE_ADVICE|SQL_REVIEW|ARCHITECTURE_REVIEW|REVIEW_LOGIC|GUIDE_SOLUTION|TECHNICAL_MENTORING")) {
-                intent.setSubIntent("TECHNICAL_MENTORING");
+    private String currentTraceId() {
+        var attributes = RequestContextHolder.getRequestAttributes();
+        if (attributes instanceof ServletRequestAttributes servletAttributes) {
+            String header = servletAttributes.getRequest().getHeader("X-Trace-Id");
+            if (header != null && !header.isBlank()) {
+                return header.trim();
             }
-            intent.setRequiresCourseMaterial(false);
-            intent.setAnswerPolicy("Guide, explain, review, or debug without completing assessed work.");
-            return;
         }
-        if (intent.getSubIntent() == null
-                || intent.getSubIntent().matches("DEBUG_CODE|EXPLAIN_ERROR|CODE_REVIEW|ALGORITHM_HINT|DATA_STRUCTURE_ADVICE|SQL_REVIEW|ARCHITECTURE_REVIEW|REVIEW_LOGIC|GUIDE_SOLUTION|TECHNICAL_MENTORING")) {
-            intent.setSubIntent("EXPLAIN_CONCEPT");
-        }
-        intent.setRequiresCourseMaterial(true);
-        intent.setAnswerPolicy("Answer only from the currently selected course material; escalate when evidence is insufficient.");
+        return UUID.randomUUID().toString();
     }
 
     private String appendTutorContext(String base, String extra) {
@@ -756,27 +996,9 @@ public class TutorController {
     }
 
     private String supportLevelTutorContext(String supportLevel) {
-        String normalized = supportLevel == null ? "STANDARD" : supportLevel.trim().toUpperCase(Locale.ROOT);
-        return switch (normalized) {
-            case "HIGH_SUPPORT" -> """
-                    - Active support level: HIGH_SUPPORT.
-                      Keep every concept the excerpts explain, plus one short textbook example for each.
-                      Teach in small steps and simple Vietnamese: one idea, then the example, then what each line does.
-                      Do not say the material is missing when the excerpts already cover the question.
-                      Do not drop that example to make the answer shorter, and do not invent an example.
-                      End with one easy recognition question whose choices are clearly different.
-                    """.stripTrailing();
-            case "CHALLENGE" -> """
-                    - Active support level: CHALLENGE.
-                      Reduce scaffolding, ask the student to reason from the material, and make the required
-                      understanding check an application or comparison question without adding outside facts.
-                    """.stripTrailing();
-            default -> """
-                    - Active support level: STANDARD.
-                      Balance explanation and learner effort. Make the required understanding check a direct
-                      application of the lesson, using only the supplied course material.
-                    """.stripTrailing();
-        };
+        return com.ragapi.service.course.answer.generation.SupportLevelPrompt
+                .from(supportLevel)
+                .activeLevelReminder();
     }
 
     private String improvePlanContextBlock(RagQueryIntent intent) {
@@ -803,6 +1025,8 @@ public class TutorController {
             subIntent = switch (mode) {
                 case IntentClassifierService.MODE_CODE -> "TECHNICAL_MENTORING";
                 case IntentClassifierService.MODE_ESCALATE -> "TEACHER_POLICY";
+                case IntentClassifierService.MODE_REFUSE -> "OFF_TOPIC";
+                case IntentClassifierService.MODE_CURRICULUM -> IntentClassifierService.MODE_CURRICULUM;
                 default -> "EXPLAIN_CONCEPT";
             };
         }
@@ -815,12 +1039,17 @@ public class TutorController {
                 : Math.max(0.0, Math.min(0.99, request.getHarnessConfidence()));
         boolean requiresCourseMaterial = IntentClassifierService.MODE_RAG.equals(mode)
                 && !"CONVERSATIONAL".equals(subIntent)
-                && !"OFF_TOPIC".equals(subIntent);
+                && !"OFF_TOPIC".equals(subIntent)
+                && !IntentClassifierService.MODE_CURRICULUM.equals(subIntent);
         String answerPolicy = switch (mode) {
             case IntentClassifierService.MODE_CODE ->
                     "Guide, explain, review, or debug without completing assessed work.";
             case IntentClassifierService.MODE_ESCALATE ->
                     "Create escalation. Do not answer teacher-only decisions.";
+            case IntentClassifierService.MODE_REFUSE ->
+                    "Refuse non-academic chat. Ask for a course question instead.";
+            case IntentClassifierService.MODE_CURRICULUM ->
+                    "Greet the student and show the official course curriculum, not book headings.";
             default -> requiresCourseMaterial
                     ? "Answer from course materials and approved knowledge; escalate when evidence is insufficient."
                     : "Respond naturally as a course tutor without inventing course facts.";
@@ -828,6 +1057,7 @@ public class TutorController {
         String reason = request.getHarnessReason() == null || request.getHarnessReason().isBlank()
                 ? "n8n AI Harness selected the backend route"
                 : request.getHarnessReason().trim();
+        String strategy = normalizedHarnessValue(request.getHarnessRoutingStrategy());
         return IntentClassification.builder()
                 .mode(mode)
                 .reason(reason)
@@ -836,7 +1066,7 @@ public class TutorController {
                 .domain(domain)
                 .answerPolicy(answerPolicy)
                 .requiresCourseMaterial(requiresCourseMaterial)
-                .routingStrategy("N8N_HARNESS")
+                .routingStrategy(strategy == null ? "N8N_HARNESS" : strategy)
                 .build();
     }
 
@@ -864,7 +1094,9 @@ public class TutorController {
         codeRequest.setCode(request.getCodeSnippet());
         codeRequest.setConversationId(request.getConversationId());
 
+        generationGate.checkpoint();
         var codeResponse = codeMentorService.mentor(codeRequest);
+        generationGate.checkpoint();
 
         AiQueryResponse response = new AiQueryResponse();
         response.setMode(IntentClassifierService.MODE_CODE);
@@ -1018,12 +1250,45 @@ public class TutorController {
             String courseId,
             TutorIntentContext context
     ) {
+        return classifyStudentIntent(question, codeSnippet, courseId, context, false);
+    }
+
+    private IntentClassification classifyStudentIntent(
+            String question,
+            String codeSnippet,
+            String courseId,
+            TutorIntentContext context,
+            boolean deferAgent
+    ) {
         long started = RagStageTimer.start();
         try {
-            return intentClassifierService.classify(question, codeSnippet, courseId, context);
+            return intentClassifierService.classify(question, codeSnippet, courseId, context, deferAgent);
         } finally {
             RagStageTimer.record("T3_INTENT_CLASSIFICATION", started);
         }
+    }
+
+    private Map<String, Object> classificationBody(
+            String studentId,
+            String courseId,
+            String classId,
+            String question,
+            IntentClassification intent
+    ) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("studentId", studentId == null ? "" : studentId);
+        body.put("courseId", courseId == null ? "" : courseId);
+        body.put("classId", classId == null ? "" : classId);
+        body.put("message", question);
+        body.put("mode", intent.getMode());
+        body.put("reason", intent.getReason());
+        body.put("confidence", intent.getConfidence());
+        body.put("subIntent", intent.getSubIntent());
+        body.put("domain", intent.getDomain());
+        body.put("answerPolicy", intent.getAnswerPolicy());
+        body.put("requiresCourseMaterial", intent.getRequiresCourseMaterial());
+        body.put("routingStrategy", intent.getRoutingStrategy());
+        return body;
     }
 
     private RagQueryIntent buildSourceBackedIntent(AiQueryRequest request, String question) {

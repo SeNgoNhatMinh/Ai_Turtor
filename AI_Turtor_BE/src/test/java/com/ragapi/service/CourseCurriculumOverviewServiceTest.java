@@ -87,7 +87,7 @@ class CourseCurriculumOverviewServiceTest {
     @Test
     void welcomeFollowsTheNumberedTemplateWithRealTopics() {
         CourseCurriculumOverviewService service =
-                new CourseCurriculumOverviewService(null, null);
+                new CourseCurriculumOverviewService(null, null, null);
         CourseCurriculumOverview overview = CourseCurriculumOverviewService.parseSyllabus(
                 "PFP191",
                 "Programming Fundamentals with Python",
@@ -115,10 +115,12 @@ class CourseCurriculumOverviewServiceTest {
         assertTrue(welcome.contains("`Cú pháp Python`"));
         assertTrue(welcome.contains("`Cấu trúc điều khiển`"));
         assertTrue(welcome.contains("## 4. Gợi ý học tập"));
-        assertTrue(welcome.contains("- Tôi muốn tìm hiểu về Cú pháp Python."));
-        assertTrue(welcome.contains("- Kiểm tra kiến thức của tôi về Cấu trúc điều khiển."));
-        assertTrue(welcome.endsWith("**Mẹo:** Hãy chọn một chủ đề cụ thể để AI Tutor tìm kiếm tài liệu liên quan"
-                + " và hỗ trợ bạn học tập theo nội dung của môn học."));
+        assertTrue(welcome.contains("Chưa có chương nào được nhận từ tài liệu môn học"));
+        assertFalse(welcome.contains("- Cú pháp Python"));
+        assertFalse(welcome.contains("- Cấu trúc điều khiển"));
+        assertFalse(welcome.contains("Cho tôi biết môn học này gồm những nội dung nào"));
+        assertFalse(welcome.contains("Tôi muốn tìm hiểu về một chủ đề"));
+        assertFalse(welcome.contains("Kiểm tra kiến thức của tôi về môn học này"));
         assertFalse(welcome.contains("Gợi ý từ khóa"));
         assertFalse(welcome.contains("lộ trình"));
     }
@@ -126,7 +128,7 @@ class CourseCurriculumOverviewServiceTest {
     @Test
     void welcomeNeverEchoesAStartWithSentence() {
         CourseCurriculumOverviewService service =
-                new CourseCurriculumOverviewService(null, null);
+                new CourseCurriculumOverviewService(null, null, null);
         CourseCurriculumOverview overview = CourseCurriculumOverviewService.parseSyllabus(
                 "CEA201",
                 "Computer Organization and Architecture",
@@ -144,7 +146,7 @@ class CourseCurriculumOverviewServiceTest {
     @Test
     void welcomeSuggestionsNeverUseLongSentenceLikeTitles() {
         CourseCurriculumOverviewService service =
-                new CourseCurriculumOverviewService(null, null);
+                new CourseCurriculumOverviewService(null, null, null);
         CourseCurriculumOverview overview = CourseCurriculumOverviewService.parseSyllabus(
                 "PRO192",
                 "Object-Oriented Programming",
@@ -156,14 +158,15 @@ class CourseCurriculumOverviewServiceTest {
 
         String welcome = service.welcomeMarkdown(overview);
 
-        assertTrue(welcome.contains("- Tôi muốn tìm hiểu về Kế thừa."));
-        assertFalse(welcome.contains("Tôi muốn tìm hiểu về Môn học này giới thiệu"));
+        assertTrue(welcome.contains("**Kế thừa**"));
+        assertFalse(welcome.contains("- Kế thừa"));
+        assertFalse(welcome.contains("- Môn học này giới thiệu"));
     }
 
     @Test
     void welcomeStatesMissingSyllabusInsteadOfInventingContent() {
         CourseCurriculumOverviewService service =
-                new CourseCurriculumOverviewService(null, null);
+                new CourseCurriculumOverviewService(null, null, null);
 
         String welcome = service.welcomeMarkdown(CourseCurriculumOverview.empty("XYZ101"));
 

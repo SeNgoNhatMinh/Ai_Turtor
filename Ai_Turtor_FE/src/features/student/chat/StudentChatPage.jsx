@@ -14,7 +14,7 @@ import { parseCurriculumStarterSuggestions } from '../learning/studySuggestionPr
 import { classIdMatches } from '../../../utils/academicIds';
 import { useChatMentorRequests } from './useChatMentorRequests';
 import { useStudentChatTabController } from './useStudentChatTabController';
-import { hasStartedStudySuggestion, withCurriculumWelcome } from './curriculumWelcomeMessage';
+import { withCurriculumWelcome } from './curriculumWelcomeMessage';
 
 export default function StudentChatPage({
   currentUser,
@@ -146,18 +146,15 @@ export default function StudentChatPage({
     () => parseCurriculumStarterSuggestions(curriculumWelcome),
     [curriculumWelcome],
   );
-  const hasStartedCurrentChat = hasStartedStudySuggestion(chat.messages, learnedSuggestions);
   const displayMessages = useMemo(() => withCurriculumWelcome(chat.messages, {
     courseId,
     curriculumWelcome,
     isMessagesLoading: chat.isMessagesLoading,
-    hasStartedLearning: hasStartedCurrentChat,
   }), [
     chat.isMessagesLoading,
     chat.messages,
     courseId,
     curriculumWelcome,
-    hasStartedCurrentChat,
   ]);
 
   // No background tutor-session bootstrap: opening a tutor session (which

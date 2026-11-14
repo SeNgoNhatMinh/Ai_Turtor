@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildFinishedWorkReviewPrompt,
   buildUnderstandingCheckPrompt,
+  composeFinishedQuizPrompt,
   extractUnderstandingCheck,
+  isFinishedWorkReviewQuestion,
   normalizeStructuredUnderstandingQuiz,
   parseUnderstandingQuiz,
 } from '../src/features/student/chat/understandingCheck.js';
@@ -499,5 +502,45 @@ Giải thích: init() chạy một lần.
     extracted.quizzes[0].options.find((o) => o.key === extracted.quizzes[0].correctKey)?.text,
     'init()',
   );
+});
+
+test('reteaches wrong quiz answers together with a saved practice draft', () => {
+  const prompt = composeFinishedQuizPrompt({
+    draftText: 'Mình điền doGet.',
+    incorrectAnswers: [{
+      quizIndex: 0,
+      quiz: {
+        question: 'Method nào nhận GET?',
+        options: [{ key: 'A', text: 'init()' }, { key: 'B', text: 'doGet()' }],
+        correctKey: 'B',
+      },
+      selected: { key: 'A', text: 'init()' },
+    }],
+  });
+
+  assert.match(prompt, /Mình điền doGet/);
+  assert.match(prompt, /làm xong cả quiz/);
+  assert.match(prompt, /Method nào nhận GET/);
+});
+
+test('work review prompt asks for the mistake only and is recognized as a hidden chat turn', () => {
+  const prompt = buildFinishedWorkReviewPrompt({
+    draftText: 'Mình điền bài tập có hướng dẫn như sau:\nrequest.getParameter("name")',
+    incorrectAnswers: [{
+      quizIndex: 0,
+      quiz: {
+        question: 'Method nào nhận GET?',
+        options: [{ key: 'A', text: 'init()' }, { key: 'B', text: 'doGet()' }],
+        correctKey: 'B',
+      },
+      selected: { key: 'A', text: 'init()' },
+    }],
+  });
+
+  assert.equal(isFinishedWorkReviewQuestion(prompt), true);
+  assert.match(prompt, /giảng lại đúng concept/);
+  assert.match(prompt, /chỉ ra lỗi sai/);
+  assert.match(prompt, /Không chép lại cả bài code/);
+  assert.match(prompt, /Không nhắc lại đề quiz/);
 });
 

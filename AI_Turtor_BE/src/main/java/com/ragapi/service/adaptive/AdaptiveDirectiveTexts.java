@@ -4,7 +4,11 @@ import com.ragapi.entity.AdaptiveLearningReview;
 
 import static com.ragapi.service.adaptive.AdaptiveReviewValues.safeList;
 
-/** Instruction texts stored on the pedagogical directives created from a review. */
+/**
+ * Instruction texts stored on the pedagogical directives created from a review.
+ * Teaching strategies are not repeated here: they live in the teaching-behavior
+ * library so each one can be approved, rejected or revoked on its own.
+ */
 public final class AdaptiveDirectiveTexts {
 
     private AdaptiveDirectiveTexts() {}
@@ -22,8 +26,7 @@ public final class AdaptiveDirectiveTexts {
                 .append(percentOrZero(review.getOverallPercent()))
                 .append("%, độ đầy đủ bằng chứng ")
                 .append(percentOrZero(review.getConfidencePercent()))
-                .append("%). Đề xuất giảng dạy: ")
-                .append(String.join("; ", safeList(review.getTeachingRecommendations())));
+                .append("%)");
         if (!safeList(review.getKnowledgeGaps()).isEmpty()) {
             text.append(". Lỗ hổng cần củng cố: ").append(String.join(", ", review.getKnowledgeGaps()));
         }
@@ -36,8 +39,7 @@ public final class AdaptiveDirectiveTexts {
     public static String teacherInstruction(AdaptiveLearningReview review, String feedback) {
         StringBuilder text = new StringBuilder("Adaptive review after ")
                 .append(reviewQuestionCount(review))
-                .append(" student questions in this course. Teaching recommendations: ")
-                .append(String.join("; ", safeList(review.getTeachingRecommendations())));
+                .append(" student questions in this course");
         if (!safeList(review.getKnowledgeGaps()).isEmpty()) {
             text.append(". Focus on knowledge gaps: ").append(String.join("; ", review.getKnowledgeGaps()));
         }

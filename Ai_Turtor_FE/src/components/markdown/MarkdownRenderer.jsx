@@ -252,12 +252,13 @@ function MarkdownRenderer({
   onStudyTipStudy,
   onDownloadSource,
   hideSourceSection = false,
+  headingStart = 1,
   courseMaterialHeadingAddon,
 }) {
   const content = useMemo(() => {
-    const normalized = normalizeAiMarkdown(markdown);
+    const normalized = normalizeAiMarkdown(markdown, { headingStart });
     return hideSourceSection ? stripSourceSection(normalized) : normalized;
-  }, [markdown, hideSourceSection]);
+  }, [headingStart, markdown, hideSourceSection]);
   const components = useMemo(
     () => createMarkdownComponents({
       sourceMap,

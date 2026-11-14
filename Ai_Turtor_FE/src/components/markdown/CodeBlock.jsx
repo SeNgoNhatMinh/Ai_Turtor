@@ -101,16 +101,19 @@ function CodeBlock({
         language={language === 'text' ? undefined : language}
         style={theme}
         showLineNumbers={!chatgpt && code.includes('\n')}
-        wrapLongLines
+        wrapLongLines={false}
         customStyle={{
           margin: 0,
           padding: chatgpt ? '16px 18px' : '14px',
           background: 'transparent',
           fontSize: chatgpt ? 13.5 : 13,
           lineHeight: 1.6,
+          overflowX: 'auto',
+          whiteSpace: 'pre',
         }}
         codeTagProps={{
           className: 'ai-answer-code',
+          style: { whiteSpace: 'pre' },
         }}
         lineNumberStyle={{
           minWidth: '2.4em',

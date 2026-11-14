@@ -120,10 +120,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/v2/expert-training/tasks/*").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v2/expert-training/chapters/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v2/expert-training/gold-qa/*/approve", "/api/v2/expert-training/gold-qa/*/reject", "/api/v2/expert-training/rubrics/*/approve", "/api/v2/expert-training/rubrics/*/reject").hasAnyRole("SENIOR_MENTOR", "ADMIN")
+                        .requestMatchers("/api/v2/expert-training/harness/**").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers("/api/v2/expert-training/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/tutor/answer-reviews/*/senior-resolve").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/tts/read", "/api/tts/synthesize").hasRole("STUDENT")
                         .requestMatchers("/api/tutor/answer-cache/**").hasAnyRole("SENIOR_MENTOR", "ADMIN")
+                        .requestMatchers("/api/teacher/teaching-behaviors/**",
+                                "/api/teacher/applied-teaching-behaviors/**",
+                                "/api/teacher/teaching-behavior-executions",
+                                "/api/teacher/students/*/teaching/**").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/admin/**", "/api/academic/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/mentors/import/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/mentors/import/**").hasAnyRole("ADMIN", "TEACHER", "SENIOR_MENTOR")
@@ -140,6 +145,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/tutor/knowledge-images/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/harness/**").hasRole("ADMIN")
                         .requestMatchers("/api/health/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/courses/*/materials/reindex-progress").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/materials", "/api/courses/*/materials", "/api/courses/*/materials/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/courses/*/materials/upload", "/api/courses/*/materials/import-url").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/courses/*/materials/reindex", "/api/courses/*/materials/*/reindex").hasAnyRole("SENIOR_MENTOR", "ADMIN")

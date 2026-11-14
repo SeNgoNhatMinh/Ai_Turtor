@@ -7,6 +7,7 @@ import com.ragapi.service.TutorCacheHitAuditService;
 import com.ragapi.service.course.answer.grounding.CourseAnswerEvidenceService;
 import com.ragapi.service.course.model.RetrievedCourseChunk;
 import com.ragapi.util.GroundedContentGuard;
+import com.ragapi.util.NumberedAnswerHeadings;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,8 +51,8 @@ public class CourseAnswerCacheStageService {
 
         log.info("Returning cached tutor answer for courseId={}", prepared.courseId());
         CourseRagAnswer hit = cachedAnswer.get();
-        String validatedAnswer = GroundedContentGuard.stripUnsupportedOptionalSections(
-                hit.getAnswer(), prepared.context());
+        String validatedAnswer = NumberedAnswerHeadings.number(
+                GroundedContentGuard.stripUnsupportedOptionalSections(hit.getAnswer(), prepared.context()));
         List<RetrievedCourseChunk> alignedChunks = evidenceService.selectAnswerEvidenceChunks(
                 prepared.chunks(), prepared.question(), validatedAnswer);
         List<String> alignedSourceLabels = evidenceService.buildSourceLabels(

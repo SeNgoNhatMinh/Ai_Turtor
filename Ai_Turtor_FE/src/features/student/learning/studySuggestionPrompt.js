@@ -95,11 +95,15 @@ export function resolveChatStudyTip(question, tipText) {
   if (parseNumberedLesson(tip)?.kind === 'lesson' || /^(?:bắt đầu\s+)?(?:bài|bai)\s+\d+/i.test(tip)) {
     return normalizeLessonStart(tip) || tip;
   }
+  if (isDeepDiveTopicPrompt(tip) || isDeepDiveListPrompt(tip)) {
+    return tip;
+  }
   const lesson = parseNumberedLesson(question);
   if (lesson) {
     return buildDeepDiveTopicPrompt(lesson.number, tip);
   }
-  return tip;
+  // Tips under "## Học chuyên sâu" are deep-dive angles, never "Ôn tập phần …".
+  return `Đào sâu: ${tip}`;
 }
 
 function normalizeLessonStart(suggestionText) {
@@ -135,13 +139,14 @@ export function buildLessonChatPrompt(suggestionText) {
   return normalizeLessonStart(topic) || buildTopicStudyPrompt(topic);
 }
 
-function parseBulletsUnderHeadings(answer, headingPattern) {
+function parseBulletsUnderHeadings(answer, headingPattern, maxItems = 8) {
   const text = String(answer || '');
   if (!text.trim()) return [];
 
   const items = [];
   const seen = new Set();
   let inSection = false;
+  const limit = Number.isFinite(maxItems) && maxItems > 0 ? maxItems : Number.POSITIVE_INFINITY;
   for (const raw of text.split(/\r?\n/)) {
     const trimmed = String(raw || '').trim();
     if (/^#{1,6}\s+\S/.test(trimmed)) {
@@ -162,7 +167,7 @@ function parseBulletsUnderHeadings(answer, headingPattern) {
     if (seen.has(key)) continue;
     seen.add(key);
     items.push({ title: line, suggestionText: line });
-    if (items.length >= 8) break;
+    if (items.length >= limit) break;
   }
   return items;
 }
@@ -171,18 +176,68 @@ export function parseDeepDiveSuggestionsFromAnswer(answer) {
   return parseBulletsUnderHeadings(answer, /^(?:học chuyên sâu|học tiếp phần này)\s*$/i);
 }
 
-const CURRICULUM_STARTER_NOISE = /^(?:bạn có thể bắt đầu|mẹo\b)/i;
+const CURRICULUM_STARTER_NOISE = /^(?:bạn có thể bắt đầu|các chương trong tài liệu|các chủ đề trong curriculum|mẹo\b)/i;
+
+/** Book front/back matter and cover titles that should never appear as study chips. */
+export function isCurriculumStarterNoiseTitle(title) {
+  const raw = String(title || '').trim();
+  if (!raw || raw.length < 4) return true;
+  const stripped = raw
+    .toLowerCase()
+    .replace(/^[\d.]+\s+/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (CURRICULUM_STARTER_NOISE.test(stripped) || /:$/.test(raw)) return true;
+  if (/^part\s+(?:[ivxlcdm]+|\d+)\b/i.test(stripped)) return true;
+  if (/^phần\s+(?:[ivxlcdm]+|\d+)\b/i.test(stripped)) return true;
+  if (/^professional\b/i.test(stripped)) return true;
+  if (/what you will\b/i.test(stripped)) return true;
+  if (/who this book\b/i.test(stripped)) return true;
+  if (/\bin this book\b/i.test(stripped)) return true;
+  if (/for web applications/i.test(stripped)) return true;
+  if (/®/.test(raw)) return true;
+  if (/^(?:appendix|phụ lục|phu luc)\b/i.test(stripped)) return true;
+  if (/^(?:answers?(?:\s+to)?|solutions?(?:\s+to)?|đáp án|further reading|tài liệu tham khảo)\b/i.test(stripped)) {
+    return true;
+  }
+  if (/^(?:contents|preface|foreword|acknowledg|copyright|index|errata|advertisement)\b/i.test(stripped)) {
+    return true;
+  }
+  // A bare "Introduction" is book opening. "Chapter 1. Introduction …" is the first study chapter.
+  if (/^(?:introduction|summary|overview|conclusion)\b/i.test(stripped)) {
+    const numberedChapter = /^(?:chapter|chương|chuong|ch\.)\s+[1-9]\d*\b/i.test(raw)
+      || /^[1-9]\d*(?:\.\d+)*[.)]?\s+\S/.test(raw);
+    return !numberedChapter;
+  }
+  return false;
+}
 
 /**
- * Starter prompts listed under the curriculum overview's "Gợi ý học tập"
- * section (the welcome message of a new course chat). They are complete
- * questions the student can ask as-is, so they render as clickable chips —
- * same as the deep-dive suggestions — instead of dead text.
+ * Material chapter titles listed under the welcome "Gợi ý học tập" section.
+ * Rendered as clickable chips; UI paginates them (5 at a time).
  */
+const LESSON_SOURCE_SEPARATOR = ' || ';
+
+/** Visible Vietnamese lesson label, plus the original outline heading for retrieval. */
+export function splitLessonChip(line) {
+  const text = String(line || '').trim();
+  const at = text.indexOf(LESSON_SOURCE_SEPARATOR);
+  if (at < 0) {
+    return { title: text, suggestionText: text, chapterTitle: '' };
+  }
+  const title = text.slice(0, at).trim();
+  const chapterTitle = text.slice(at + LESSON_SOURCE_SEPARATOR.length).trim();
+  return {
+    title: title || text,
+    suggestionText: title || text,
+    chapterTitle,
+  };
+}
+
 export function parseCurriculumStarterSuggestions(answer) {
-  return parseBulletsUnderHeadings(answer, /gợi ý học tập\s*$/i)
-    .filter((item) => !CURRICULUM_STARTER_NOISE.test(item.title) && !/:$/.test(item.title))
-    .slice(0, 5)
+  return parseBulletsUnderHeadings(answer, /gợi ý học tập\s*$/i, Number.POSITIVE_INFINITY)
+    .map((item) => ({ ...item, ...splitLessonChip(item.title) }))
+    .filter((item) => !isCurriculumStarterNoiseTitle(item.title))
     .map((item) => ({ ...item, curriculumStarter: true }));
 }
 
@@ -290,17 +345,27 @@ export function lessonSuggestionsForMessage(message) {
 export function buildStudySuggestionPrompt(suggestionText, suggestion = null) {
   const topic = String(suggestionText || '').trim();
   if (!topic) return '';
+  if (suggestion?.guidedPracticeAttempt) return topic;
   if (suggestion?.improvePlanId && suggestion?.planItemId) {
     return `Ôn tập theo Improve Plan: ${topic}`;
   }
   if (isDeepDiveListPrompt(topic) || isDeepDiveTopicPrompt(topic)) {
     return topic;
   }
-  // Curriculum starters are already complete questions ("Tôi muốn tìm hiểu
-  // về …", "Kiểm tra kiến thức của tôi về …"): send them verbatim instead of
-  // wrapping them into an "Ôn tập phần …" review prompt.
-  if (suggestion?.curriculumStarter) {
+  // Deep-dive tips clicked from "## Học chuyên sâu" (or the CTA) must stay
+  // as đào sâu / verbatim study tips — never rewrite them as "Ôn tập phần".
+  if (suggestion?.interactionType === 'SOURCE_BACKED_STUDY_TIP'
+    || /^đào sâu\b/i.test(topic)) {
     return topic;
+  }
+  // Curriculum starters are chapter titles (or legacy full questions). Chapter
+  // titles become a study ask; complete questions stay verbatim.
+  if (suggestion?.curriculumStarter) {
+    if (/^(?:tôi muốn|giải thích|kiểm tra|hướng dẫn|cho tôi|bắt đầu)\b/i.test(topic)
+      || /[.?！？]$/.test(topic)) {
+      return topic;
+    }
+    return `Tôi muốn tìm hiểu về ${topic}.`;
   }
 
   const lesson = normalizeLessonStart(topic);

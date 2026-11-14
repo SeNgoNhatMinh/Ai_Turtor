@@ -15,6 +15,21 @@ import {
   teacherStudentPathLabel,
 } from '../src/features/student/learning/studySuggestionPrompt.js';
 
+test('keeps a numbered chapter 1 and drops the book appendix', () => {
+  const items = parseCurriculumStarterSuggestions(`
+## 4. Gợi ý học tập
+
+- Chapter 1. Introduction to JSP
+- Chương 2. Servlet cơ bản
+- Appendix A. Installing Tomcat
+- Introduction
+`);
+  assert.deepEqual(items.map((item) => item.suggestionText), [
+    'Chapter 1. Introduction to JSP',
+    'Chương 2. Servlet cơ bản',
+  ]);
+});
+
 test('parses curriculum starter suggestions into clickable chips', () => {
   const items = parseCurriculumStarterSuggestions(`
 ## 3. Các chủ đề trọng tâm
@@ -23,23 +38,49 @@ test('parses curriculum starter suggestions into clickable chips', () => {
 
 ## 4. Gợi ý học tập
 
-Bạn có thể bắt đầu bằng cách hỏi AI Tutor:
+Các chương trong tài liệu môn học (chọn một chương để bắt đầu):
 
-- Tôi muốn tìm hiểu về Tổng quan về Pascal.
-- Giải thích Cấu trúc rẽ nhánh & Vòng lặp bằng ví dụ đơn giản.
-- Kiểm tra kiến thức của tôi về Cấu trúc rẽ nhánh & Vòng lặp.
+- Tổng quan về Pascal
+- Cấu trúc rẽ nhánh & Vòng lặp
+- Kiểu dữ liệu
+- Hàm và thủ tục
+- Mảng một chiều
+- Con trỏ
 
-**Mẹo:** Hãy chọn một chủ đề cụ thể để AI Tutor tìm kiếm tài liệu liên quan.
+**Mẹo:** Chọn một chương cụ thể để AI Tutor lấy nội dung từ tài liệu môn và hướng dẫn bạn học.
 `);
   assert.deepEqual(items.map((item) => item.suggestionText), [
-    'Tôi muốn tìm hiểu về Tổng quan về Pascal.',
-    'Giải thích Cấu trúc rẽ nhánh & Vòng lặp bằng ví dụ đơn giản.',
-    'Kiểm tra kiến thức của tôi về Cấu trúc rẽ nhánh & Vòng lặp.',
+    'Tổng quan về Pascal',
+    'Cấu trúc rẽ nhánh & Vòng lặp',
+    'Kiểu dữ liệu',
+    'Hàm và thủ tục',
+    'Mảng một chiều',
+    'Con trỏ',
   ]);
   assert.equal(items.every((item) => item.curriculumStarter), true);
 });
 
-test('sends a curriculum starter verbatim instead of wrapping it as review', () => {
+test('shows the Vietnamese lesson label and keeps the outline heading', () => {
+  const items = parseCurriculumStarterSuggestions(`
+## 4. Gợi ý học tập
+
+- Bài 1: Giới thiệu nền tảng Java EE || Chapter 1: Introducing Java Platform, Enterprise Edition
+- Understanding the Basic Web Application Structure
+`);
+  assert.equal(items[0].title, 'Bài 1: Giới thiệu nền tảng Java EE');
+  assert.equal(items[0].suggestionText, 'Bài 1: Giới thiệu nền tảng Java EE');
+  assert.equal(items[0].chapterTitle, 'Chapter 1: Introducing Java Platform, Enterprise Edition');
+  assert.equal(items[1].chapterTitle, '');
+});
+
+test('sends a curriculum chapter title as a study ask', () => {
+  assert.equal(
+    buildStudySuggestionPrompt('Tổng quan về Pascal', { curriculumStarter: true }),
+    'Tôi muốn tìm hiểu về Tổng quan về Pascal.',
+  );
+});
+
+test('sends a legacy curriculum starter question verbatim', () => {
   assert.equal(
     buildStudySuggestionPrompt('Kiểm tra kiến thức của tôi về Vòng lặp.', { curriculumStarter: true }),
     'Kiểm tra kiến thức của tôi về Vòng lặp.',
@@ -236,6 +277,22 @@ test('deep-dive bullets stay on the current bài instead of starting the next on
   assert.equal(
     buildStudySuggestionPrompt('Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu'),
     'Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu',
+  );
+  assert.equal(
+    resolveChatStudyTip('Servlet filter là gì?', 'So sánh Filter và Interceptor'),
+    'Đào sâu: So sánh Filter và Interceptor',
+  );
+  assert.equal(
+    buildStudySuggestionPrompt('Đào sâu: So sánh Filter và Interceptor', {
+      interactionType: 'SOURCE_BACKED_STUDY_TIP',
+    }),
+    'Đào sâu: So sánh Filter và Interceptor',
+  );
+  assert.equal(
+    buildStudySuggestionPrompt('So sánh Filter và Interceptor', {
+      interactionType: 'SOURCE_BACKED_STUDY_TIP',
+    }),
+    'So sánh Filter và Interceptor',
   );
 });
 

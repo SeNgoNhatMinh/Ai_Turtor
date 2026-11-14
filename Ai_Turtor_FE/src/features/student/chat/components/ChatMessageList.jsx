@@ -31,6 +31,10 @@ import {
 } from '../../learning/studySuggestionPrompt';
 import { getStudySuggestionKey } from '../../learning/studySuggestionProgress';
 import { isAiServiceErrorText, shouldOfferLessonContinuations } from '../../../../utils/errorMessages';
+import {
+  FINISHED_WORK_REVIEW_LABEL,
+  isFinishedWorkReviewQuestion,
+} from '../understandingCheck';
 import TutorMascot from '../../../../components/common/TutorMascot';
 import { useMarkdownReveal } from '../useMarkdownReveal';
 import TtsMessageAction from './TtsMessageAction';
@@ -50,9 +54,23 @@ function getRemediationRequest(message) {
   if (!isRemediation) return null;
 
   return {
+    title: 'Ôn lại câu vừa sai',
     question: String(message?.displayQuestion || rawQuestion.match(REMEDIATION_QUESTION)?.[1] || '')
       .trim(),
+    status: 'Lượt ôn tập',
   };
+}
+
+function getLearningEventCard(message) {
+  const rawQuestion = String(message?.question || '').trim();
+  if (message?.interactionType === 'GUIDED_PRACTICE_REVIEW' || isFinishedWorkReviewQuestion(rawQuestion)) {
+    return {
+      title: message?.displayQuestion || FINISHED_WORK_REVIEW_LABEL,
+      question: '',
+      status: '',
+    };
+  }
+  return getRemediationRequest(message);
 }
 
 function scrollChatToEnd(messagesEndRef) {
@@ -97,6 +115,8 @@ function StudentLiveAnswer({
   onMentorRequestCreated,
   onOpenMentorReview,
   onStudySuggestion,
+  lessonActionsLocked = false,
+  activeLessonKey = '',
   openSupportCards,
   pathSuggestions,
   setLocalEscalationIds,
@@ -191,6 +211,10 @@ function StudentLiveAnswer({
           onLockAnswer={done ? (key, attempt) => (
             onLockUnderstandingAnswer?.(message, key, attempt)
           ) : undefined}
+          onSubmitGuidedPractice={done ? (text) => onStudySuggestion?.({
+            text,
+            guidedPracticeAttempt: true,
+          }) : undefined}
           onDownloadSource={onDownloadSource}
           hideSourceSection
           courseMaterialHeadingAddon={done && placeTtsBelowCourseMaterialHeading ? ttsControl : null}
@@ -209,8 +233,15 @@ function StudentLiveAnswer({
           suggestions={starterSuggestions}
           onStudy={onStudySuggestion}
           sourceMode={message.mode}
+          actionsLocked={lessonActionsLocked}
+          activeSuggestionKey={activeLessonKey}
           heading="Gợi ý học tập"
-          hint="Nhấn vào một gợi ý để hỏi AI Tutor ngay nội dung đó."
+          hint="Chọn một bài trong tài liệu để bắt đầu học."
+          pageSize={5}
+          showMoreLabel="Hiển thị thêm"
+          collapseLabel="Ẩn bớt"
+          enableSearch
+          searchPlaceholder="Tìm bài học…"
         />
       )}
       {done && showStudySuggestions && !message.canceled && !isWelcomeTurn
@@ -220,6 +251,8 @@ function StudentLiveAnswer({
           onStudy={onStudySuggestion}
           onCreateQuiz={onCreateQuizFromSuggestion}
           sourceMode={message.mode}
+          actionsLocked={lessonActionsLocked}
+          activeSuggestionKey={activeLessonKey}
           learnedSuggestionKeys={learnedSuggestionKeys}
           currentLearnedSuggestion={currentLearnedSuggestion}
           heading="Gợi ý học tập"
@@ -232,6 +265,7 @@ function StudentLiveAnswer({
           question={message.question}
           answer={message.answer}
           onStudy={onStudySuggestion}
+          disabled={lessonActionsLocked}
         />
       )}
       {done && ((showTtsAction && !placeTtsBelowCourseMaterialHeading) || showGeneralActions) && (
@@ -351,6 +385,9 @@ function ChatMessageList({
   const learnedSuggestionKeys = learnedSuggestions
     .map((suggestion) => getStudySuggestionKey(suggestion))
     .filter(Boolean);
+  const activeLessonKey = String(
+    messages.find((message) => message?.pending)?.studySuggestionKey || '',
+  ).trim();
 
   const openInlineSupport = (messageKey) => {
     setOpenSupportCards((current) => ({ ...current, [messageKey]: true }));
@@ -412,7 +449,7 @@ function ChatMessageList({
               && !message.questionEscalationId
               && responseMode !== 'ESCALATE'
               && responseOutcome !== 'NEEDS_MENTOR';
-            const remediationRequest = getRemediationRequest(message);
+            const remediationRequest = getLearningEventCard(message);
 
             return (
                 <div
@@ -423,7 +460,11 @@ function ChatMessageList({
                 {String(message.question || '').trim() ? (
                   <div className={`chat-gpt-message-row ${remediationRequest ? 'learning-event' : 'user'}`}>
                     {remediationRequest ? (
-                      <RemediationRequestCard question={remediationRequest.question} />
+                      <RemediationRequestCard
+                        title={remediationRequest.title}
+                        question={remediationRequest.question}
+                        status={remediationRequest.status}
+                      />
                     ) : (
                       <StudentMessageBubble
                         canResend={canChat && !isAiLoading && !activeSessionMaxTurnsReached}
@@ -487,6 +528,8 @@ function ChatMessageList({
                             onMentorRequestCreated={onMentorRequestCreated}
                             onOpenMentorReview={onOpenMentorReview}
                             onStudySuggestion={onStudySuggestion}
+                            lessonActionsLocked={isAiLoading}
+                            activeLessonKey={activeLessonKey}
                             openSupportCards={openSupportCards}
                             pathSuggestions={pathSuggestions}
                             setLocalEscalationIds={setLocalEscalationIds}

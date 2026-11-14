@@ -1,5 +1,6 @@
 package com.ragapi.entity;
 
+import com.ragapi.dto.TeachingStrategyRecommendation;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -50,7 +51,17 @@ public class AdaptiveLearningReview {
     private String summary;
     private List<String> strengths;
     private List<String> knowledgeGaps;
+    /** Legacy free-text styles kept for older clients. Prefer strategyRecommendations. */
     private List<String> teachingRecommendations;
+    /** Structured AI recommendations keyed by TeachingStrategyCatalog codes. Not active until teacher approval. */
+    @Builder.Default
+    private List<TeachingStrategyRecommendation> strategyRecommendations = new ArrayList<>();
+    /** How this student learns best, as observed by the reviewer. */
+    private List<String> learnsBestWith;
+    private List<String> struggleSignals;
+    /** Recommendations the teacher kept checked, plus the teacher's own "Khác" strategy. */
+    private List<String> teacherSelectedStrategies;
+    private String teacherCustomStrategy;
     private List<Map<String, Object>> evidence;
     private String teacherId;
     private String teacherFeedback;

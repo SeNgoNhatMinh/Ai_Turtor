@@ -3,6 +3,8 @@ package com.ragapi.service;
 import com.ragapi.dto.CourseCurriculumOverview;
 import com.ragapi.entity.Course;
 import com.ragapi.repository.CourseRepository;
+import com.ragapi.util.ChapterHeadingUtils;
+import com.ragapi.util.StudyLessonTitles;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,7 @@ public class CourseCurriculumOverviewService {
     private static final Pattern TOPIC_SEPARATOR = Pattern.compile("\\s*(?::|\uff1a|\\||\\s[\u2013\u2014-]\\s)\\s*");
     private final CourseRepository courseRepository;
     private final CourseLearningGuideService learningGuideService;
+    private final ChapterOutlineService chapterOutlineService;
 
     public CourseCurriculumOverview forCourse(String courseId) {
         if (courseId == null || courseId.isBlank()) {
@@ -83,8 +86,8 @@ public class CourseCurriculumOverviewService {
      * chat and a tutor session. It is filled only from the stored learning
      * guide extracted once from the official syllabus (deterministic parse as
      * fallback): sections without data are omitted and numbering adapts, so
-     * nothing is invented. Study suggestions reference short topic titles
-     * only, never long objective sentences.
+     * nothing is invented. Study suggestions list chapter titles from the
+     * indexed course materials, never syllabus topics or generated questions.
      */
     public String welcomeMarkdown(CourseCurriculumOverview overview) {
         CourseCurriculumOverview safe = overview == null
@@ -147,10 +150,8 @@ public class CourseCurriculumOverviewService {
             opening.append("\n\n");
         }
 
-        opening.append("## ").append(section).append(". Gợi ý học tập\n\n")
-                .append("Bạn có thể bắt đầu bằng cách hỏi AI Tutor:\n\n");
+        opening.append("## ").append(section).append(". Gợi ý học tập\n\n");
         appendStudySuggestions(opening, safe);
-        opening.append("\n**Mẹo:** Hãy chọn một chủ đề cụ thể để AI Tutor tìm kiếm tài liệu liên quan và hỗ trợ bạn học tập theo nội dung của môn học.");
         return opening.toString().trim();
     }
 
@@ -167,29 +168,45 @@ public class CourseCurriculumOverviewService {
     }
 
     /**
-     * Study prompts built from short topic titles only. Long sentence-like
-     * titles (for example objective statements misparsed as topics) are
-     * skipped so suggestions never read as full paragraphs.
+     * Study starters are chapter titles from indexed course materials only.
+     * Syllabus units and the learning-guide extraction are curriculum content,
+     * not clickable study suggestions.
      */
     private void appendStudySuggestions(StringBuilder opening, CourseCurriculumOverview overview) {
-        List<String> topics = overview.unitTitles().stream()
-                .filter(title -> title != null && title.length() <= 80)
-                .limit(4)
-                .toList();
-        if (topics.isEmpty()) {
-            opening.append("- Cho tôi biết môn học này gồm những nội dung nào theo syllabus chính thức.\n");
-            opening.append("- Tôi muốn tìm hiểu về một chủ đề trong môn học này.\n");
-            opening.append("- Kiểm tra kiến thức của tôi về môn học này.\n");
+        List<String> chapters = materialChapterTitles(overview.courseId());
+        if (chapters.isEmpty()) {
+            opening.append("Chưa có chương nào được nhận từ tài liệu môn học.\n");
             return;
         }
-        String first = topics.get(0);
-        String second = topics.size() > 1 ? topics.get(1) : first;
-        String third = topics.size() > 2 ? topics.get(2) : first;
-        opening.append("- Tôi muốn tìm hiểu về ").append(first).append(".\n");
-        opening.append("- Giải thích ").append(second).append(" bằng ví dụ đơn giản.\n");
-        opening.append("- Hướng dẫn tôi thực hành ").append(third).append(".\n");
-        opening.append("- Cho tôi bài tập luyện tập về ").append(first).append(".\n");
-        opening.append("- Kiểm tra kiến thức của tôi về ").append(second).append(".\n");
+        opening.append("Các bài trong tài liệu môn học (chọn một bài để bắt đầu):\n\n");
+        for (String title : chapters) {
+            opening.append("- ").append(title).append('\n');
+        }
+        opening.append("\n**Mẹo:** Chọn một bài để AI Tutor lấy đúng phần đó trong tài liệu và hướng dẫn bạn học.");
+    }
+
+    private List<String> materialChapterTitles(String courseId) {
+        if (chapterOutlineService == null || courseId == null || courseId.isBlank()) {
+            return List.of();
+        }
+        try {
+            List<String> titles = new ArrayList<>();
+            for (var chapter : chapterOutlineService.suggestChapters(courseId)) {
+                if (chapter == null || chapter.getTitle() == null) continue;
+                String title = chapter.getTitle().trim();
+                // Drop publisher front/back matter and non-study TOC noise.
+                if (!ChapterHeadingUtils.isStudyUnitTitle(title)
+                        || ChapterHeadingUtils.isInternalKnowledgeTitle(title)) {
+                    continue;
+                }
+                if (titles.stream().anyMatch(existing -> existing.equalsIgnoreCase(title))) continue;
+                titles.add(title);
+            }
+            return StudyLessonTitles.welcomeLines(titles);
+        } catch (Exception error) {
+            log.debug("Could not load material chapters for course {}: {}", courseId, error.getMessage());
+            return List.of();
+        }
     }
 
     /** Welcome for a brand-new student chat, through the shared template. */

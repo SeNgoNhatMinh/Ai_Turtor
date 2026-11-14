@@ -282,6 +282,13 @@ function normalizeQuizNewlines(markdown) {
     .replace(/\\t/g, '\t');
 }
 
+export function answerWaitsForQuiz(markdown, understandingCheck) {
+  if (understandingCheck?.question && Array.isArray(understandingCheck.options) && understandingCheck.options.length >= 2) {
+    return true;
+  }
+  return Boolean(extractUnderstandingCheck(markdown)?.quiz);
+}
+
 export function extractUnderstandingCheck(markdown) {
   const text = normalizeQuizNewlines(markdown);
   const heading = CHECK_HEADING.exec(text);
@@ -383,6 +390,62 @@ export function buildIncorrectAnswersRemediationPrompt(attempts) {
     'Không chuyển sang chủ đề mới và không lặp lại cùng một ý giữa các phần giảng.',
     'Phần câu trắc nghiệm kiểm tra lại sẽ do worker quiz tạo riêng: một câu dễ hơn, paraphrase hoàn toàn, để học sinh tự chọn trước khi hiện đáp án.',
   ].join('\n');
+}
+
+export const FINISHED_WORK_REVIEW_LABEL = 'Ôn tập lại';
+
+export function isFinishedWorkReviewQuestion(text) {
+  return /^Học sinh đã nộp cả bài tập có hướng dẫn và quiz\./i.test(String(text || '').trim());
+}
+
+export function buildFinishedWorkReviewPrompt({ draftText = '', incorrectAnswers = [] } = {}) {
+  const draft = String(draftText || '').trim();
+  if (!draft) return '';
+  const quizNotes = composeFinishedQuizPrompt({ incorrectAnswers, draftText: '' });
+  return [
+    'Học sinh đã nộp cả bài tập có hướng dẫn và quiz. Hãy sửa bài.',
+    draft,
+    quizNotes,
+    'Trước khi chấm, giảng lại đúng concept của bài này trong 2-3 câu, bám phần đã dạy và tài liệu.',
+    'Rồi chỉ ra lỗi sai của bài tập và của quiz theo concept đó.',
+    'Chấm từng chỗ đã điền: Đúng hoặc Chưa đúng.',
+    'Chỗ sai thì viết lại đúng đoạn đó và nói hiểu nhầm nào so với concept.',
+    'Câu trắc nghiệm sai thì nói đáp án đúng và hiểu nhầm nào so với concept.',
+    'Nếu đoạn tài liệu không có một phương thức, vẫn chấm chỗ điền theo yêu cầu của bài và nói một câu là đoạn trích chưa nêu phương thức đó.',
+    'Không từ chối cả bài. Không chép lại cả bài code.',
+    'Không nhắc lại đề quiz, các lựa chọn, hay câu hỏi.',
+    'Không mở chủ đề mới.',
+  ].filter(Boolean).join('\n\n');
+}
+
+export function composeFinishedQuizPrompt({ incorrectAnswers = [], draftText = '' } = {}) {
+  const draft = String(draftText || '').trim();
+  const incorrect = (Array.isArray(incorrectAnswers) ? incorrectAnswers : [])
+    .filter((attempt) => attempt?.quiz?.question && attempt?.selected?.key);
+  let quizPrompt = '';
+  if (incorrect.length === 1) {
+    quizPrompt = incorrect[0].quiz.correctKey
+      ? buildIncorrectAnswerRemediationPrompt(incorrect[0].quiz, incorrect[0].selected)
+      : buildMissingAnswerKeyRemediationPrompt(incorrect[0].quiz, incorrect[0].selected);
+  } else if (incorrect.length > 1) {
+    quizPrompt = buildIncorrectAnswersRemediationPrompt(incorrect);
+  }
+  if (!draft) return quizPrompt;
+  if (!quizPrompt) {
+    return [
+      draft,
+      'Học sinh đã làm xong cả quiz và các câu trắc nghiệm đều đúng.',
+      'Hãy kiểm tra từng chỗ đã điền trong bản nháp bài tập có hướng dẫn.',
+      'Nếu chỗ nào sai, giảng lại đúng phần đó và chưa đưa lời giải hoàn chỉnh.',
+      'Nếu đúng, xác nhận ngắn. Không chuyển sang chủ đề mới.',
+    ].join('\n');
+  }
+  return [
+    draft,
+    'Học sinh đã làm xong cả quiz. Chỉ giảng lại các câu sai và chỗ điền chưa đúng trong bản nháp ở trên.',
+    'Không chuyển sang chủ đề mới.',
+    quizPrompt,
+  ].join('\n\n');
 }
 
 export function buildMissingAnswerKeyRemediationPrompt(quiz, selected) {

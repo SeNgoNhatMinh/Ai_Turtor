@@ -40,11 +40,12 @@ describe('withCurriculumWelcome', () => {
     expect(secondResult.filter((message) => message.id === 'curriculum-PRJ301')).toHaveLength(1);
   });
 
-  it('removes the curriculum welcome after a study suggestion is selected', () => {
+  it('keeps the curriculum welcome after a study suggestion is selected', () => {
     const chatMessages = [{
       id: 'message-1',
       question: 'Tôi muốn tìm hiểu về Servlet và JSP.',
       answer: 'Servlet xử lý request phía máy chủ.',
+      studySuggestionKey: 'text:servlet',
     }];
 
     const result = withCurriculumWelcome(chatMessages, {
@@ -53,8 +54,9 @@ describe('withCurriculumWelcome', () => {
       hasStartedLearning: true,
     });
 
-    expect(result).toEqual(chatMessages);
-    expect(result.some((message) => message.proactive)).toBe(false);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual(expect.objectContaining({ id: 'curriculum-PRJ301' }));
+    expect(result[1]).toBe(chatMessages[0]);
   });
 
   it('treats a newly opened empty chat as not started even when another chat studied before', () => {

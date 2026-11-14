@@ -14,6 +14,9 @@ class HarnessRoutingTest {
         assertEquals("CODE", HarnessRouting.normalizeMode("CODE"));
         assertEquals("CODE", HarnessRouting.normalizeMode("code_mentor"));
         assertEquals("ESCALATE", HarnessRouting.normalizeMode("ESCALATE"));
+        assertEquals("REFUSE", HarnessRouting.normalizeMode("REFUSE"));
+        assertEquals("REFUSE", HarnessRouting.normalizeMode("LOCAL"));
+        assertEquals("CURRICULUM", HarnessRouting.normalizeMode("curriculum"));
     }
 
     @Test

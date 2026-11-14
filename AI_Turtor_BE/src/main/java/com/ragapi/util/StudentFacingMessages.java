@@ -57,14 +57,24 @@ public final class StudentFacingMessages {
                 || normalized.contains("materialid");
         boolean saysMissing = normalized.contains("khong de cap")
                 || normalized.contains("khong nhac")
-                || normalized.contains("khong du")
+                || normalized.contains("khong bao gom")
+                || normalized.contains("khong chua")
+                || containsPhrase(normalized, "khong du")
                 || normalized.contains("khong cung cap")
+                || normalized.contains("khong the cung cap")
                 || normalized.contains("khong co thong tin")
                 || normalized.contains("khong co noi dung")
                 || normalized.contains("khong co phan")
+                || normalized.contains("khong co vi du")
+                || normalized.contains("khong co mo ta")
                 || normalized.contains("khong the tra loi")
+                || normalized.contains("khong the trich")
+                || normalized.contains("khong the giai thich")
                 || normalized.contains("khong mo ta")
                 || normalized.contains("does not mention")
+                || normalized.contains("does not include")
+                || normalized.contains("does not contain")
+                || normalized.contains("do not include")
                 || normalized.contains("not mentioned")
                 || normalized.contains("not enough")
                 || normalized.contains("insufficient");
@@ -82,6 +92,26 @@ public final class StudentFacingMessages {
                 || text.contains("chua tao duoc cau tra loi")
                 || text.contains("chua giang duoc phan nay")
                 || text.contains("chua phan tich xong");
+    }
+
+    /** "không đủ" must stay separate from "không được" and "không đúng". */
+    private static boolean containsPhrase(String normalized, String phrase) {
+        int from = 0;
+        while (from < normalized.length()) {
+            int found = normalized.indexOf(phrase, from);
+            if (found < 0) {
+                return false;
+            }
+            int end = found + phrase.length();
+            boolean leftBoundary = found == 0 || !Character.isLetterOrDigit(normalized.charAt(found - 1));
+            boolean rightBoundary = end >= normalized.length()
+                    || !Character.isLetterOrDigit(normalized.charAt(end));
+            if (leftBoundary && rightBoundary) {
+                return true;
+            }
+            from = found + 1;
+        }
+        return false;
     }
 
     private static String normalize(String value) {

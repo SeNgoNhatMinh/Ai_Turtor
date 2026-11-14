@@ -104,6 +104,25 @@ class PedagogicalDirectiveServiceTest {
     }
 
     @Test
+    void questionAwareOverloadDoesNotRetrieveTeachingBehaviors() {
+        PedagogicalDirectiveRepository repository = mock(PedagogicalDirectiveRepository.class);
+        PedagogicalDirectiveService service = new PedagogicalDirectiveService(repository, mock(ClassRosterService.class));
+        when(repository.findByStudentIdAndCourseIdAndStatusOrderByPriorityDescUpdatedAtDesc(any(), any(), any()))
+                .thenReturn(List.of());
+        when(repository.findByCourseIdAndClassIdAndStatusOrderByPriorityDescUpdatedAtDesc(any(), any(), any()))
+                .thenReturn(List.of());
+
+        PedagogicalDirectiveService.TutorGuidanceSnapshot withQuestion =
+                service.resolveTutorGuidance("student-1", "PRJ301", "SE1840", "đa hình?", "OOP");
+        PedagogicalDirectiveService.TutorGuidanceSnapshot withoutQuestion =
+                service.resolveTutorGuidance("student-1", "PRJ301", "SE1840");
+
+        assertThat(withQuestion.supportLevel()).isEqualTo("STANDARD");
+        assertThat(withQuestion.tutorContext()).isEqualTo(withoutQuestion.tutorContext());
+        assertThat(withQuestion.tutorContext()).doesNotContain("TEACHING BEHAVIORS TO APPLY");
+    }
+
+    @Test
     void neverAppliesAnotherStudentsDirectiveFromTheSameClass() {
         PedagogicalDirectiveRepository repository = mock(PedagogicalDirectiveRepository.class);
         PedagogicalDirectiveService service = new PedagogicalDirectiveService(repository, mock(ClassRosterService.class));

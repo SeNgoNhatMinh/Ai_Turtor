@@ -8,13 +8,14 @@ import PageHeader from '../../components/common/PageHeader';
 import ScopeBar from '../../components/common/ScopeBar';
 import AppTabs from '../../components/common/AppTabs';
 import ChapterCoveragePanel from './components/ChapterCoveragePanel';
+import HarnessMonitorPanel from './components/HarnessMonitorPanel';
 import { defaultExpertTaskDueAt } from './expertTrainingUtils';
 import { useExpertTrainingController } from './useExpertTrainingController';
 import './ExpertTraining.css';
 
 const SeniorReviewQueue = lazy(() => import('./components/SeniorReviewQueue'));
 const SeniorTaskManagement = lazy(() => import('./components/SeniorTaskManagement'));
-const VALID_TABS = new Set(['coverage', 'tasks', 'review']);
+const VALID_TABS = new Set(['coverage', 'tasks', 'review', 'harness']);
 
 function SectionFallback() {
   return <AsyncState loading loadingLabel="Đang tải huấn luyện AI..." loadingRows={6} />;
@@ -140,6 +141,13 @@ export default function ExpertTrainingPage({
             onReviewRubric={controller.reviewRubric}
           />
         </Suspense>
+      ),
+    },
+    {
+      key: 'harness',
+      label: 'Giám sát harness',
+      children: (
+        <HarnessMonitorPanel courseId={courseId} triggerToast={triggerToast} />
       ),
     },
   ];

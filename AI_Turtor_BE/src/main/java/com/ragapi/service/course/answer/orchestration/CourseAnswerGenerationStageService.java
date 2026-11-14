@@ -3,12 +3,16 @@ package com.ragapi.service.course.answer.orchestration;
 import com.ragapi.dto.CourseRagAnswer;
 import com.ragapi.dto.RagSourceEvidence;
 import com.ragapi.service.CanonicalTutorAnswerCacheService;
+import com.ragapi.service.ChatGenerationGate;
 import com.ragapi.service.course.answer.generation.CourseAnswerGenerationService;
+import com.ragapi.service.course.answer.policy.CourseAnswerRequestPolicyService;
 import com.ragapi.service.course.answer.generation.CourseAnswerPromptService;
+import com.ragapi.service.course.answer.generation.SupportLevelPrompt;
 import com.ragapi.service.course.answer.grounding.CourseAnswerEvidenceService;
 import com.ragapi.service.course.model.CourseAnswerRequest;
 import com.ragapi.service.course.model.RetrievedCourseChunk;
 import com.ragapi.util.GroundedContentGuard;
+import com.ragapi.util.NumberedAnswerHeadings;
 import com.ragapi.util.LessonExplanationCompleter;
 import com.ragapi.util.StudentAnswerCompletenessGuard;
 import com.ragapi.util.StudentFacingMessages;
@@ -142,12 +146,13 @@ public class CourseAnswerGenerationStageService {
                 // chain that can outlive the synchronous n8n request deadline.
                 log.warn("Accepting usable single-pass answer; quality fallback is disabled");
             }
-            if ((StudentFacingMessages.isInsufficientMaterialAnswer(answer) && !hasTeachableLesson(answer))
+            boolean workReview = CourseAnswerRequestPolicyService.isFinishedWorkReview(prepared.question());
+            if (!workReview && ((StudentFacingMessages.isInsufficientMaterialAnswer(answer) && !hasTeachableLesson(answer))
                     || (initialInsufficientMaterialAnswer
                     && (!hasText(answer)
                     || StudentFacingMessages.isUnavailableMessage(answer)
                     || StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
-                    || isIncompleteLesson(request, answer)))) {
+                    || isIncompleteLesson(request, answer))))) {
                 if (pinnedLesson(request, prepared)) {
                     log.warn("Pinned lesson stays with the tutor instead of a mentor escalation");
                     if (hasTeachableLesson(firstAnswer)) {
@@ -192,17 +197,21 @@ public class CourseAnswerGenerationStageService {
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
             StringBuilder finalContent = new StringBuilder(answerBody.trim());
-            if (hasText(workerOutputs.quiz())) {
-                // Always use Kiểm tra hiểu so FE (including older deploys) can turn the block into forms.
-                // Worker 2 may still emit Q1/Q2…; FE splits those into multiple interactive items.
+            // A lesson that passed validation keeps Worker 2's quiz. A phrase such as
+            // "không được" or a method name outside one excerpt must not drop it.
+            // Work review is the one turn that must not open another quiz.
+            if (!workReview && hasText(workerOutputs.quiz())) {
                 finalContent.append("\n\n## Kiểm tra hiểu\n\n")
                         .append(normalizeWorkerQuizMarkdown(workerOutputs.quiz()));
+            } else if (workReview && hasText(workerOutputs.quiz())) {
+                log.info("Work review does not append a new quiz");
             }
             String deepStudyTitles = normalizeDeepStudyTitles(workerOutputs.deepStudy());
-            if (hasText(deepStudyTitles)) {
+            if (!workReview && hasText(deepStudyTitles)
+                    && !StudentFacingMessages.isInsufficientMaterialAnswer(answerBody)) {
                 finalContent.append("\n\n## Học chuyên sâu\n\n").append(deepStudyTitles);
             }
-            answer = finalContent.toString();
+            answer = NumberedAnswerHeadings.number(finalContent.toString());
             log.info("Received grounded answer from AI (length: {})", answer.length());
             List<RetrievedCourseChunk> alignedChunks = evidenceService.selectAnswerEvidenceChunks(
                     prepared.chunks(), prepared.question(), answer);
@@ -224,7 +233,12 @@ public class CourseAnswerGenerationStageService {
                         prepared.courseId(), request.classId(), prepared.question(), generated);
             }
             return generated;
+        } catch (ChatGenerationGate.GenerationCancelledException cancelled) {
+            throw cancelled;
         } catch (Exception exception) {
+            if (exception.getCause() instanceof ChatGenerationGate.GenerationCancelledException cancelled) {
+                throw cancelled;
+            }
             log.error("Grounded tutor generation failed: {}", exception.getMessage(), exception);
             return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
         }
@@ -236,7 +250,8 @@ public class CourseAnswerGenerationStageService {
         String context = prepared.context() == null ? "" : prepared.context();
         String question = prepared.question() == null ? "" : prepared.question();
         boolean remediation = prepared.understandingRemediation();
-        SupportLevel supportLevel = resolveSupportLevel(request);
+        boolean workReview = CourseAnswerRequestPolicyService.isFinishedWorkReview(question);
+        SupportLevelPrompt supportLevel = resolveSupportLevel(request);
         String quizCountInstruction = quizCountInstruction(supportLevel);
         String quizPrompt = remediation
                 ? """
@@ -319,12 +334,23 @@ public class CourseAnswerGenerationStageService {
                 """.formatted(question, limitWorkerContext(context));
 
         String worker1Prompt = answerPrompt
-                + (remediation
+                + (workReview
+                ? """
+
+                WORKER-1 SCOPE (sửa bài):
+                - First restate the concept this exercise checked, then grade the filled blanks and the wrong quiz choices.
+                - Point each mistake back to that concept. Do not open a new chapter and do not paste the full program.
+                - Do NOT include "## Kiểm tra hiểu", "## Quiz tự luyện", "## Học chuyên sâu", or any new A/B/C quiz.
+                - If an excerpt misses a method, say that in one sentence and still mark the blank.
+                """
+                : remediation
                 ? """
 
                 WORKER-1 SCOPE (remediation / giảng lại):
-                - Include "## Chẩn đoán lỗi sai" using the chosen option named in STUDENT QUESTION.
-                - Then re-teach once under "## Giảng lại dễ hiểu" with conceptual + one visual section.
+                - Include "## 1. Chẩn đoán lỗi sai" using the chosen option named in STUDENT QUESTION.
+                - Then re-teach once under "## 2. Giảng lại dễ hiểu". The paragraphs and one visual aid
+                  stay in that same section. Do not add an empty heading or a second heading for the explanation.
+                - Every other bold section title continues that same count.
                 - Do NOT include "## Kiểm tra hiểu", "## Quiz tự luyện", or any A/B/C quiz.
                 - Do NOT include "## Học chuyên sâu". Worker 3 owns clickable deep-study titles.
                 - Do not repeat the same explanation twice.
@@ -341,10 +367,28 @@ public class CourseAnswerGenerationStageService {
                 - Do NOT include "## Kiểm tra hiểu", "Understanding Check", or any multiple-choice quiz.
                 - Do NOT include "## Quiz tự luyện". Worker 2 owns all quiz content.
                 - Do NOT include "## Học chuyên sâu". Worker 3 owns clickable deep-study titles.
+                - Number every bold section title in this answer: "## 1. ...", "## 2. ...", with no gaps.
+                  This applies to every heading you write, not only explanation-style sections.
+                - If STUDENT-SPECIFIC EXPLANATION STYLE is present, render each selected style as its
+                  own numbered section: "## 1. Giải thích khái niệm", "## 2. Ví dụ thực tế", and so on.
+                  Apply the style to THIS question.
+                  Do not reopen an older topic named in the style. Do not write an A/B/C quiz here.
                 """);
         Map<String, Supplier<String>> workers = new LinkedHashMap<>();
         workers.put("worker-1", () -> generationService.generateWorker1GroundedAnswer(
                 worker1Prompt, question, request.teachingMode(), context, request.learnerMemoryContext(), false));
+        if (workReview) {
+            Map<String, AiWorkerResult<String>> reviewResults =
+                    workerOrchestrator.executeParallel(workers, Duration.ofSeconds(60));
+            String reviewAnswer = successfulOutput(reviewResults.get("worker-1"));
+            recordWorkerOutput(traceId, "worker-1", "Worker 1 · Answer Generator", "GENERATE_ANSWER",
+                    reviewAnswer, reviewResults.get("worker-1"));
+            if (!hasText(reviewAnswer)) {
+                log.warn("Worker 1 failed to generate the work review");
+                reviewAnswer = StudentFacingMessages.GENERATION_UNAVAILABLE;
+            }
+            return new WorkerOutputs(reviewAnswer, "", "");
+        }
         workers.put("worker-2", () -> generationService.generateWorkerUtilityAnswer(quizPrompt));
         workers.put("worker-3", () -> generationService.generateWorkerUtilityAnswer(deepStudyPrompt));
         Map<String, AiWorkerResult<String>> results = workerOrchestrator.executeParallel(workers, Duration.ofSeconds(60));
@@ -502,46 +546,26 @@ public class CourseAnswerGenerationStageService {
         if (!highSupport) {
             return recovery;
         }
-        return recovery + """
-
-                HIGH_SUPPORT RECOVERY:
-                This student needs one short textbook example for each concept the excerpts explain. Explain every
-                shown line in simple Vietnamese. Do not copy every >>> prompt in the chapter, do not invent an
-                example, and do not claim the course material is missing when the excerpts already answer.
-                """;
+        return recovery + SupportLevelPrompt.HIGH_SUPPORT.recoveryAppendix();
     }
 
-    private enum SupportLevel {
-        STANDARD,
-        HIGH_SUPPORT,
-        CHALLENGE
+    private SupportLevelPrompt resolveSupportLevel(CourseAnswerRequest request) {
+        if (request == null) {
+            return SupportLevelPrompt.STANDARD;
+        }
+        return SupportLevelPrompt.resolve(
+                request.teachingPlan(),
+                request.teachingPlan() == null ? null : request.teachingPlan().supportLevel(),
+                request.pedagogicalContext()
+        );
     }
 
-    private SupportLevel resolveSupportLevel(CourseAnswerRequest request) {
-        String context = request == null ? null : request.pedagogicalContext();
-        if (context == null || context.isBlank()) {
-            return SupportLevel.STANDARD;
-        }
-        String upper = context.toUpperCase(Locale.ROOT);
-        if (upper.contains("CHALLENGE")) {
-            return SupportLevel.CHALLENGE;
-        }
-        if (upper.contains("HIGH_SUPPORT")) {
-            return SupportLevel.HIGH_SUPPORT;
-        }
-        return SupportLevel.STANDARD;
-    }
-
-    private String quizCountInstruction(SupportLevel supportLevel) {
-        return switch (supportLevel) {
-            case HIGH_SUPPORT -> "Write 2 to 3 multiple-choice questions (no fewer than 2, no more than 3).";
-            case CHALLENGE -> "Write 3 to 5 multiple-choice questions (no fewer than 3, no more than 5).";
-            case STANDARD -> "Write exactly 3 multiple-choice questions.";
-        };
+    private String quizCountInstruction(SupportLevelPrompt supportLevel) {
+        return supportLevel.quizCountInstruction();
     }
 
     private boolean isHighSupport(CourseAnswerRequest request) {
-        return resolveSupportLevel(request) == SupportLevel.HIGH_SUPPORT;
+        return resolveSupportLevel(request).isHighSupport();
     }
 
     /**
@@ -588,7 +612,8 @@ public class CourseAnswerGenerationStageService {
      * flows and are excluded.
      */
     private boolean requiresExplanationFirst(CourseAnswerRequest request, CourseAnswerPreparation prepared) {
-        if (request == null || prepared == null || prepared.understandingRemediation()) {
+        if (request == null || prepared == null || prepared.understandingRemediation()
+                || CourseAnswerRequestPolicyService.isFinishedWorkReview(prepared.question())) {
             return false;
         }
         String mode = request.teachingMode();

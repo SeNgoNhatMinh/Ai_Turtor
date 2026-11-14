@@ -43,16 +43,7 @@ public class CourseImprovePlanContextService {
             String courseId,
             String classId
     ) {
-        if (ragQueryIntent == null || ragQueryIntent.getSourceMaterialIds() == null
-                || ragQueryIntent.getSourceMaterialIds().isEmpty()) {
-            return List.of();
-        }
-        Set<String> materialIds = ragQueryIntent.getSourceMaterialIds().stream()
-                .filter(Objects::nonNull)
-                .map(String::trim)
-                .filter(id -> !id.isBlank())
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (materialIds.isEmpty()) {
+        if (ragQueryIntent == null) {
             return List.of();
         }
         Set<String> chunkIds = ragQueryIntent.getSourceChunkIds() == null
@@ -62,6 +53,32 @@ public class CourseImprovePlanContextService {
                         .map(String::trim)
                         .filter(id -> !id.isBlank())
                         .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<String> materialIds = new LinkedHashSet<>();
+        if (ragQueryIntent.getSourceMaterialIds() != null) {
+            ragQueryIntent.getSourceMaterialIds().stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(id -> !id.isBlank())
+                    .forEach(materialIds::add);
+        }
+        // sourceChunkIds encode materialId as the document prefix — recover materials when
+        // the improve-plan only carries chunk provenance.
+        for (String chunkId : chunkIds) {
+            String materialId = materialIdFromChunkId(chunkId);
+            if (materialId != null) {
+                materialIds.add(materialId);
+            }
+        }
+        if (materialIds.isEmpty()) {
+            if (!chunkIds.isEmpty()) {
+                log.warn(
+                        "Improve-plan sourceChunkIds present but no material ids could be derived "
+                                + "(courseId={}, chunkIds={})",
+                        courseId,
+                        chunkIds);
+            }
+            return List.of();
+        }
         List<String> terms = mergeRetrievalTerms(ragQueryIntent);
         List<CourseMaterial> materials = materialRepository.findAllById(materialIds);
         boolean staleMaterialProvenance = materials.stream()
@@ -121,12 +138,44 @@ public class CourseImprovePlanContextService {
                 ));
             }
         }
-        return result.stream()
+        List<RetrievedCourseChunk> ranked = result.stream()
                 .sorted((left, right) -> Double.compare(
                         Objects.requireNonNullElse(right.score(), 0.0),
                         Objects.requireNonNullElse(left.score(), 0.0)))
                 .limit(6)
                 .toList();
+        if (!chunkIds.isEmpty()) {
+            Set<String> resolved = ranked.stream()
+                    .map(RetrievedCourseChunk::chunkId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            List<String> missing = chunkIds.stream().filter(id -> !resolved.contains(id)).toList();
+            if (!missing.isEmpty()) {
+                log.warn(
+                        "Improve-plan sourceChunkIds were not pinned before semantic merge "
+                                + "(courseId={}, missingChunkIds={}, resolved={})",
+                        courseId,
+                        missing,
+                        resolved);
+            }
+        }
+        return ranked;
+    }
+
+    /** Hierarchical chunk ids are `{materialId}:chapter:...:chunk:N`. */
+    static String materialIdFromChunkId(String chunkId) {
+        if (chunkId == null || chunkId.isBlank()) {
+            return null;
+        }
+        int marker = chunkId.indexOf(":chapter:");
+        if (marker > 0) {
+            return chunkId.substring(0, marker);
+        }
+        int colon = chunkId.indexOf(':');
+        if (colon > 0) {
+            return chunkId.substring(0, colon);
+        }
+        return chunkId.trim();
     }
 
     private String groundedChunkContent(CourseMaterialChunkingService.HierarchicalChunk chunk) {
