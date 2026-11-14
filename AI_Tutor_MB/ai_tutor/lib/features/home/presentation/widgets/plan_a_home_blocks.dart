@@ -14,6 +14,7 @@ import '../../../../shared/widgets/fpt_logo.dart';
 class PlanAHomeHero extends StatelessWidget {
   const PlanAHomeHero({
     super.key,
+    required this.studentName,
     required this.title,
     required this.subtitle,
     required this.ctaLabel,
@@ -21,6 +22,7 @@ class PlanAHomeHero extends StatelessWidget {
     this.action,
   });
 
+  final String studentName;
   final String title;
   final String subtitle;
   final String ctaLabel;
@@ -30,7 +32,7 @@ class PlanAHomeHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final topPad = MediaQuery.paddingOf(context).top + Insets.sm;
+    final topPad = MediaQuery.paddingOf(context).top + Insets.md;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
@@ -40,61 +42,108 @@ class PlanAHomeHero extends StatelessWidget {
           children: [
             Row(
               children: [
-                const FptLogo(height: 28),
-                const Spacer(),
+                const FptLogo(height: 34),
+                const Gap(Insets.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Xin chào',
+                        style: textTheme.labelSmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        studentName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.titleSmall?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 if (action != null) action!,
               ],
             ),
-            const Gap(Insets.sm),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(Radii.xl),
-              child: SizedBox(
-                height: 248,
-                width: double.infinity,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.asset(
-                      AppAssets.homeHeroFptu,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.centerRight,
-                      filterQuality: FilterQuality.high,
+            const Gap(Insets.md),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final mascotWidth = (constraints.maxWidth * 0.42).clamp(
+                  132.0,
+                  158.0,
+                );
+                final copyWidth = (constraints.maxWidth - mascotWidth + 12)
+                    .clamp(176.0, 224.0);
+
+                return Container(
+                  height: 194,
+                  width: double.infinity,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppColors.primary, AppColors.primaryTint],
                     ),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            Color(0xFF0A3A73),
-                            Color(0xF20A56A0),
-                            Color(0xC20A56A0),
-                            Color(0x260A56A0),
-                          ],
-                          stops: [0.0, 0.42, 0.64, 1.0],
+                    borderRadius: BorderRadius.circular(Radii.xl),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.14),
+                        blurRadius: 22,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        right: -54,
+                        top: -74,
+                        child: Container(
+                          width: 188,
+                          height: 188,
+                          decoration: BoxDecoration(
+                            color: AppColors.fptOrange.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                          ),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(Insets.lg),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 224),
+                      Positioned(
+                        right: -4,
+                        bottom: -8,
+                        width: mascotWidth,
+                        height: 166,
+                        child: Image.asset(
+                          AppAssets.cocVangLogoTransparent,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.bottomCenter,
+                          filterQuality: FilterQuality.high,
+                          gaplessPlayback: true,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(Insets.lg),
+                        child: SizedBox(
+                          width: copyWidth,
                           child: Column(
-                            mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
                                 title,
-                                maxLines: 3,
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: textTheme.headlineSmall?.copyWith(
                                   color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.16,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.15,
                                   fontSize: 21,
-                                  letterSpacing: -0.35,
+                                  letterSpacing: -0.3,
                                 ),
                               ),
                               const Gap(Insets.sm),
@@ -103,7 +152,7 @@ class PlanAHomeHero extends StatelessWidget {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: textTheme.bodySmall?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.9),
+                                  color: Colors.white.withValues(alpha: 0.86),
                                   fontWeight: FontWeight.w500,
                                   height: 1.35,
                                 ),
@@ -113,23 +162,27 @@ class PlanAHomeHero extends StatelessWidget {
                                 button: true,
                                 label: ctaLabel,
                                 child: Material(
-                                  color: AppColors.fptOrange,
-                                  borderRadius: BorderRadius.circular(
-                                    Radii.full,
-                                  ),
+                                  color: AppColors.accentDark,
+                                  borderRadius: BorderRadius.circular(Radii.md),
                                   child: InkWell(
                                     onTap: onCta,
                                     borderRadius: BorderRadius.circular(
-                                      Radii.full,
+                                      Radii.md,
                                     ),
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: Insets.lg,
+                                        horizontal: Insets.md,
                                         vertical: Insets.md,
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
+                                          const Icon(
+                                            LucideIcons.messageCircle,
+                                            size: 17,
+                                            color: Colors.white,
+                                          ),
+                                          const Gap(Insets.sm),
                                           Flexible(
                                             child: Text(
                                               ctaLabel,
@@ -142,12 +195,6 @@ class PlanAHomeHero extends StatelessWidget {
                                                   ),
                                             ),
                                           ),
-                                          const Gap(Insets.sm),
-                                          const Icon(
-                                            LucideIcons.arrowRight,
-                                            size: 16,
-                                            color: Colors.white,
-                                          ),
                                         ],
                                       ),
                                     ),
@@ -158,10 +205,10 @@ class PlanAHomeHero extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -188,36 +235,41 @@ class PlanASearchField extends StatelessWidget {
       label: hint,
       child: Material(
         color: AppColors.card,
-        elevation: 2,
-        shadowColor: const Color(0x1A000000),
         borderRadius: BorderRadius.circular(Radii.lg),
-        child: TextField(
-          controller: controller,
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.textTertiary),
-            prefixIcon: const Icon(
-              LucideIcons.search,
-              size: 20,
-              color: AppColors.textTertiary,
-            ),
-            suffixIcon: controller.text.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: 'Xóa tìm kiếm',
-                    onPressed: controller.clear,
-                    icon: const Icon(LucideIcons.x, size: 18),
-                  ),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: Insets.md,
-              vertical: Insets.md,
-            ),
+        child: Container(
+          height: 48,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(Radii.lg),
+            border: Border.all(color: AppColors.borderStrong),
           ),
-          style: Theme.of(context).textTheme.bodyMedium,
+          child: TextField(
+            controller: controller,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+              prefixIcon: const Icon(
+                LucideIcons.search,
+                size: 20,
+                color: AppColors.textSecondary,
+              ),
+              suffixIcon: controller.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Xóa tìm kiếm',
+                      onPressed: controller.clear,
+                      icon: const Icon(LucideIcons.x, size: 18),
+                    ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: Insets.md,
+                vertical: Insets.md,
+              ),
+            ),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
         ),
       ),
     );
@@ -342,33 +394,19 @@ class PlanACourseCard extends StatelessWidget {
     required this.course,
     required this.index,
     required this.onTap,
+    this.selected = false,
   });
 
   final Course course;
   final int index;
   final VoidCallback onTap;
+  final bool selected;
 
   static const _themes = [
-    _CourseArtTheme(
-      bg: Color(0xFFEBF2FF),
-      accent: AppColors.fptBlue,
-      art: AppAssets.courseArtCampus,
-    ),
-    _CourseArtTheme(
-      bg: Color(0xFFE8F6EE),
-      accent: AppColors.fptGreen,
-      art: AppAssets.courseArtLaptop,
-    ),
-    _CourseArtTheme(
-      bg: Color(0xFFFFF1E8),
-      accent: AppColors.fptOrange,
-      art: AppAssets.courseArtBooks,
-    ),
-    _CourseArtTheme(
-      bg: Color(0xFFF3E8FF),
-      accent: Color(0xFF7C3AED),
-      art: AppAssets.courseArtMath,
-    ),
+    _CourseArtTheme(bg: Color(0xFFEBF2FF), art: AppAssets.courseArtCampus),
+    _CourseArtTheme(bg: Color(0xFFE8F6EE), art: AppAssets.courseArtLaptop),
+    _CourseArtTheme(bg: Color(0xFFFFF1E8), art: AppAssets.courseArtBooks),
+    _CourseArtTheme(bg: Color(0xFFF3E8FF), art: AppAssets.courseArtMath),
   ];
 
   @override
@@ -376,116 +414,87 @@ class PlanACourseCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final theme = _themes[index % _themes.length];
     final title = course.name.isNotEmpty ? course.name : course.code;
-    final cardWidth = ((MediaQuery.sizeOf(context).width - 44) / 2).clamp(
-      156.0,
-      196.0,
-    );
+    final cardWidth = (MediaQuery.sizeOf(context).width - 78)
+        .clamp(236.0, 268.0)
+        .toDouble();
+    final className = course.className?.trim();
 
     return Semantics(
       button: true,
+      selected: selected,
       label: '${course.code}, $title',
       hint: 'Mở AI Tutor cho môn học này',
       child: SizedBox(
         width: cardWidth,
+        height: 96,
         child: Material(
           color: AppColors.card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(Radii.lg),
-            side: const BorderSide(color: AppColors.borderHairline),
+            side: BorderSide(
+              color: selected
+                  ? AppColors.fptOrange.withValues(alpha: 0.72)
+                  : AppColors.borderHairline,
+              width: selected ? 1.5 : 1,
+            ),
           ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: 100,
-                  width: double.infinity,
-                  child: ColoredBox(
-                    color: theme.bg,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(8, 28, 8, 4),
-                            child: Image.asset(
-                              theme.art,
-                              fit: BoxFit.contain,
-                              alignment: Alignment.bottomCenter,
-                              filterQuality: FilterQuality.high,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: 10,
-                          left: 12,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: theme.accent.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(Radii.full),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: Insets.sm,
-                                vertical: Insets.xs,
-                              ),
-                              child: Text(
-                                course.code,
-                                style: textTheme.labelLarge?.copyWith(
-                                  color: theme.accent,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+            child: Padding(
+              padding: const EdgeInsets.all(Insets.md),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 66,
+                    height: 66,
+                    padding: const EdgeInsets.all(Insets.xs),
+                    decoration: BoxDecoration(
+                      color: theme.bg,
+                      borderRadius: BorderRadius.circular(Radii.md),
+                    ),
+                    child: Image.asset(
+                      theme.art,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
                     ),
                   ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      Insets.md,
-                      Insets.sm,
-                      Insets.sm,
-                      Insets.sm,
-                    ),
-                    child: Row(
+                  const Gap(Insets.md),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: textTheme.titleSmall?.copyWith(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w800,
-                              height: 1.2,
-                            ),
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.titleSmall?.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            height: 1.22,
                           ),
                         ),
                         const Gap(Insets.xs),
-                        Container(
-                          width: 32,
-                          height: 32,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: theme.accent.withValues(alpha: 0.08),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            LucideIcons.arrowRight,
-                            size: 16,
-                            color: theme.accent,
+                        Text(
+                          [
+                            course.code,
+                            if (className != null && className.isNotEmpty)
+                              className,
+                          ].join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.labelSmall?.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -495,14 +504,9 @@ class PlanACourseCard extends StatelessWidget {
 }
 
 class _CourseArtTheme {
-  const _CourseArtTheme({
-    required this.bg,
-    required this.accent,
-    required this.art,
-  });
+  const _CourseArtTheme({required this.bg, required this.art});
 
   final Color bg;
-  final Color accent;
   final String art;
 }
 
@@ -524,9 +528,14 @@ class PlanAQuickAction {
 
 /// Lối tắt student — đồng bộ web dashboard quick grid.
 class PlanAQuickActions extends StatelessWidget {
-  const PlanAQuickActions({super.key, required this.actions});
+  const PlanAQuickActions({
+    super.key,
+    required this.actions,
+    this.title = 'Công cụ học tập',
+  });
 
   final List<PlanAQuickAction> actions;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -536,68 +545,79 @@ class PlanAQuickActions extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Truy cập nhanh',
+            title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: AppColors.primary,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          const Gap(Insets.md),
-          SizedBox(
-            height: 108,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              itemCount: actions.length,
-              separatorBuilder: (_, __) => const Gap(Insets.sm),
-              itemBuilder: (context, index) {
-                final action = actions[index];
-                return Semantics(
-                  button: true,
-                  label: action.title,
-                  hint: action.subtitle,
-                  child: SizedBox(
-                    width: 98,
-                    child: Material(
-                      color: action.color.withValues(alpha: 0.07),
-                      borderRadius: BorderRadius.circular(Radii.lg),
-                      child: InkWell(
-                        onTap: action.onTap,
-                        borderRadius: BorderRadius.circular(Radii.lg),
-                        child: Container(
-                          padding: const EdgeInsets.all(Insets.sm),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(Radii.lg),
-                            border: Border.all(
-                              color: action.color.withValues(alpha: 0.12),
+          const Gap(Insets.sm),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: actions.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: actions.length.clamp(1, 4),
+              mainAxisExtent: 88,
+              crossAxisSpacing: Insets.sm,
+              mainAxisSpacing: Insets.sm,
+            ),
+            itemBuilder: (context, index) {
+              final action = actions[index];
+              return Semantics(
+                button: true,
+                label: action.title,
+                hint: action.subtitle,
+                child: Material(
+                  color: AppColors.card,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(Radii.lg),
+                    side: const BorderSide(color: AppColors.borderHairline),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: action.onTap,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Insets.xs,
+                        vertical: Insets.sm,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: action.color.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(Radii.md),
+                            ),
+                            child: Icon(
+                              action.icon,
+                              color: action.color,
+                              size: 20,
                             ),
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(action.icon, color: action.color, size: 26),
-                              const Gap(Insets.sm),
-                              Text(
-                                action.title,
-                                maxLines: 2,
-                                textAlign: TextAlign.center,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.labelLarge
-                                    ?.copyWith(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.15,
-                                    ),
-                              ),
-                            ],
+                          const Gap(Insets.sm),
+                          Text(
+                            action.title,
+                            maxLines: 1,
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
         ],
       ),

@@ -83,12 +83,28 @@ class StudentHomeScreen extends HookConsumerWidget {
       ),
       data: (data) {
         final filteredCourses = filterCourses(data.courses);
-        final enrolledCount = data.courses.isNotEmpty
-            ? data.courses.length
-            : data.dashboard.enrolledCourseCount;
+        final enrolledCourses = data.courses
+            .where((course) => course.status != 'COMPLETED')
+            .toList();
+        final selectedCourse = ref.watch(selectedCourseProvider);
+        final activeCourse =
+            selectedCourse != null && enrolledCourses.contains(selectedCourse)
+            ? selectedCourse
+            : (enrolledCourses.isEmpty ? null : enrolledCourses.first);
         final session = ref.read(authControllerProvider).valueOrNull;
         final greetName = _studentGivenName(session?.fullName);
-        final heroTitle = 'Chào $greetName,\nsẵn sàng học tiếp chưa?';
+        final heroSubtitle = activeCourse == null
+            ? l10n.homeHeroSubtitle
+            : (activeCourse.name.isNotEmpty
+                  ? activeCourse.name
+                  : activeCourse.code);
+
+        void continueWithTutor() {
+          if (activeCourse != null) {
+            ref.read(selectedCourseProvider.notifier).state = activeCourse;
+          }
+          context.go(AppRoutes.studentTutor);
+        }
 
         return RefreshIndicator(
           color: AppColors.fptOrange,
@@ -104,26 +120,15 @@ class StudentHomeScreen extends HookConsumerWidget {
                     Column(
                           children: [
                             PlanAHomeHero(
-                              title: heroTitle,
-                              subtitle: l10n.homeHeroSubtitle,
-                              ctaLabel: 'Học với AI Tutor',
-                              onCta: () => context.go(AppRoutes.studentTutor),
+                              studentName: greetName,
+                              title: 'Tiếp tục học với AI Tutor',
+                              subtitle: heroSubtitle,
+                              ctaLabel: 'Tiếp tục hỏi AI',
+                              onCta: continueWithTutor,
                               action: _HeroBell(
-                                hasUnread: notificationCount > 0,
+                                count: notificationCount,
                                 onTap: () =>
                                     context.push(AppRoutes.notifications),
-                              ),
-                            ),
-                            Transform.translate(
-                              offset: const Offset(0, -22),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: Insets.screenH,
-                                ),
-                                child: PlanASearchField(
-                                  hint: 'Tìm môn học hoặc lớp',
-                                  controller: searchController,
-                                ),
                               ),
                             ),
                           ],
@@ -135,19 +140,6 @@ class StudentHomeScreen extends HookConsumerWidget {
                           end: 0,
                           curve: Curves.easeOutCubic,
                         ),
-              ),
-              const SliverToBoxAdapter(child: Gap(Insets.sm)),
-              SliverToBoxAdapter(
-                child:
-                    PlanAIconStats(
-                      questionsAsked: data.questionsAsked,
-                      questionsLabel: 'Câu đã hỏi',
-                      courseCount: enrolledCount,
-                      coursesLabel: 'Môn đang học',
-                    ).animate().fadeIn(
-                      duration: motionDuration,
-                      delay: reduceMotion ? Duration.zero : 40.ms,
-                    ),
               ),
               const SliverToBoxAdapter(child: Gap(Insets.xl)),
               SliverToBoxAdapter(
@@ -163,7 +155,7 @@ class StudentHomeScreen extends HookConsumerWidget {
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: AppColors.primary,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                               ),
                         ),
                       ),
@@ -181,6 +173,18 @@ class StudentHomeScreen extends HookConsumerWidget {
                         iconAlignment: IconAlignment.end,
                       ),
                     ],
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: Gap(Insets.sm)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Insets.screenH,
+                  ),
+                  child: PlanASearchField(
+                    hint: 'Tìm theo tên môn, mã môn hoặc lớp',
+                    controller: searchController,
                   ),
                 ),
               ),
@@ -204,7 +208,7 @@ class StudentHomeScreen extends HookConsumerWidget {
               else
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 186,
+                    height: 98,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(
@@ -217,6 +221,7 @@ class StudentHomeScreen extends HookConsumerWidget {
                         return PlanACourseCard(
                               course: course,
                               index: index,
+                              selected: course == activeCourse,
                               onTap: () => onCourseCardTap(course),
                             )
                             .animate(
@@ -239,13 +244,6 @@ class StudentHomeScreen extends HookConsumerWidget {
                 child:
                     PlanAQuickActions(
                       actions: [
-                        PlanAQuickAction(
-                          title: 'AI Tutor',
-                          subtitle: 'Học theo tài liệu môn học',
-                          icon: LucideIcons.sparkles,
-                          color: AppColors.peacockBlue,
-                          onTap: () => context.go(AppRoutes.studentTutor),
-                        ),
                         PlanAQuickAction(
                           title: 'Quiz',
                           subtitle: 'Luyện tập và kiểm tra nhanh',
@@ -294,8 +292,20 @@ class StudentHomeScreen extends HookConsumerWidget {
               ),
               const SliverToBoxAdapter(child: Gap(Insets.xl)),
               SliverToBoxAdapter(
-                child: const PlugProSectionHeader(title: 'Học theo môn'),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Insets.screenH,
+                  ),
+                  child: Text(
+                    'Không gian môn học',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ),
+              const SliverToBoxAdapter(child: Gap(Insets.md)),
               SliverToBoxAdapter(
                 child: KeyedSubtree(
                   key: courseHubKey,
@@ -317,40 +327,50 @@ class StudentHomeScreen extends HookConsumerWidget {
 }
 
 class _HeroBell extends StatelessWidget {
-  const _HeroBell({required this.hasUnread, required this.onTap});
+  const _HeroBell({required this.count, required this.onTap});
 
-  final bool hasUnread;
+  final int count;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onTap,
-      tooltip: hasUnread ? 'Thông báo chưa đọc' : 'Thông báo',
+      tooltip: count > 0 ? '$count thông báo chưa đọc' : 'Thông báo',
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       visualDensity: VisualDensity.compact,
       style: IconButton.styleFrom(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.card,
         highlightColor: Colors.black12,
         elevation: 0,
+        side: const BorderSide(color: AppColors.borderHairline),
       ),
       icon: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
           const Icon(LucideIcons.bell, size: 24, color: AppColors.primary),
-          if (hasUnread)
-            const Positioned(
-              right: 1,
-              top: 1,
-              child: SizedBox(
-                width: 8,
-                height: 8,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppColors.fptOrange,
-                    shape: BoxShape.circle,
+          if (count > 0)
+            Positioned(
+              right: -7,
+              top: -7,
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 19, minHeight: 19),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  border: Border.all(color: AppColors.accentDark),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  count > 99 ? '99+' : '$count',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10,
+                    height: 1,
                   ),
                 ),
               ),

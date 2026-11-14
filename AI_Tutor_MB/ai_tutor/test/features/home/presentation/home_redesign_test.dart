@@ -63,4 +63,55 @@ void main() {
     expect(courseTaps, 1);
     expect(actionTaps, 1);
   });
+
+  testWidgets('plan A hero and four tools fit a narrow phone', (tester) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var heroTaps = 0;
+
+    PlanAQuickAction action(String title, IconData icon, Color color) {
+      return PlanAQuickAction(
+        title: title,
+        subtitle: title,
+        icon: icon,
+        color: color,
+        onTap: () {},
+      );
+    }
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                PlanAHomeHero(
+                  studentName: 'Nguyễn Minh Anh',
+                  title: 'Tiếp tục học với AI Tutor',
+                  subtitle: 'Phát triển ứng dụng di động đa nền tảng',
+                  ctaLabel: 'Tiếp tục hỏi AI',
+                  onCta: () => heroTaps++,
+                  action: const SizedBox(width: 48, height: 48),
+                ),
+                PlanAQuickActions(
+                  actions: [
+                    action('Quiz', LucideIcons.clipboardList, Colors.orange),
+                    action('Tài liệu', LucideIcons.bookOpen, Colors.green),
+                    action('Hỗ trợ', LucideIcons.lifeBuoy, Colors.blue),
+                    action('Tiến độ', LucideIcons.trendingUp, Colors.purple),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Tiếp tục hỏi AI'));
+    expect(heroTaps, 1);
+  });
 }

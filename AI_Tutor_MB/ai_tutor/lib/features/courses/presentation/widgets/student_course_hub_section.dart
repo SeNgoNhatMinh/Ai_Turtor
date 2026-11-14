@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/models/course.dart';
@@ -76,28 +78,35 @@ class StudentCourseHubSection extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Insets.screenH),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _CourseDropdown(
-            items: uniqueCourses,
-            value: active,
-            onChanged: (course) =>
-                ref.read(selectedCourseProvider.notifier).state = course,
-          ),
-          const Gap(Insets.lg),
-          PlugProServiceTabs(
-            selected: serviceTab,
-            onSelected: onServiceTabChanged,
-            labels: (primary: 'Hỏi AI', secondary: 'Quiz', tertiary: 'Ôn tập'),
-          ),
-          const Gap(Insets.md),
-          _CourseDetailPanel(
-            course: active,
-            serviceTab: serviceTab,
-            onAction: () => _onServiceAction(context, ref, active),
-          ),
-        ],
+      child: Container(
+        padding: const EdgeInsets.all(Insets.lg),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(Radii.xl),
+          border: Border.all(color: AppColors.borderHairline),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _CourseDropdown(
+              items: uniqueCourses,
+              value: active,
+              onChanged: (course) =>
+                  ref.read(selectedCourseProvider.notifier).state = course,
+            ),
+            const Gap(Insets.md),
+            _CourseServiceTabs(
+              selected: serviceTab,
+              onSelected: onServiceTabChanged,
+            ),
+            const Gap(Insets.md),
+            _CourseDetailPanel(
+              course: active,
+              serviceTab: serviceTab,
+              onAction: () => _onServiceAction(context, ref, active),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -116,55 +125,181 @@ class _CourseDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.homeOrangeWash),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A211C18),
-            blurRadius: 12,
-            offset: Offset(0, 4),
+    const courseArt = [
+      AppAssets.courseArtCampus,
+      AppAssets.courseArtLaptop,
+      AppAssets.courseArtBooks,
+      AppAssets.courseArtMath,
+    ];
+    final art = courseArt[value.code.hashCode.abs() % courseArt.length];
+
+    return Row(
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          padding: const EdgeInsets.all(Insets.xs),
+          decoration: BoxDecoration(
+            color: AppColors.primaryWash,
+            borderRadius: BorderRadius.circular(Radii.md),
           ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: Insets.lg),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<Course>(
-          value: value,
-          isExpanded: true,
-          icon: const Icon(
-            LucideIcons.chevronDown,
-            color: AppColors.navActive,
-            size: 22,
+          child: Image.asset(
+            art,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
           ),
-          borderRadius: BorderRadius.circular(16),
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-          items: items
-              .map(
-                (c) => DropdownMenuItem(
-                  value: c,
-                  child: Text(() {
-                    final base = c.name.isNotEmpty
-                        ? '${c.code} — ${c.name}'
-                        : c.code;
-                    final cls = c.className?.trim();
-                    if (cls != null && cls.isNotEmpty) {
-                      return '$base · $cls';
-                    }
-                    return base;
-                  }(), overflow: TextOverflow.ellipsis),
-                ),
-              )
-              .toList(),
-          onChanged: (c) {
-            if (c != null) onChanged(c);
-          },
         ),
+        const Gap(Insets.md),
+        Expanded(
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<Course>(
+              value: value,
+              isExpanded: true,
+              icon: const Icon(
+                LucideIcons.chevronDown,
+                color: AppColors.navActive,
+                size: 22,
+              ),
+              borderRadius: BorderRadius.circular(Radii.lg),
+              menuMaxHeight: 360,
+              selectedItemBuilder: (context) => items
+                  .map((course) => _SelectedCourseLabel(course: course))
+                  .toList(),
+              items: items
+                  .map(
+                    (course) => DropdownMenuItem(
+                      value: course,
+                      child: Text(
+                        _courseDisplayName(course),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (course) {
+                if (course != null) onChanged(course);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SelectedCourseLabel extends StatelessWidget {
+  const _SelectedCourseLabel({required this.course});
+
+  final Course course;
+
+  @override
+  Widget build(BuildContext context) {
+    final className = course.className?.trim();
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          course.name.isNotEmpty ? course.name : course.code,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
+          ),
+        ),
+        const Gap(Insets.xs),
+        Text(
+          [
+            course.code,
+            if (className != null && className.isNotEmpty) className,
+          ].join(' · '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _courseDisplayName(Course course) {
+  final title = course.name.isNotEmpty ? course.name : course.code;
+  final className = course.className?.trim();
+  return [
+    course.code,
+    title,
+    if (className != null && className.isNotEmpty) className,
+  ].join(' · ');
+}
+
+class _CourseServiceTabs extends StatelessWidget {
+  const _CourseServiceTabs({required this.selected, required this.onSelected});
+
+  final PlugProServiceTab selected;
+  final ValueChanged<PlugProServiceTab> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    const tabs = [
+      (PlugProServiceTab.primary, 'Hỏi AI'),
+      (PlugProServiceTab.secondary, 'Quiz'),
+      (PlugProServiceTab.tertiary, 'Ôn tập'),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(Insets.xs),
+      decoration: BoxDecoration(
+        color: AppColors.raised,
+        borderRadius: BorderRadius.circular(Radii.md),
+      ),
+      child: Row(
+        children: [
+          for (final tab in tabs)
+            Expanded(
+              child: Semantics(
+                button: true,
+                selected: selected == tab.$1,
+                child: Material(
+                  color: selected == tab.$1
+                      ? AppColors.card
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(Radii.sm),
+                  child: InkWell(
+                    onTap: () => onSelected(tab.$1),
+                    borderRadius: BorderRadius.circular(Radii.sm),
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      alignment: Alignment.center,
+                      child: Text(
+                        tab.$2,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: selected == tab.$1
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                              fontWeight: selected == tab.$1
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -195,77 +330,21 @@ class _CourseDetailPanel extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PlugProCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.homeHeroGradient,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Text(
-                      course.code.length >= 3
-                          ? course.code.substring(0, 3).toUpperCase()
-                          : course.code.toUpperCase(),
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: AppColors.onOrange,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const Gap(Insets.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          course.name.isNotEmpty ? course.name : course.code,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.textPrimary,
-                              ),
-                        ),
-                        if (course.className != null)
-                          Text(
-                            course.className!,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: AppColors.textTertiary),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
         memory.when(
           loading: () => const SizedBox.shrink(),
           error: (_, __) => const SizedBox.shrink(),
           data: (data) {
             if (data.pinnedSuggestions.isEmpty) return const SizedBox.shrink();
-            return Column(
-              children: [
-                const Gap(Insets.lg),
-                PlugProCard(
-                  child: PinnedImproveSuggestionsSection(
-                    courseRouteId: course.id,
-                    pinnedLabels: data.pinnedSuggestions,
-                    compact: true,
-                  ),
-                ),
-              ],
+            return PlugProCard(
+              child: PinnedImproveSuggestionsSection(
+                courseRouteId: course.id,
+                pinnedLabels: data.pinnedSuggestions,
+                compact: true,
+              ),
             );
           },
         ),
-        const Gap(Insets.lg),
+        const Gap(Insets.sm),
         FptButton(label: actionLabel, expand: true, onPressed: onAction),
         const Gap(Insets.sm),
         Row(
