@@ -28,7 +28,7 @@ public final class ChapterHeadingUtils {
                     + "understanding|overview of|a guide to|guide to|using)\\s+"
     );
     private static final Pattern CHAPTER_WORD_NUMBER = Pattern.compile(
-            "(?i)^(?:chapter|chương|chuong|ch\\.)\\s+(\\d+)\\b"
+            "(?i)^(?:chapter|chương|chuong|ch\\.)\\s*:?\\s*(\\d+)\\b"
     );
     private static final Pattern CHAPTER_ROMAN_ONE = Pattern.compile(
             "(?i)^(?:chapter|chương|chuong)\\s+i\\b"

@@ -10,17 +10,22 @@ import com.ragapi.service.PdfStorageService;
 import com.ragapi.service.VisualVectorService;
 import com.ragapi.service.course.gateway.CourseMaterialIndexGateway;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /** Administrative lifecycle operations for indexed course material. */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CourseMaterialIndexManagementService {
+
+    private static final int MATERIAL_ATTEMPTS = 3;
 
     private final CourseMaterialStoreGateway materialRepository;
     private final CourseMaterialIndexGateway vectorService;
@@ -31,6 +36,8 @@ public class CourseMaterialIndexManagementService {
     private final HumanLearningService humanLearningService;
     private final ExpertCoTrainingService expertCoTrainingService;
     private final CourseMaterialIndexExecutor indexExecutor;
+    private final ReindexProgressTracker reindexProgress;
+    private final ReindexCancellation reindexCancellation;
 
     public Map<String, Object> deleteMaterial(
             String courseId,
@@ -82,7 +89,17 @@ public class CourseMaterialIndexManagementService {
     ) throws IOException {
         accessPolicy.requireReindexPermission(requesterRole);
         CourseMaterial material = requireMaterialInCourse(courseId, materialId);
-        CourseMaterialIndexExecutor.ReindexResult result = indexExecutor.reindexAndMark(material);
+        reindexProgress.start(courseId, 1);
+        reindexProgress.beginMaterial(courseId, 0, 1, materialTitle(material));
+        CourseMaterialIndexExecutor.ReindexResult result;
+        try {
+            result = indexExecutor.reindexAndMark(material, progress -> reindexProgress.onChunk(
+                    courseId, 0, 1, materialTitle(material), progress));
+        } catch (IOException | RuntimeException error) {
+            reindexProgress.fail(courseId, error.getMessage());
+            throw error;
+        }
+        reindexProgress.complete(courseId);
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("status", "REINDEXED");
@@ -102,14 +119,65 @@ public class CourseMaterialIndexManagementService {
             throw new IllegalArgumentException("No course materials found for requested course");
         }
 
+        int indexable = (int) materials.stream().filter(this::hasContent).count();
+        reindexProgress.start(courseId, indexable);
         ReindexTotals totals = new ReindexTotals();
+        int completed = 0;
+        List<CourseMaterial> pending = new ArrayList<>();
         for (CourseMaterial material : materials) {
             if (!hasContent(material)) {
                 totals.skippedMaterials++;
                 continue;
             }
-            CourseMaterialIndexExecutor.ReindexResult result = indexExecutor.reindexAndMark(material);
-            totals.add(result);
+            pending.add(material);
+        }
+        List<String> failures = List.of();
+        try {
+            for (int attempt = 1; attempt <= MATERIAL_ATTEMPTS && !pending.isEmpty(); attempt++) {
+                throwIfStopped();
+                if (attempt > 1) {
+                    log.warn("Retrying {} course materials for {}, attempt {}/{}",
+                            pending.size(), courseId, attempt, MATERIAL_ATTEMPTS);
+                    pauseBeforeRetry(attempt);
+                }
+                List<CourseMaterial> failed = new ArrayList<>();
+                List<String> reasons = new ArrayList<>();
+                for (CourseMaterial material : pending) {
+                    String title = materialTitle(material);
+                    int completedBefore = completed;
+                    throwIfStopped();
+                    reindexProgress.beginMaterial(courseId, completedBefore, indexable, title);
+                    try {
+                        CourseMaterialIndexExecutor.ReindexResult result = indexExecutor.reindexAndMark(
+                                material,
+                                progress -> {
+                                    throwIfStopped();
+                                    reindexProgress.onChunk(courseId, completedBefore, indexable, title, progress);
+                                }
+                        );
+                        totals.add(result);
+                        completed++;
+                    } catch (ReindexCancelledException cancelled) {
+                        throw cancelled;
+                    } catch (IOException | RuntimeException error) {
+                        failed.add(material);
+                        reasons.add(title + ": " + brief(error.getMessage()));
+                        log.warn("Reindex attempt {}/{} failed for {} in {}: {}",
+                                attempt, MATERIAL_ATTEMPTS, title, courseId, error.getMessage());
+                    }
+                }
+                pending = failed;
+                failures = reasons;
+            }
+            if (!pending.isEmpty()) {
+                throw new IllegalStateException("Reindex chưa xong: " + String.join("; ", failures));
+            }
+        } catch (ReindexCancelledException cancelled) {
+            reindexProgress.cancel(courseId);
+            throw cancelled;
+        } catch (RuntimeException error) {
+            reindexProgress.fail(courseId, error.getMessage());
+            throw error;
         }
 
         Map<String, Object> response = new LinkedHashMap<>();
@@ -121,7 +189,13 @@ public class CourseMaterialIndexManagementService {
         response.put("deletedVisualPages", totals.deletedVisualPages);
         response.put("indexedChunks", totals.indexedChunks);
         response.put("indexedVisualPages", totals.indexedVisualPages);
+        reindexProgress.complete(courseId);
         return response;
+    }
+
+    public Map<String, Object> reindexProgress(String courseId, String requesterRole) {
+        accessPolicy.requireReindexPermission(requesterRole);
+        return reindexProgress.snapshot(courseId);
     }
 
     public Map<String, Object> reindexApprovedKnowledge() throws IOException {
@@ -143,8 +217,45 @@ public class CourseMaterialIndexManagementService {
         return response;
     }
 
+    private void throwIfStopped() {
+        if (reindexCancellation.isStopRequested()) {
+            throw new ReindexCancelledException();
+        }
+    }
+
+    private void pauseBeforeRetry(int attempt) {
+        long deadline = System.currentTimeMillis() + Math.min(8_000L, 1_000L << Math.max(0, attempt - 1));
+        while (System.currentTimeMillis() < deadline) {
+            throwIfStopped();
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new ReindexCancelledException();
+            }
+        }
+    }
+
+    private static String brief(String message) {
+        if (message == null || message.isBlank()) {
+            return "lỗi không rõ";
+        }
+        String compact = message.replaceAll("\\s+", " ").trim();
+        return compact.length() <= 180 ? compact : compact.substring(0, 180);
+    }
+
     private boolean hasContent(CourseMaterial material) {
         return material != null && material.getContent() != null && !material.getContent().isBlank();
+    }
+
+    private static String materialTitle(CourseMaterial material) {
+        if (material.getTitle() != null && !material.getTitle().isBlank()) {
+            return material.getTitle().trim();
+        }
+        if (material.getSourceFileName() != null && !material.getSourceFileName().isBlank()) {
+            return material.getSourceFileName().trim();
+        }
+        return material.getId() == null ? "Tài liệu" : material.getId();
     }
 
     private CourseMaterial requireMaterialInCourse(String courseId, String materialId) {

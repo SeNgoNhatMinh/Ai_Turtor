@@ -3,6 +3,7 @@ package com.ragapi.util;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -17,11 +18,11 @@ public final class StudyLessonTitles {
     public static final String SOURCE_SEPARATOR = " || ";
 
     private static final Pattern TOP_CHAPTER = Pattern.compile(
-            "(?i)^(?:chapter|chương|chuong|ch\\.)\\s+(\\d+)\\b(?!\\.)"
+            "(?i)^(?:chapter|chương|chuong|ch\\.)\\s*:?\\s*(\\d+)\\b(?!\\.)"
     );
     private static final Pattern TOP_NUMBER = Pattern.compile("^(\\d+)\\s+\\p{L}");
     private static final Pattern CHAPTER_PREFIX = Pattern.compile(
-            "(?i)^(?:chapter|chương|chuong|ch\\.)\\s+\\d+\\s*[:.\\-–—]?\\s*"
+            "(?i)^(?:chapter|chương|chuong|ch\\.)\\s*:?\\s*\\d+\\s*[:.\\-–—]?\\s*"
     );
     private static final Pattern NUMBER_PREFIX = Pattern.compile("^\\d+(?:\\.\\d+)*\\s+");
     private static final Pattern VIETNAMESE_LETTER = Pattern.compile("[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
@@ -46,7 +47,45 @@ public final class StudyLessonTitles {
             new Lead("(?i)^debugging\\s+(.+)$", "Gỡ lỗi %s"),
             new Lead("(?i)^building\\s+(.+)$", "Xây dựng %s"),
             new Lead("(?i)^configuring\\s+(.+)$", "Cấu hình %s"),
-            new Lead("(?i)^managing\\s+(.+)$", "Quản lý %s")
+            new Lead("(?i)^managing\\s+(.+)$", "Quản lý %s"),
+            new Lead("(?i)^maintaining\\s+(.+)$", "Duy trì %s"),
+            new Lead("(?i)^replacing\\s+(.+)$", "Thay %s"),
+            new Lead("(?i)^improving\\s+(.+)$", "Cải thiện %s"),
+            new Lead("(?i)^making\\s+(.+)$", "Làm %s"),
+            new Lead("(?i)^eliminating\\s+(.+)$", "Bỏ %s"),
+            new Lead("(?i)^searching for\\s+(.+)$", "Tìm %s"),
+            new Lead("(?i)^mapping\\s+(.+)$", "Ánh xạ %s"),
+            new Lead("(?i)^authenticating\\s+(.+)$", "Xác thực %s"),
+            new Lead("(?i)^securing\\s+(.+)$", "Bảo vệ %s"),
+            new Lead("(?i)^internationalizing\\s+(.+)$", "Quốc tế hóa %s")
+    );
+
+    /** Full chapter titles from the PRJ301 textbook, after the "Chapter N" prefix. */
+    private static final Map<String, String> KNOWN_TITLES = Map.ofEntries(
+            Map.entry("using jsps to display content", "Dùng JSP để hiển thị nội dung"),
+            Map.entry("maintaining state using sessions", "Duy trì trạng thái bằng session"),
+            Map.entry("using the expression language in jsps", "Dùng Expression Language trong JSP"),
+            Map.entry("using the java standard tag library", "Dùng thư viện thẻ chuẩn JSTL"),
+            Map.entry("writing custom tag and function libraries", "Viết thư viện thẻ và hàm tùy chỉnh"),
+            Map.entry("improving your application using filters", "Cải thiện ứng dụng bằng filter"),
+            Map.entry("making your application interactive with websockets", "Làm ứng dụng tương tác với WebSocket"),
+            Map.entry("using logging to monitor your application", "Dùng logging để theo dõi ứng dụng"),
+            Map.entry("replacing your servlets with controllers", "Thay Servlet bằng controller"),
+            Map.entry("using services and repositories to support your controllers", "Dùng service và repository cho controller"),
+            Map.entry("internationalizing your application with spring framework i18n", "Quốc tế hóa ứng dụng với Spring i18n"),
+            Map.entry("using jsr 349, spring framework, and hibernate validator for bean validation", "Kiểm tra bean với JSR 349 và Hibernate Validator"),
+            Map.entry("creating restful and soap web services", "Tạo web service REST và SOAP"),
+            Map.entry("using messaging and clustering for flexibility and reliability", "Dùng messaging và clustering"),
+            Map.entry("introducing java persistence api and hibernate orm", "Giới thiệu JPA và Hibernate ORM"),
+            Map.entry("mapping entities to tables with jpa annotations", "Ánh xạ entity sang bảng bằng annotation JPA"),
+            Map.entry("using jpa in spring framework repositories", "Dùng JPA trong repository Spring"),
+            Map.entry("eliminating boilerplate repositories with spring data jpa", "Bỏ repository lặp lại với Spring Data JPA"),
+            Map.entry("searching for data with jpa and hibernate search", "Tìm dữ liệu với JPA và Hibernate Search"),
+            Map.entry("creating advanced mappings and custom data types", "Tạo ánh xạ nâng cao và kiểu dữ liệu tùy chỉnh"),
+            Map.entry("introducing spring security", "Giới thiệu Spring Security"),
+            Map.entry("authenticating users with spring security", "Xác thực người dùng với Spring Security"),
+            Map.entry("using authorization tags and annotations", "Dùng thẻ và annotation phân quyền"),
+            Map.entry("securing restful web services with oauth", "Bảo vệ web service REST bằng OAuth")
     );
 
     private static final String[][] PHRASES = {
@@ -55,7 +94,10 @@ public final class StudyLessonTitles {
             {"web application structure", "cấu trúc ứng dụng web"},
             {"web applications", "ứng dụng web"},
             {"web application", "ứng dụng web"},
+            {"expression language", "Expression Language"},
             {"web containers", "web container"},
+            {"in jsps", "trong JSP"},
+            {"jsps", "JSP"},
             {"servlet class", "lớp Servlet"},
             {"on your machine", "trên máy tính"},
             {"from your ide", "trong IDE"},
@@ -137,6 +179,10 @@ public final class StudyLessonTitles {
 
     private static String paraphrase(String body) {
         String trimmed = sentenceCaseIfShouting(body.trim());
+        String known = KNOWN_TITLES.get(trimmed.toLowerCase(Locale.ROOT).replaceAll("\\s+", " "));
+        if (known != null) {
+            return known;
+        }
         if (trimmed.equalsIgnoreCase("introduction")) {
             return "Giới thiệu";
         }

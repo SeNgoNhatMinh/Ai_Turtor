@@ -187,19 +187,21 @@ function AiAnswer({
     return answered.size >= quizTotal;
   }, [markdown, understandingAttempts, understandingCheck, understandingSelectedKey, waitsForQuiz]);
   const reviewSent = useRef(false);
-  const quizWasFinished = useRef(false);
+  const reviewWasReady = useRef(false);
   const sawOpeningState = useRef(false);
   useEffect(() => {
-    if (!sawOpeningState.current) {
-      sawOpeningState.current = true;
-      quizWasFinished.current = quizFinished;
-      return;
-    }
-    const quizJustFinished = quizFinished && !quizWasFinished.current;
-    quizWasFinished.current = quizFinished;
-    if (reviewer || reviewSent.current || !waitsForQuiz || !quizJustFinished) return;
     const draft = readGuidedPracticeDraft(attemptId);
     const draftText = String(draft?.text || '').trim();
+    const waitingForPractice = Boolean(practice) && waitsForQuiz && !draftText;
+    const ready = quizFinished && !waitingForPractice && !draft?.reviewed;
+    if (!sawOpeningState.current) {
+      sawOpeningState.current = true;
+      reviewWasReady.current = ready;
+      return;
+    }
+    const justBecameReady = ready && !reviewWasReady.current;
+    reviewWasReady.current = ready;
+    if (reviewer || reviewSent.current || !justBecameReady) return;
     if (draft?.reviewed) return;
     const quizzes = extractUnderstandingCheck(markdown).quizzes || [];
     const reviewQuizzes = quizzes.length

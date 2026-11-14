@@ -1,5 +1,5 @@
 const SECTION_HEADING = /^(#{1,6})\s+(?:\d+\.\s*)?bài tập có hướng dẫn\s*$/i;
-const NEXT_HEADING = /^#{1,6}\s+\S/;
+const SECTION_END = /^(#{1,6})\s+(?:\d+\.\s*)?(?:tự thực hành|kiểm tra hiểu|understanding check|quiz tự luyện|học chuyên sâu|nguồn tài liệu|bài tiếp theo|gợi ý học tập)\b/i;
 const FENCE = /```[^\n]*\n([\s\S]*?)```/;
 const BLANK = /_{3,}|【\s*】|\[\s*(?:\.{2,}|blank)\s*\]|\bTODO\b/i;
 
@@ -18,6 +18,14 @@ function splitBlanks(source) {
   }
   segments.push({ type: 'text', text: text.slice(cursor) });
   return { segments, blankCount };
+}
+
+function fillableBody(body) {
+  return String(body || '')
+    .replace(/\\n/g, '\n')
+    .replace(/```[^\n]*\n?/g, '')
+    .replace(/```/g, '')
+    .trim();
 }
 
 function wrapPracticeMessage(body) {
@@ -78,7 +86,7 @@ export function extractGuidedPractice(markdown) {
 
   let end = lines.length;
   for (let index = start + 1; index < lines.length; index += 1) {
-    if (NEXT_HEADING.test(String(lines[index] || '').trim())) {
+    if (SECTION_END.test(String(lines[index] || '').trim())) {
       end = index;
       break;
     }
@@ -88,8 +96,14 @@ export function extractGuidedPractice(markdown) {
   const body = lines.slice(start + 1, end).join('\n').trim();
   const fence = body.match(FENCE);
   const code = fence ? fence[1].replace(/\n$/, '') : '';
-  const prose = (fence ? body.replace(FENCE, '') : '').trim();
-  const blankSource = code || body;
+  const prose = (fence ? body.replace(FENCE, '') : '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+    .slice(0, 2)
+    .join(' ')
+    .trim();
+  const blankSource = fillableBody(body) || code || body;
   const { segments, blankCount } = splitBlanks(blankSource);
   const match = blankSource.match(BLANK);
   const token = match ? match[0] : '';

@@ -49,6 +49,23 @@ class StudyLessonTitlesTest {
     }
 
     @Test
+    void writesVietnameseLabelsForLaterJavaEeChapters() {
+        List<String> labels = StudyLessonTitles.chips(List.of(
+                "Chapter:4 Using JSPs to Display Content",
+                "Chapter 5: Maintaining State Using Sessions",
+                "Chapter 6: Using the Expression Language in JSPs",
+                "Chapter 8: Writing Custom Tag and Function Libraries"
+        )).stream().map(StudyLessonTitles.Chip::label).toList();
+
+        assertEquals(List.of(
+                "Bài 4: Dùng JSP để hiển thị nội dung",
+                "Bài 5: Duy trì trạng thái bằng session",
+                "Bài 6: Dùng Expression Language trong JSP",
+                "Bài 8: Viết thư viện thẻ và hàm tùy chỉnh"
+        ), labels);
+    }
+
+    @Test
     void dropsNumberedSubsectionsWhenAChapterLessonExists() {
         List<String> lines = StudyLessonTitles.welcomeLines(List.of(
                 "1 INTRODUCTION",

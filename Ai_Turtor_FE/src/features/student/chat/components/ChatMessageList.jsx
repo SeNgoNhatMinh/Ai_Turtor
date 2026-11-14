@@ -115,6 +115,8 @@ function StudentLiveAnswer({
   onMentorRequestCreated,
   onOpenMentorReview,
   onStudySuggestion,
+  lessonActionsLocked = false,
+  activeLessonKey = '',
   openSupportCards,
   pathSuggestions,
   setLocalEscalationIds,
@@ -231,6 +233,8 @@ function StudentLiveAnswer({
           suggestions={starterSuggestions}
           onStudy={onStudySuggestion}
           sourceMode={message.mode}
+          actionsLocked={lessonActionsLocked}
+          activeSuggestionKey={activeLessonKey}
           heading="Gợi ý học tập"
           hint="Chọn một bài trong tài liệu để bắt đầu học."
           pageSize={5}
@@ -247,6 +251,8 @@ function StudentLiveAnswer({
           onStudy={onStudySuggestion}
           onCreateQuiz={onCreateQuizFromSuggestion}
           sourceMode={message.mode}
+          actionsLocked={lessonActionsLocked}
+          activeSuggestionKey={activeLessonKey}
           learnedSuggestionKeys={learnedSuggestionKeys}
           currentLearnedSuggestion={currentLearnedSuggestion}
           heading="Gợi ý học tập"
@@ -259,6 +265,7 @@ function StudentLiveAnswer({
           question={message.question}
           answer={message.answer}
           onStudy={onStudySuggestion}
+          disabled={lessonActionsLocked}
         />
       )}
       {done && ((showTtsAction && !placeTtsBelowCourseMaterialHeading) || showGeneralActions) && (
@@ -378,6 +385,9 @@ function ChatMessageList({
   const learnedSuggestionKeys = learnedSuggestions
     .map((suggestion) => getStudySuggestionKey(suggestion))
     .filter(Boolean);
+  const activeLessonKey = String(
+    messages.find((message) => message?.pending)?.studySuggestionKey || '',
+  ).trim();
 
   const openInlineSupport = (messageKey) => {
     setOpenSupportCards((current) => ({ ...current, [messageKey]: true }));
@@ -518,6 +528,8 @@ function ChatMessageList({
                             onMentorRequestCreated={onMentorRequestCreated}
                             onOpenMentorReview={onOpenMentorReview}
                             onStudySuggestion={onStudySuggestion}
+                            lessonActionsLocked={isAiLoading}
+                            activeLessonKey={activeLessonKey}
                             openSupportCards={openSupportCards}
                             pathSuggestions={pathSuggestions}
                             setLocalEscalationIds={setLocalEscalationIds}

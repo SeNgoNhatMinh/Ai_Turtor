@@ -7,6 +7,7 @@ import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -59,7 +60,33 @@ public final class NvidiaEmbeddingModel implements EmbeddingModel {
     }
 
     public List<Embedding> embedPassages(List<String> texts) {
-        return embedAll(texts, PASSAGE);
+        if (texts == null || texts.isEmpty()) {
+            return List.of();
+        }
+        try {
+            return embedAll(texts, PASSAGE);
+        } catch (IllegalStateException failure) {
+            if (isStatus(failure, 500) && texts.size() > 1) {
+                List<Embedding> embeddings = new ArrayList<>(texts.size());
+                for (String text : texts) {
+                    embeddings.addAll(embedPassages(List.of(text)));
+                }
+                return embeddings;
+            }
+            if (isStatus(failure, 422)) {
+                if (texts.size() == 1) {
+                    List<Embedding> skipped = new ArrayList<>(1);
+                    skipped.add(null);
+                    return skipped;
+                }
+                int mid = texts.size() / 2;
+                List<Embedding> embeddings = new ArrayList<>(texts.size());
+                embeddings.addAll(embedPassages(texts.subList(0, mid)));
+                embeddings.addAll(embedPassages(texts.subList(mid, texts.size())));
+                return embeddings;
+            }
+            throw failure;
+        }
     }
 
     private List<Embedding> embedAll(List<String> texts, String inputType) {
@@ -81,15 +108,25 @@ public final class NvidiaEmbeddingModel implements EmbeddingModel {
                     .build();
             HttpResponse<String> response = null;
             for (int attempt = 0; attempt <= maxRetries; attempt++) {
-                response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                try {
+                    response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                } catch (IOException networkError) {
+                    if (attempt == maxRetries) {
+                        throw new IllegalStateException(
+                                "NVIDIA embedding request failed: " + networkError.getMessage(), networkError);
+                    }
+                    Thread.sleep(backoff(attempt));
+                    continue;
+                }
                 if (response.statusCode() >= 200 && response.statusCode() < 300) {
                     break;
                 }
                 boolean retryable = response.statusCode() == 429 || response.statusCode() >= 500;
                 if (!retryable || attempt == maxRetries) {
-                    throw new IllegalStateException("NVIDIA embedding HTTP " + response.statusCode());
+                    throw new IllegalStateException(
+                            "NVIDIA embedding HTTP " + response.statusCode() + ": " + excerpt(response.body()));
                 }
-                Thread.sleep(Math.min(8_000L, 1_000L << attempt));
+                Thread.sleep(backoff(attempt));
             }
             if (response == null) {
                 throw new IllegalStateException("NVIDIA embedding returned no response");
@@ -111,12 +148,23 @@ public final class NvidiaEmbeddingModel implements EmbeddingModel {
                 embeddings.add(Embedding.from(vector));
             }
             return embeddings;
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("NVIDIA embedding request interrupted", e);
         } catch (Exception e) {
             throw new IllegalStateException("NVIDIA embedding request failed: " + e.getMessage(), e);
         }
+    }
+
+    private static boolean isStatus(IllegalStateException failure, int status) {
+        String message = failure.getMessage();
+        return message != null && message.contains("HTTP " + status);
+    }
+
+    private static long backoff(int attempt) {
+        return Math.min(8_000L, 1_000L << attempt);
     }
 
     @Override
@@ -131,6 +179,14 @@ public final class NvidiaEmbeddingModel implements EmbeddingModel {
     @Override
     public int dimension() {
         return 2048;
+    }
+
+    private static String excerpt(String body) {
+        if (body == null || body.isBlank()) {
+            return "";
+        }
+        String compact = body.replaceAll("\\s+", " ").trim();
+        return compact.length() <= 240 ? compact : compact.substring(0, 240);
     }
 
     private static String stripTrailingSlash(String value) {

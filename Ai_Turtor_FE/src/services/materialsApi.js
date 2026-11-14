@@ -130,6 +130,34 @@ export const materialsApi = {
     return response;
   },
 
+  async reindexProgress(courseId) {
+    return request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/reindex-progress`, {
+      timeoutMs: API_TIMEOUTS.default,
+    });
+  },
+
+  async currentReindexRun() {
+    return request(`${API_BASE_URL}/admin/materials/reindex-runs/current`, {
+      timeoutMs: API_TIMEOUTS.default,
+    });
+  },
+
+  async startReindexRun(courseIds) {
+    return request(`${API_BASE_URL}/admin/materials/reindex-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ courseIds }),
+      timeoutMs: API_TIMEOUTS.default,
+    });
+  },
+
+  async stopReindexRun() {
+    return request(`${API_BASE_URL}/admin/materials/reindex-runs/current/stop`, {
+      method: 'POST',
+      timeoutMs: API_TIMEOUTS.default,
+    });
+  },
+
   async reindexCourseMaterials(courseId) {
     const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/reindex`, {
       method: 'POST',

@@ -50,6 +50,42 @@ protected void ____(HttpServletRequest ____, HttpServletResponse resp) {}
   assert.equal(filledPracticeMessage(practice, ['doGet']), '');
 });
 
+test('keeps blanks that sit under a subheading inside the practice', () => {
+  const practice = extractGuidedPractice(`
+## 5. Bài tập có hướng dẫn
+
+Điền các chỗ trống của hàm đếm.
+
+### Hàm đếm số lần xuất hiện của một ký tự trong chuỗi
+
+\`\`\`python
+def count(string, char):
+    ____ = 0
+    for ____ in ____:
+        if ____ == ____:
+            ____ = ____ + 1
+    return ____
+\`\`\`
+
+## 6. Tự thực hành
+
+Viết thêm một ví dụ.
+
+## Kiểm tra hiểu
+
+Q1. count đếm gì?
+A. Số ký tự
+B. Số từ
+Đáp án đúng: A
+Giải thích: Đếm số lần ký tự xuất hiện.
+`);
+
+  assert.equal(practice.blankCount, 8);
+  assert.match(practice.after, /Tự thực hành/);
+  assert.match(practice.after, /Kiểm tra hiểu/);
+  assert.doesNotMatch(practice.after, /def count/);
+});
+
 test('still offers a fill when the skeleton has no blank token', () => {
   const practice = extractGuidedPractice(`
 ## 5. Bài tập có hướng dẫn

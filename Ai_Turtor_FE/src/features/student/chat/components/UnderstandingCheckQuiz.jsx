@@ -41,7 +41,7 @@ function hintText({ reviewer, locked, fromStudent, selectedKey, revealReady }) {
     return 'Đã lưu lựa chọn. Đúng/sai hiện khi bạn làm xong cả quiz và bài tập có hướng dẫn.';
   }
   if (locked) {
-    return 'Đã khóa đáp án. Đúng/sai và giải thích hiện trên câu này, không tạo câu trả lời mới.';
+    return 'Đã khóa đáp án. Đúng/sai hiện trên câu này. AI Tutor giảng lại concept và chỗ sai ở tin nhắn tiếp theo.';
   }
   return 'Chọn một lần. Đúng/sai hiện khi bạn làm xong cả phần, và không đổi được sau khi chọn.';
 }

@@ -145,6 +145,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/tutor/knowledge-images/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/harness/**").hasRole("ADMIN")
                         .requestMatchers("/api/health/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/courses/*/materials/reindex-progress").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/materials", "/api/courses/*/materials", "/api/courses/*/materials/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/courses/*/materials/upload", "/api/courses/*/materials/import-url").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/courses/*/materials/reindex", "/api/courses/*/materials/*/reindex").hasAnyRole("SENIOR_MENTOR", "ADMIN")

@@ -29,6 +29,13 @@
   min-width: 0;
 }
 
+.reindex-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .reindex-hero__icon {
   width: 58px;
   height: 58px;
@@ -47,6 +54,30 @@
 
 .reindex-hero .ant-typography {
   margin: 0;
+  color: #45645b;
+}
+
+.reindex-live {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.reindex-live__percent {
+  min-width: 4.6rem;
+  color: #047857;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.reindex-live strong {
+  color: #064e3b;
+}
+
+.reindex-live p {
+  margin: 3px 0 0;
   color: #45645b;
 }
 
@@ -123,8 +154,17 @@ body.theme-dark .reindex-hero h2 {
 }
 
 .app-container.dark .reindex-hero .ant-typography,
-body.theme-dark .reindex-hero .ant-typography {
+body.theme-dark .reindex-hero .ant-typography,
+.app-container.dark .reindex-live p,
+body.theme-dark .reindex-live p,
+.app-container.dark .reindex-live strong,
+body.theme-dark .reindex-live strong {
   color: #a7f3d0;
+}
+
+.app-container.dark .reindex-live__percent,
+body.theme-dark .reindex-live__percent {
+  color: #6ee7b7;
 }
 
 @media (max-width: 900px) {
@@ -132,8 +172,12 @@ body.theme-dark .reindex-hero .ant-typography {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .reindex-hero__content .ant-btn {
+  .reindex-hero__actions {
     grid-column: 1 / -1;
     width: 100%;
+  }
+
+  .reindex-hero__actions .ant-btn {
+    flex: 1;
   }
 }

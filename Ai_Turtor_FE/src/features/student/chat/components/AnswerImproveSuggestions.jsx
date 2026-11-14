@@ -20,6 +20,8 @@ function AnswerImproveSuggestions({
   collapseLabel = 'Ẩn bớt',
   enableSearch = false,
   searchPlaceholder = 'Tìm chương…',
+  actionsLocked = false,
+  activeSuggestionKey = '',
 }) {
   const learnedKeys = useMemo(() => new Set(
     (Array.isArray(learnedSuggestionKeys) ? learnedSuggestionKeys : [])
@@ -84,8 +86,13 @@ function AnswerImproveSuggestions({
           const text = getStudySuggestionText(suggestion);
           const suggestionKey = getStudySuggestionKey(suggestion);
           const isLearned = learnedKeys.has(suggestionKey);
+          const isActiveRequest = Boolean(activeSuggestionKey) && suggestionKey === activeSuggestionKey;
+          const dimmed = actionsLocked && !isActiveRequest;
           return (
-            <article key={suggestionKey || text.toLowerCase()} className="answer-improve-suggestion">
+            <article
+              key={suggestionKey || text.toLowerCase()}
+              className={`answer-improve-suggestion${dimmed ? ' is-dimmed' : ''}${isActiveRequest ? ' is-active' : ''}`}
+            >
               <span>{text}</span>
               {isLearned ? (
                 <span className="answer-improve-suggestion__learned" aria-label={`${text} - Đã học`}>
@@ -96,6 +103,7 @@ function AnswerImproveSuggestions({
                   {onStudy && (
                     <button
                       type="button"
+                      disabled={actionsLocked}
                       onClick={() => onStudy({
                         ...(suggestion && typeof suggestion === 'object' ? suggestion : {}),
                         text,

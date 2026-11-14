@@ -26,6 +26,12 @@ import { useDailyQuestionQuota } from '../features/student/chat/useDailyQuestion
 import { useTutorSessionController } from '../features/student/chat/useTutorSessionController';
 import { isGuidedLessonPrompt } from '../features/student/learning/studySuggestionPrompt';
 import { isSuccessfulStudySuggestionAnswer } from '../features/student/learning/studySuggestionProgress';
+import {
+  beginActiveChatGeneration,
+  completeActiveChatGeneration,
+  getActiveChatGeneration,
+  rememberActiveChatConversation,
+} from '../features/student/chat/activeChatGeneration';
 
 const getSafeConversationTitle = (value, courseId) => {
   const repairedTitle = repairMojibake(value).trim();
@@ -115,10 +121,6 @@ export function useStudentChatController({
     handleSelectSession,
   });
 
-  useEffect(() => () => {
-    activeAiAbortControllerRef.current?.abort();
-  }, []);
-
   const getStudentUserId = () => userIdRef.current || userId;
 
   const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion, requestContext = {}) => {
@@ -143,6 +145,21 @@ export function useStudentChatController({
     activeAiAbortControllerRef.current?.abort();
     const requestController = new AbortController();
     activeAiAbortControllerRef.current = requestController;
+    const cancelThisRequest = () => {
+      canceledAiRequestIdsRef.current.add(requestId);
+      requestController.abort();
+      if (generationTraceId) {
+        aiTutorApi.cancelGeneration(generationTraceId).catch(() => {});
+      }
+    };
+    beginActiveChatGeneration({
+      requestId,
+      userId,
+      courseId,
+      conversationId: previousSessionId || '',
+      suggestionKey: requestContext.studySuggestionKey || '',
+      cancel: cancelThisRequest,
+    });
     if (previousSessionId) {
       bumpConversationActivity({
         conversationId: previousSessionId,
@@ -391,6 +408,10 @@ export function useStudentChatController({
         setActiveSessionId(responseConversationId);
         setActiveSessionTitle(displayConversationTitle);
       }
+      rememberActiveChatConversation(requestId, {
+        conversationId: displayConversationId,
+        title: displayConversationTitle,
+      });
 
       const reportedQuestionCount = data.userQuestionCount ?? data.questionCount;
       const hasReportedQuestionCount = reportedQuestionCount != null && reportedQuestionCount !== '';
@@ -539,6 +560,7 @@ export function useStudentChatController({
         }
       }
     } finally {
+      completeActiveChatGeneration(requestId);
       if (activeGenerationTraceIdRef.current === generationTraceId) {
         activeGenerationTraceIdRef.current = '';
       }
@@ -635,7 +657,17 @@ export function useStudentChatController({
   };
 
   const handleStopAiGeneration = () => {
+    const running = getActiveChatGeneration();
     const requestId = activeAiRequestIdRef.current;
+    if (
+      running?.status === 'running'
+      && running.userId === userId
+      && running.courseId === courseId
+      && running.requestId !== requestId
+    ) {
+      running.cancel?.();
+      return;
+    }
     if (requestId) canceledAiRequestIdsRef.current.add(requestId);
     const traceId = activeGenerationTraceIdRef.current;
     activeAiAbortControllerRef.current?.abort();

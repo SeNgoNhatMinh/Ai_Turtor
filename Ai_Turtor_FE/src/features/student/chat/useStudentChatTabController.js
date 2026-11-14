@@ -10,6 +10,10 @@ import { LIMITS, validateChatInput } from '../../../utils/validators';
 import { isMobileViewport } from '../../../hooks/useResponsiveViewport';
 import { uiCopy } from '../../../constants/uiCopy';
 import { readStudentOwnLlm } from './studentOwnLlm';
+import {
+  getActiveChatGeneration,
+  subscribeActiveChatGeneration,
+} from './activeChatGeneration';
 
 export function useStudentChatTabController({
   courseId,
@@ -40,9 +44,19 @@ export function useStudentChatTabController({
   const [chatMode, setChatMode] = useState('RAG');
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isAiLoading, setIsAiLoading] = useState(() => {
+    const run = getActiveChatGeneration();
+    return Boolean(run && run.status === 'running' && run.userId === userId && run.courseId === courseId);
+  });
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(() => !isMobileViewport());
-  const isAiLoadingRef = useRef(false);
+  const isAiLoadingRef = useRef(isAiLoading);
+  useEffect(() => subscribeActiveChatGeneration((run) => {
+    const mine = Boolean(
+      run && run.status === 'running' && run.userId === userId && run.courseId === courseId,
+    );
+    isAiLoadingRef.current = mine;
+    setIsAiLoading(mine);
+  }), [courseId, userId]);
   const messagesEndRef = useRef(null);
 
   // Switching to a phone viewport (resize / device toolbar) closes the
@@ -179,6 +193,11 @@ export function useStudentChatTabController({
       requestedMode: requestContext.requestedMode || chatMode,
     };
     handleSendQuery(textToSend, '', () => {}, effectiveRequestContext).finally(() => {
+      const run = getActiveChatGeneration();
+      const stillRunning = Boolean(
+        run && run.status === 'running' && run.userId === userId && run.courseId === courseId,
+      );
+      if (stillRunning) return;
       isAiLoadingRef.current = false;
       setIsAiLoading(false);
     });

@@ -111,7 +111,7 @@ export default function GuidedPracticeFill({
       {practice.prose ? <p className="guided-practice-fill__hint">{practice.prose}</p> : null}
       <p className="guided-practice-fill__hint">
         {waitsForQuiz
-          ? 'Lưu bài làm chỉ giữ bản nháp. Làm xong quiz thì AI giảng lại các câu sai.'
+          ? 'Lưu bài làm chỉ giữ bản nháp. Làm xong cả bài tập và quiz thì AI giảng lại concept và chỉ ra chỗ sai.'
           : 'Lưu bài làm tại đây. Phần này không tạo câu trả lời mới.'}
       </p>
       <pre className="guided-practice-fill__code">
@@ -147,7 +147,7 @@ export default function GuidedPracticeFill({
           {locked && (
             <p className="guided-practice-fill__status">
               {waitsForQuiz
-                ? 'Đã nộp. AI Tutor sẽ sửa bài tập và các câu sai.'
+                ? 'AI Tutor sẽ giảng lại concept của bài và chỉ ra chỗ sai ở tin nhắn tiếp theo.'
                 : 'Đã lưu bài làm. Không tạo câu trả lời mới.'}
             </p>
           )}

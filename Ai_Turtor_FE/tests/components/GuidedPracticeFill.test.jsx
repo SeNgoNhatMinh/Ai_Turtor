@@ -60,7 +60,7 @@ describe('guided practice fill', () => {
       .toContain('void doGet(req req)');
   });
 
-  it('explains mistakes only after the quiz is finished, not when the draft is saved', () => {
+  it('reteaches the concept after both the practice and the quiz are finished', () => {
     const onSubmitGuidedPractice = vi.fn();
     const view = render(
       <AiAnswer
@@ -80,7 +80,9 @@ describe('guided practice fill', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Lưu bài làm' }));
 
     expect(screen.getByText(/Đúng rồi\.|Chưa đúng\./)).toBeVisible();
-    expect(onSubmitGuidedPractice).not.toHaveBeenCalled();
+    expect(onSubmitGuidedPractice).toHaveBeenCalledWith(expect.stringContaining('Hãy sửa bài'));
+    expect(onSubmitGuidedPractice).toHaveBeenCalledWith(expect.stringContaining('giảng lại đúng concept'));
+    expect(onSubmitGuidedPractice).toHaveBeenCalledWith(expect.stringContaining('void doGet(req req)'));
 
     view.rerender(
       <AiAnswer
@@ -99,7 +101,6 @@ describe('guided practice fill', () => {
       />,
     );
 
-    expect(onSubmitGuidedPractice).toHaveBeenCalledWith(expect.stringContaining('Hãy sửa bài'));
-    expect(onSubmitGuidedPractice).toHaveBeenCalledWith(expect.stringContaining('void doGet(req req)'));
+    expect(onSubmitGuidedPractice).toHaveBeenCalledTimes(1);
   });
 });

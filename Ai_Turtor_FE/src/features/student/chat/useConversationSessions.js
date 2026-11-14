@@ -12,6 +12,11 @@ import {
   getSessionQuestionCount,
   sortSessionsByActivity,
 } from './conversations/sessionUtils';
+import {
+  acknowledgeActiveChatGeneration,
+  getActiveChatGeneration,
+  subscribeActiveChatGeneration,
+} from './activeChatGeneration';
 
 const DEFAULT_SESSION_TITLE = 'Trò chuyện với AI Tutor';
 const SESSION_STALE_TIME_MS = 10_000;
@@ -131,13 +136,39 @@ export function useConversationSessions({
     }
   }, [queryClient, userId]);
 
-  // Entering the chat always starts on a clean new-chat screen.
+  // Entering the chat starts on a clean new-chat screen, unless a lesson
+  // answer is still being written into that empty screen.
   useEffect(() => {
+    const run = getActiveChatGeneration();
+    const pendingOnNewChat = run
+      && run.status === 'running'
+      && run.userId === userId
+      && run.courseId === courseId
+      && !run.conversationId;
+    if (pendingOnNewChat) return undefined;
     queryClient.removeQueries({
       queryKey: queryKeys.conversationMessages(null, userId),
       exact: true,
     });
+    return undefined;
   }, [queryClient, userId, courseId]);
+
+  useEffect(() => subscribeActiveChatGeneration((run) => {
+    if (!run || run.userId !== userId || run.courseId !== courseId) return;
+    const openFinishedConversation = () => {
+      if (!run.conversationId || activeSessionIdRef.current) return;
+      if (run.title) setActiveSessionTitle(run.title);
+      setActiveSessionId(run.conversationId);
+    };
+    if (run.status === 'running') {
+      openFinishedConversation();
+      return;
+    }
+    if (run.status === 'done') {
+      openFinishedConversation();
+      acknowledgeActiveChatGeneration(run.requestId);
+    }
+  }), [courseId, setActiveSessionId, userId]);
 
   const setMessagesForConversation = useCallback((conversationId, updater) => {
     if (!conversationId) return;

@@ -581,6 +581,23 @@ public class CourseMaterialController {
     }
 
 
+    @GetMapping("/courses/{courseId}/materials/reindex-progress")
+    @Operation(summary = "Read live reindex progress for one course")
+    public ResponseEntity<?> reindexCourseProgress(
+            @PathVariable String courseId,
+            Authentication authentication
+    ) {
+        try {
+            validateScope(courseId);
+            return ResponseEntity.ok(lifecycleService.reindexProgress(
+                    courseId,
+                    authenticatedRole(authentication)
+            ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/courses/{courseId}/materials/reindex")
     @Operation(summary = "Reindex all course materials into Elasticsearch")
     public ResponseEntity<?> reindexCourseMaterials(

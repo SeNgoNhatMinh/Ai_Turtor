@@ -338,8 +338,8 @@ public class CourseAnswerGenerationStageService {
                 ? """
 
                 WORKER-1 SCOPE (sửa bài):
-                - Grade the filled blanks and the wrong quiz choices only.
-                - Do not reteach the chapter and do not paste the full program.
+                - First restate the concept this exercise checked, then grade the filled blanks and the wrong quiz choices.
+                - Point each mistake back to that concept. Do not open a new chapter and do not paste the full program.
                 - Do NOT include "## Kiểm tra hiểu", "## Quiz tự luyện", "## Học chuyên sâu", or any new A/B/C quiz.
                 - If an excerpt misses a method, say that in one sentence and still mark the blank.
                 """

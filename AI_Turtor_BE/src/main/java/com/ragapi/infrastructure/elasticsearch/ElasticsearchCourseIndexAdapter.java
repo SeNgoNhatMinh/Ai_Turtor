@@ -124,7 +124,13 @@ public class ElasticsearchCourseIndexAdapter implements CourseMaterialIndexGatew
             throw new IllegalStateException("Embedding count did not match chunk count");
         }
         BulkRequest.Builder bulk = new BulkRequest.Builder();
+        int indexed = 0;
         for (int i = 0; i < contents.size(); i++) {
+            if (embeddings.get(i) == null) {
+                log.warn("Skipped chunk {} of material {} rejected by embedding content safety", i, materialId);
+                continue;
+            }
+            indexed++;
             Map<String, Object> data = new HashMap<>();
             data.put("documentId", materialId);
             data.put("materialId", materialId);
@@ -140,11 +146,15 @@ public class ElasticsearchCourseIndexAdapter implements CourseMaterialIndexGatew
             data.put("vector", embeddings.get(i).vector());
             bulk.operations(op -> op.index(idx -> idx.index(index).document(data)));
         }
+        if (indexed == 0) {
+            log.warn("Skipped a batch of {} chunks rejected by the embedding provider", contents.size());
+            return;
+        }
         var response = elasticsearchClient.bulk(bulk.build());
         if (response.errors()) {
             throw new IOException("Elasticsearch bulk indexing reported one or more errors");
         }
-        log.info("Indexed {} chunks in one embedding/bulk batch", contents.size());
+        log.info("Indexed {} chunks in one embedding/bulk batch", indexed);
     }
 
     public void indexHierarchicalChunks(
@@ -182,8 +192,14 @@ public class ElasticsearchCourseIndexAdapter implements CourseMaterialIndexGatew
             throw new IllegalStateException("Embedding count did not match hierarchical chunk count");
         }
         BulkRequest.Builder bulk = new BulkRequest.Builder();
+        int indexed = 0;
         for (int i = 0; i < chunks.size(); i++) {
             CourseMaterialChunkingService.HierarchicalChunk chunk = chunks.get(i);
+            if (embeddings.get(i) == null) {
+                log.warn("Skipped hierarchical chunk {} rejected by embedding content safety", chunk.chunkId());
+                continue;
+            }
+            indexed++;
             Map<String, Object> data = new HashMap<>();
             data.put("documentId", chunk.documentId());
             data.put("materialId", materialId);
@@ -210,9 +226,13 @@ public class ElasticsearchCourseIndexAdapter implements CourseMaterialIndexGatew
                     .id(chunk.chunkId())
                     .document(data)));
         }
+        if (indexed == 0) {
+            log.warn("Skipped a hierarchical batch of {} chunks rejected by the embedding provider", chunks.size());
+            return;
+        }
         var response = elasticsearchClient.bulk(bulk.build());
         if (response.errors()) throw new IOException("Elasticsearch hierarchical bulk indexing reported errors");
-        log.info("Indexed {} hierarchical child chunks", chunks.size());
+        log.info("Indexed {} hierarchical child chunks", indexed);
     }
 
     private String parentWindow(String parent, String child, int maxChars) {

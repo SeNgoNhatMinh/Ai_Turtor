@@ -538,7 +538,8 @@ test('work review prompt asks for the mistake only and is recognized as a hidden
   });
 
   assert.equal(isFinishedWorkReviewQuestion(prompt), true);
-  assert.match(prompt, /Chỉ giải thích vì sao sai/);
+  assert.match(prompt, /giảng lại đúng concept/);
+  assert.match(prompt, /chỉ ra lỗi sai/);
   assert.match(prompt, /Không chép lại cả bài code/);
   assert.match(prompt, /Không nhắc lại đề quiz/);
 });
