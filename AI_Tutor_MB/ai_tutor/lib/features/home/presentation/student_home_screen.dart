@@ -31,6 +31,7 @@ class StudentHomeScreen extends HookConsumerWidget {
     final notificationCount = ref.watch(notificationCountProvider);
 
     final searchController = useTextEditingController();
+    final searchFocusNode = useFocusNode();
     final searchQuery = useState('');
     final selectedServiceTab = useState(PlugProServiceTab.primary);
     final scrollController = useScrollController();
@@ -93,11 +94,19 @@ class StudentHomeScreen extends HookConsumerWidget {
             : (enrolledCourses.isEmpty ? null : enrolledCourses.first);
         final session = ref.read(authControllerProvider).valueOrNull;
         final greetName = _studentGivenName(session?.fullName);
-        final heroSubtitle = activeCourse == null
+        final heroTitle = activeCourse == null
             ? l10n.homeHeroSubtitle
             : (activeCourse.name.isNotEmpty
                   ? activeCourse.name
                   : activeCourse.code);
+        final activeClassName = activeCourse?.className?.trim();
+        final heroSubtitle = activeCourse == null
+            ? 'Chọn một môn học để bắt đầu'
+            : [
+                activeCourse.code,
+                if (activeClassName != null && activeClassName.isNotEmpty)
+                  activeClassName,
+              ].join(' · ');
 
         void continueWithTutor() {
           if (activeCourse != null) {
@@ -121,9 +130,9 @@ class StudentHomeScreen extends HookConsumerWidget {
                           children: [
                             PlanAHomeHero(
                               studentName: greetName,
-                              title: 'Tiếp tục học với AI Tutor',
+                              title: heroTitle,
                               subtitle: heroSubtitle,
-                              ctaLabel: 'Tiếp tục hỏi AI',
+                              ctaLabel: 'Tiếp tục với AI Tutor',
                               onCta: continueWithTutor,
                               action: _HeroBell(
                                 count: notificationCount,
@@ -151,7 +160,7 @@ class StudentHomeScreen extends HookConsumerWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          'Môn đang học',
+                          'Môn học của bạn',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: AppColors.primary,
@@ -160,7 +169,7 @@ class StudentHomeScreen extends HookConsumerWidget {
                         ),
                       ),
                       TextButton.icon(
-                        onPressed: scrollToCourseHub,
+                        onPressed: searchFocusNode.requestFocus,
                         style: TextButton.styleFrom(
                           foregroundColor: AppColors.fptBlue,
                           minimumSize: const Size(48, 48),
@@ -168,9 +177,8 @@ class StudentHomeScreen extends HookConsumerWidget {
                             horizontal: Insets.sm,
                           ),
                         ),
-                        label: const Text('Xem tất cả'),
-                        icon: const Icon(LucideIcons.arrowRight, size: 16),
-                        iconAlignment: IconAlignment.end,
+                        label: const Text('Tìm môn'),
+                        icon: const Icon(LucideIcons.search, size: 16),
                       ),
                     ],
                   ),
@@ -185,6 +193,7 @@ class StudentHomeScreen extends HookConsumerWidget {
                   child: PlanASearchField(
                     hint: 'Tìm theo tên môn, mã môn hoặc lớp',
                     controller: searchController,
+                    focusNode: searchFocusNode,
                   ),
                 ),
               ),
@@ -245,44 +254,18 @@ class StudentHomeScreen extends HookConsumerWidget {
                     PlanAQuickActions(
                       actions: [
                         PlanAQuickAction(
-                          title: 'Quiz',
-                          subtitle: 'Luyện tập và kiểm tra nhanh',
-                          icon: LucideIcons.clipboardList,
-                          color: AppColors.fptOrange,
-                          onTap: () {
-                            final course =
-                                ref.read(selectedCourseProvider) ??
-                                (filteredCourses.isNotEmpty
-                                    ? filteredCourses.first
-                                    : null);
-                            if (course != null) {
-                              ref.read(selectedCourseProvider.notifier).state =
-                                  course;
-                            }
-                            context.push(AppRoutes.studentQuiz);
-                          },
-                        ),
-                        PlanAQuickAction(
-                          title: 'Tài liệu',
-                          subtitle: 'Xem học liệu và nộp bài',
-                          icon: LucideIcons.bookOpen,
-                          color: AppColors.leafGreen,
-                          onTap: () => context.push(AppRoutes.studentMaterials),
-                        ),
-                        PlanAQuickAction(
-                          title: 'Hỗ trợ',
-                          subtitle: 'Theo dõi yêu cầu mentor',
-                          icon: LucideIcons.lifeBuoy,
-                          color: AppColors.primary,
-                          onTap: () =>
-                              context.push(AppRoutes.escalationHistory),
-                        ),
-                        PlanAQuickAction(
-                          title: 'Tiến độ',
-                          subtitle: 'Chủ đề yếu và gợi ý ôn tập',
+                          title: 'Tiến độ học tập',
+                          subtitle: 'Xem quá trình và chủ đề cần cải thiện',
                           icon: LucideIcons.trendingUp,
-                          color: AppColors.accent,
+                          color: AppColors.leafGreen,
                           onTap: () => context.push(AppRoutes.studentProgress),
+                        ),
+                        PlanAQuickAction(
+                          title: 'Không gian môn học',
+                          subtitle: 'Mở công cụ học tập theo từng môn',
+                          icon: LucideIcons.layoutGrid,
+                          color: AppColors.info,
+                          onTap: scrollToCourseHub,
                         ),
                       ],
                     ).animate().fadeIn(
