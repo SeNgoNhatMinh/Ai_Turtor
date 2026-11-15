@@ -64,7 +64,9 @@ void main() {
     expect(actionTaps, 1);
   });
 
-  testWidgets('plan A hero and four tools fit a narrow phone', (tester) async {
+  testWidgets('plan A hero and two utilities fit a narrow phone', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(320, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -89,18 +91,24 @@ void main() {
               children: [
                 PlanAHomeHero(
                   studentName: 'Nguyễn Minh Anh',
-                  title: 'Tiếp tục học với AI Tutor',
-                  subtitle: 'Phát triển ứng dụng di động đa nền tảng',
-                  ctaLabel: 'Tiếp tục hỏi AI',
+                  title: 'Phát triển ứng dụng di động đa nền tảng',
+                  subtitle: 'MOB104 · SE1843',
+                  ctaLabel: 'Tiếp tục với AI Tutor',
                   onCta: () => heroTaps++,
                   action: const SizedBox(width: 48, height: 48),
                 ),
                 PlanAQuickActions(
                   actions: [
-                    action('Quiz', LucideIcons.clipboardList, Colors.orange),
-                    action('Tài liệu', LucideIcons.bookOpen, Colors.green),
-                    action('Hỗ trợ', LucideIcons.lifeBuoy, Colors.blue),
-                    action('Tiến độ', LucideIcons.trendingUp, Colors.purple),
+                    action(
+                      'Tiến độ học tập',
+                      LucideIcons.trendingUp,
+                      Colors.green,
+                    ),
+                    action(
+                      'Không gian môn học',
+                      LucideIcons.layoutGrid,
+                      Colors.blue,
+                    ),
                   ],
                 ),
               ],
@@ -111,7 +119,70 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    await tester.tap(find.text('Tiếp tục hỏi AI'));
+    expect(find.text('AI Tutor'), findsOneWidget);
+    expect(find.text('Môn đang học'), findsOneWidget);
+    expect(find.text('Quiz'), findsNothing);
+    expect(find.text('Tài liệu'), findsNothing);
+    expect(find.text('Hỗ trợ'), findsNothing);
+    await tester.tap(find.text('Tiếp tục với AI Tutor'));
     expect(heroTaps, 1);
+  });
+
+  testWidgets('plan A remains usable at 200 percent text scaling', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                PlanAHomeHero(
+                  studentName: 'Nguyễn Minh Anh',
+                  title: 'Phát triển ứng dụng di động đa nền tảng',
+                  subtitle: 'MOB104 · SE1843',
+                  ctaLabel: 'Tiếp tục với AI Tutor',
+                  onCta: () {},
+                  action: const SizedBox(width: 48, height: 48),
+                ),
+                PlanAQuickActions(
+                  actions: [
+                    PlanAQuickAction(
+                      title: 'Tiến độ học tập',
+                      subtitle: 'Xem quá trình và chủ đề cần cải thiện',
+                      icon: LucideIcons.trendingUp,
+                      color: Colors.green,
+                      onTap: () {},
+                    ),
+                    PlanAQuickAction(
+                      title: 'Không gian môn học',
+                      subtitle: 'Mở công cụ học tập theo từng môn',
+                      icon: LucideIcons.layoutGrid,
+                      color: Colors.blue,
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Tiếp tục với AI Tutor'), findsOneWidget);
+    expect(find.text('Không gian môn học'), findsOneWidget);
   });
 }

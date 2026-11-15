@@ -29,10 +29,50 @@ class PlanAHomeHero extends StatelessWidget {
   final VoidCallback onCta;
   final Widget? action;
 
+  static const _courseHeroAsset = 'assets/images/home_course_fptu_mascot.png';
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final topPad = MediaQuery.paddingOf(context).top + Insets.md;
+    final pageTextScale = MediaQuery.textScalerOf(context).scale(1);
+    final brand = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const FptLogo(height: 30),
+        const Gap(Insets.sm),
+        Container(width: 1, height: 30, color: AppColors.borderStrong),
+        const Gap(Insets.sm),
+        Text(
+          'AI Tutor',
+          style: textTheme.labelLarge?.copyWith(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+    final greeting = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Xin chào',
+          style: textTheme.labelSmall?.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        Text(
+          studentName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.titleSmall?.copyWith(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
@@ -40,35 +80,34 @@ class PlanAHomeHero extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(Insets.screenH, topPad, Insets.screenH, 0),
         child: Column(
           children: [
-            Row(
-              children: [
-                const FptLogo(height: 34),
-                const Gap(Insets.md),
-                Expanded(
-                  child: Column(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (pageTextScale > 1.4) {
+                  return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Xin chào',
-                        style: textTheme.labelSmall?.copyWith(
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: [
+                          brand,
+                          const Spacer(),
+                          if (action != null) action!,
+                        ],
                       ),
-                      Text(
-                        studentName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.titleSmall?.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      const Gap(Insets.sm),
+                      greeting,
                     ],
-                  ),
-                ),
-                if (action != null) action!,
-              ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    brand,
+                    const Gap(Insets.md),
+                    Expanded(child: greeting),
+                    if (action != null) action!,
+                  ],
+                );
+              },
             ),
             const Gap(Insets.md),
             LayoutBuilder(
@@ -77,109 +116,156 @@ class PlanAHomeHero extends StatelessWidget {
                   132.0,
                   158.0,
                 );
-                final copyWidth = (constraints.maxWidth - mascotWidth + 12)
-                    .clamp(176.0, 224.0);
+                final textScale = MediaQuery.textScalerOf(
+                  context,
+                ).scale(1).clamp(1.0, 2.0);
+                final heroHeight = 274 + ((textScale - 1) * 64);
 
                 return Container(
-                  height: 194,
+                  height: heroHeight,
                   width: double.infinity,
                   clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [AppColors.primary, AppColors.primaryTint],
+                      colors: [AppColors.accentWash, AppColors.infoBg],
                     ),
                     borderRadius: BorderRadius.circular(Radii.xl),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.14),
-                        blurRadius: 22,
-                        offset: const Offset(0, 10),
+                        color: AppColors.info.withValues(alpha: 0.16),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
                       ),
                     ],
                   ),
                   child: Stack(
                     children: [
-                      Positioned(
-                        right: -54,
-                        top: -74,
-                        child: Container(
-                          width: 188,
-                          height: 188,
-                          decoration: BoxDecoration(
-                            color: AppColors.fptOrange.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: -4,
-                        bottom: -8,
-                        width: mascotWidth,
-                        height: 166,
+                      Positioned.fill(
                         child: Image.asset(
-                          AppAssets.cocVangLogoTransparent,
-                          fit: BoxFit.contain,
-                          alignment: Alignment.bottomCenter,
+                          _courseHeroAsset,
+                          fit: BoxFit.cover,
+                          alignment: Alignment.centerRight,
                           filterQuality: FilterQuality.high,
                           gaplessPlayback: true,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const SizedBox.shrink(),
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [
+                                AppColors.accentWash.withValues(alpha: 0.98),
+                                AppColors.accentWash.withValues(alpha: 0.86),
+                                AppColors.infoBg.withValues(alpha: 0.2),
+                              ],
+                              stops: const [0, 0.48, 1],
+                            ),
+                          ),
                         ),
                       ),
                       Padding(
                         padding: const EdgeInsets.all(Insets.lg),
-                        child: SizedBox(
-                          width: copyWidth,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Insets.sm,
+                                vertical: Insets.xs,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.card.withValues(alpha: 0.94),
+                                borderRadius: BorderRadius.circular(Radii.full),
+                                border: Border.all(
+                                  color: AppColors.borderHairline,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.fptOrange,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const Gap(Insets.sm),
+                                  Flexible(
+                                    child: Text(
+                                      'Môn đang học',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: textTheme.labelMedium?.copyWith(
+                                        color: AppColors.info,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Gap(Insets.md),
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    constraints.maxWidth - mascotWidth / 2,
+                              ),
+                              child: Text(
                                 title,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: textTheme.headlineSmall?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.15,
-                                  fontSize: 21,
-                                  letterSpacing: -0.3,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.14,
+                                  letterSpacing: -0.35,
                                 ),
                               ),
-                              const Gap(Insets.sm),
-                              Text(
-                                subtitle,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.86),
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.35,
-                                ),
+                            ),
+                            const Gap(Insets.sm),
+                            Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
                               ),
-                              const Gap(Insets.md),
-                              Semantics(
-                                button: true,
-                                label: ctaLabel,
-                                child: Material(
-                                  color: AppColors.accentDark,
-                                  borderRadius: BorderRadius.circular(Radii.md),
-                                  child: InkWell(
-                                    onTap: onCta,
-                                    borderRadius: BorderRadius.circular(
-                                      Radii.md,
+                            ),
+                            const Spacer(),
+                            Semantics(
+                              button: true,
+                              label: ctaLabel,
+                              child: Material(
+                                color: AppColors.info,
+                                borderRadius: BorderRadius.circular(Radii.lg),
+                                clipBehavior: Clip.antiAlias,
+                                child: InkWell(
+                                  onTap: onCta,
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      minHeight: 52,
                                     ),
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: Insets.md,
-                                        vertical: Insets.md,
+                                        vertical: Insets.sm,
                                       ),
                                       child: Row(
-                                        mainAxisSize: MainAxisSize.min,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           const Icon(
                                             LucideIcons.messageCircle,
-                                            size: 17,
+                                            size: 20,
                                             color: Colors.white,
                                           ),
                                           const Gap(Insets.sm),
@@ -191,7 +277,7 @@ class PlanAHomeHero extends StatelessWidget {
                                               style: textTheme.labelLarge
                                                   ?.copyWith(
                                                     color: Colors.white,
-                                                    fontWeight: FontWeight.w700,
+                                                    fontWeight: FontWeight.w800,
                                                   ),
                                             ),
                                           ),
@@ -201,8 +287,8 @@ class PlanAHomeHero extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -223,10 +309,12 @@ class PlanASearchField extends StatelessWidget {
     super.key,
     required this.hint,
     required this.controller,
+    this.focusNode,
   });
 
   final String hint;
   final TextEditingController controller;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -244,6 +332,7 @@ class PlanASearchField extends StatelessWidget {
           ),
           child: TextField(
             controller: controller,
+            focusNode: focusNode,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: hint,
@@ -531,7 +620,7 @@ class PlanAQuickActions extends StatelessWidget {
   const PlanAQuickActions({
     super.key,
     required this.actions,
-    this.title = 'Công cụ học tập',
+    this.title = 'Tiện ích học tập',
   });
 
   final List<PlanAQuickAction> actions;
@@ -552,70 +641,88 @@ class PlanAQuickActions extends StatelessWidget {
             ),
           ),
           const Gap(Insets.sm),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: actions.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: actions.length.clamp(1, 4),
-              mainAxisExtent: 88,
-              crossAxisSpacing: Insets.sm,
-              mainAxisSpacing: Insets.sm,
-            ),
-            itemBuilder: (context, index) {
-              final action = actions[index];
-              return Semantics(
-                button: true,
-                label: action.title,
-                hint: action.subtitle,
-                child: Material(
-                  color: AppColors.card,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(Radii.lg),
-                    side: const BorderSide(color: AppColors.borderHairline),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: action.onTap,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Insets.xs,
-                        vertical: Insets.sm,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final textScale = MediaQuery.textScalerOf(
+                context,
+              ).scale(1).clamp(1.0, 2.0);
+              final itemHeight = 126 + ((textScale - 1) * 34);
+
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: actions.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: actions.length == 1 ? 1 : 2,
+                  mainAxisExtent: itemHeight,
+                  crossAxisSpacing: Insets.sm,
+                  mainAxisSpacing: Insets.sm,
+                ),
+                itemBuilder: (context, index) {
+                  final action = actions[index];
+                  return Semantics(
+                    button: true,
+                    label: action.title,
+                    hint: action.subtitle,
+                    child: Material(
+                      color: action.color.withValues(alpha: 0.08),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(Radii.lg),
+                        side: const BorderSide(color: AppColors.borderHairline),
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: action.color.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(Radii.md),
-                            ),
-                            child: Icon(
-                              action.icon,
-                              color: action.color,
-                              size: 20,
-                            ),
-                          ),
-                          const Gap(Insets.sm),
-                          Text(
-                            action.title,
-                            maxLines: 1,
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w700,
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: action.onTap,
+                        child: Padding(
+                          padding: const EdgeInsets.all(Insets.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: AppColors.card.withValues(alpha: 0.92),
+                                  borderRadius: BorderRadius.circular(Radii.md),
                                 ),
+                                child: Icon(
+                                  action.icon,
+                                  color: action.color,
+                                  size: 22,
+                                ),
+                              ),
+                              const Gap(Insets.sm),
+                              Text(
+                                action.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                              ),
+                              const Gap(Insets.xs),
+                              Expanded(
+                                child: Text(
+                                  action.subtitle,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               );
             },
           ),
