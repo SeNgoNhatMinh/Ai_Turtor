@@ -94,4 +94,7 @@ public class AiQueryRequest {
 
     @Schema(description = "Routing reason supplied by n8n. Ignored when harnessMode is absent.", hidden = true)
     private String harnessReason;
+
+    @Schema(description = "Router strategy already chosen by n8n: RULE, HARNESS_AGENT, or HARNESS_GUARD.", hidden = true)
+    private String harnessRoutingStrategy;
 }

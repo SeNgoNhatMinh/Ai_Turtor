@@ -201,6 +201,8 @@ public class CourseMaterialIndexJobService {
             case "VALIDATING" -> 58;
             case "EMBEDDING" -> 68;
             case "INDEXING" -> 82;
+            case "VISUAL" -> 92;
+            case "OUTLINES" -> 97;
             case "COMPLETED" -> 100;
             default -> 2;
         };

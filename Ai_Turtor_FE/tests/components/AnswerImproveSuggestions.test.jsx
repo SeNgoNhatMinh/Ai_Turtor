@@ -37,6 +37,32 @@ describe('AnswerImproveSuggestions learning progress', () => {
     }));
   });
 
+  it('dims the other lesson buttons while one lesson is being answered', () => {
+    const onStudy = vi.fn();
+    const current = { text: 'Servlet và JSP' };
+    const other = { text: 'MVC' };
+
+    render(
+      <AnswerImproveSuggestions
+        suggestions={[current, other]}
+        onStudy={onStudy}
+        actionsLocked
+        activeSuggestionKey={getStudySuggestionKey(current)}
+        heading="Gợi ý học tập"
+      />,
+    );
+
+    const buttons = screen.getAllByRole('button', { name: /Học ngay/ });
+    expect(buttons).toHaveLength(2);
+    buttons.forEach((button) => expect(button).toBeDisabled());
+    expect(buttons[0].closest('article')).not.toHaveClass('is-dimmed');
+    expect(buttons[0].closest('article')).toHaveClass('is-active');
+    expect(buttons[1].closest('article')).toHaveClass('is-dimmed');
+
+    fireEvent.click(buttons[1]);
+    expect(onStudy).not.toHaveBeenCalled();
+  });
+
   it('reads learned suggestions from storage per student and course', () => {
     const storageKey = getStudySuggestionStorageKey('student-1', 'PRJ301');
     localStorage.setItem(storageKey, JSON.stringify([{

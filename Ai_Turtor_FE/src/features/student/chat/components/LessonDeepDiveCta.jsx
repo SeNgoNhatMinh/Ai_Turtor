@@ -1,7 +1,7 @@
 import { Sparkles } from 'lucide-react';
 import { buildDeepDiveListPrompt } from '../../learning/studySuggestionPrompt';
 
-function LessonDeepDiveCta({ question, answer, onStudy, readOnly = false }) {
+function LessonDeepDiveCta({ question, answer, onStudy, readOnly = false, disabled = false }) {
   const prompt = buildDeepDiveListPrompt(question, answer);
   if (!prompt || (!readOnly && !onStudy)) return null;
 
@@ -16,7 +16,7 @@ function LessonDeepDiveCta({ question, answer, onStudy, readOnly = false }) {
         </span>
       </div>
       <div className="answer-improve-suggestions__list">
-        <article className="answer-improve-suggestion">
+        <article className={`answer-improve-suggestion${disabled ? ' is-dimmed' : ''}`}>
           <span>Gợi ý các khía cạnh sâu hơn của bài này, chưa nhảy sang bài kế.</span>
           {readOnly ? (
             <em className="answer-improve-suggestion__note">Sinh viên bấm “Học chuyên sâu bài này”</em>
@@ -24,6 +24,7 @@ function LessonDeepDiveCta({ question, answer, onStudy, readOnly = false }) {
             <div className="answer-improve-suggestion__actions">
               <button
                 type="button"
+                disabled={disabled}
                 onClick={() => onStudy({ text: prompt })}
               >
                 <Sparkles size={14} aria-hidden="true" /> Học chuyên sâu bài này

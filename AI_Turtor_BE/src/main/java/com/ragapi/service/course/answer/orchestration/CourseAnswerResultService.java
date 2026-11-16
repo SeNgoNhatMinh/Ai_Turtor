@@ -32,6 +32,11 @@ public class CourseAnswerResultService {
             ));
         }
 
+        if (CourseAnswerRequestPolicyService.isFinishedWorkReview(prepared.question())) {
+            log.info("Finished-work review continues with {} retrieved excerpts", prepared.chunks().size());
+            return Optional.empty();
+        }
+
         if (hasTrustedRemediationProvenance(prepared)) {
             log.info("Grounding accepted from the originating understanding-check sources");
             return Optional.empty();

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { Button, Card, Drawer, Empty, Input, Select, Skeleton, Tag } from "antd";
-import { ArrowRight, BookOpenCheck, GraduationCap, MessageSquareText, Search, Send, TriangleAlert, Users } from "lucide-react";
+import { ArrowRight, GraduationCap, Lightbulb, MessageSquareText, Search, TriangleAlert, Users } from "lucide-react";
 import { queryKeys } from "../../../app/queryKeys";
 import PageHeader from "../../../components/common/PageHeader";
 import { getUserFacingError } from "../../../services/apiClient";
@@ -23,6 +23,7 @@ import {
 } from "./teacherTutoringStudents";
 import TeacherTranscriptThread from "./TeacherTranscriptThread";
 import AdaptiveLearningReviewPanel from "../review/AdaptiveLearningReviewPanel";
+import StudentTeachingRagPanel from "../behaviors/StudentTeachingRagPanel";
 import "./TeacherTutoringPage.css";
 
 function TopicList({ label, items, tone = "default", wrap = false }) {
@@ -41,11 +42,33 @@ function TopicList({ label, items, tone = "default", wrap = false }) {
 
 const EMPTY_LIST = [];
 
-// Keep long lists bounded so the page stays usable with tens of thousands
-// of students: the applied-directives panel lives in a fixed-height scroll
-// box (rendered in batches) so it can never stretch the page, and the
-// all-classes overview only previews a few students per class.
-const DIRECTIVE_BATCH_SIZE = 20;
+// First page of the recent-chat drawer. "Hiển thị thêm" reveals the next page.
+const RECENT_CHAT_LIMIT = 5;
+
+function chatTimestamp(item) {
+  return new Date(
+    item?.updatedAt || item?.createdAt || item?.sharedWithTeacherAt || item?.startedAt || 0,
+  ).getTime();
+}
+
+/** Sessions + teacher summaries, newest first — the "đoạn chat" list on the student card. */
+function collectRecentChats(student) {
+  const sessions = (student?.sessions || []).map((session) => ({
+    ...session,
+    _chatKind: "session",
+    _chatAt: chatTimestamp(session),
+  }));
+  const summaries = (student?.summaries || []).map((summary) => ({
+    ...summary,
+    _chatKind: "summary",
+    _chatAt: chatTimestamp(summary),
+  }));
+  return [...sessions, ...summaries].sort((left, right) => right._chatAt - left._chatAt);
+}
+
+function supportNeedScore(student) {
+  return (student?.weakTopics?.length || 0) * 10 + (student?.hasActivity ? 1 : 0);
+}
 
 // Deterministic accent colour per course so class cards are easy to scan.
 const CLASS_ACCENTS = ["#2563eb", "#ea580c", "#059669", "#7c3aed", "#0891b2", "#db2777"];
@@ -65,7 +88,6 @@ async function loadClassBundle(teacherId, scope, signal, page = 0, size = 50, qu
   const results = await Promise.allSettled([
     tutorSessionApi.listTeacherSummaries(teacherId, scope.courseId, scope.classId, { signal }),
     tutorSessionApi.listTeacherSessions(teacherId, scope.courseId, scope.classId, { signal }),
-    tutorSessionApi.listDirectives(teacherId, scope.courseId, scope.classId, { signal }),
     teacherApi.getClassStudents(scope.courseId, scope.classId, teacherId, { signal, page, size, query }),
     teacherApi.getCourseMemories(scope.courseId, scope.classId, { signal }),
   ]);
@@ -73,7 +95,7 @@ async function loadClassBundle(teacherId, scope, signal, page = 0, size = 50, qu
   if (results.every((result) => result.status === "rejected")) {
     throw results[0].reason || new Error("Không thể tải dữ liệu lớp.");
   }
-  const rosterResponse = settledValue(results, 3, {});
+  const rosterResponse = settledValue(results, 2, {});
   const roster = asArray(rosterResponse, "students", "items", "content");
   return {
     rosterMeta: {
@@ -84,7 +106,7 @@ async function loadClassBundle(teacherId, scope, signal, page = 0, size = 50, qu
     },
     students: buildClassStudentRows({
       roster,
-      memories: asArray(settledValue(results, 4, {}), "memories", "items", "content"),
+      memories: asArray(settledValue(results, 3, {}), "memories", "items", "content"),
       sessions: asArray(settledValue(results, 1, {}), "sessions", "items", "content").map((item) =>
         mergeRosterIdentity(item, roster),
       ),
@@ -95,35 +117,19 @@ async function loadClassBundle(teacherId, scope, signal, page = 0, size = 50, qu
       classId: scope.classId,
       classLabel: scope.label,
     }),
-    directives: asArray(settledValue(results, 2, {}), "directives", "items", "content").map((item) => ({
-      ...mergeRosterIdentity(item, roster),
-      courseId: scope.courseId,
-      classId: scope.classId,
-      classKey: scope.key,
-      classLabel: scope.label,
-    })),
   };
 }
 
 export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId, triggerToast }) {
-  const queryClient = useQueryClient();
   const [activeClassKey, setActiveClassKey] = useState("");
   const [studentPage, setStudentPage] = useState(0);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedSummary, setSelectedSummary] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [drawerFocus, setDrawerFocus] = useState("support");
+  const [visibleChatCount, setVisibleChatCount] = useState(RECENT_CHAT_LIMIT);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [classQuery, setClassQuery] = useState("");
-  const [directiveQuery, setDirectiveQuery] = useState("");
-  const [directiveVisibleCount, setDirectiveVisibleCount] = useState(DIRECTIVE_BATCH_SIZE);
-  const [expandedDirectiveIds, setExpandedDirectiveIds] = useState(() => new Set());
-  const [form, setForm] = useState({
-    classKey: "",
-    studentId: "",
-    instruction: "",
-    supportLevel: "STANDARD",
-  });
 
   const classesQuery = useQuery({
     queryKey: queryKeys.teacherClasses(teacherId),
@@ -152,7 +158,6 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
     staleTime: 30_000,
   });
   const studentRows = tutoringQuery.data?.students || EMPTY_LIST;
-  const directives = tutoringQuery.data?.directives || EMPTY_LIST;
 
   // "Tất cả lớp" overview: teachers first see the classes they teach and
   // only open one class to reveal its students. The overview therefore
@@ -225,44 +230,15 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
     triggerToast?.(getUserFacingError(transcriptQuery.error, "Không thể tải toàn bộ hội thoại."), 'error');
   }, [transcriptQuery.error, triggerToast]);
 
-  const scopedRows = studentRows;
+  const scopedRows = useMemo(
+    () => [...studentRows].sort((left, right) => {
+      const byNeed = supportNeedScore(right) - supportNeedScore(left);
+      if (byNeed !== 0) return byNeed;
+      return formatTeacherStudentLabel(left).localeCompare(formatTeacherStudentLabel(right), "vi");
+    }),
+    [studentRows],
+  );
   const visibleGroups = useMemo(() => groupRowsByClass(scopedRows), [scopedRows]);
-
-  const visibleDirectives = useMemo(() => {
-    const confirmed = directives.filter((item) => item.status === "CONFIRMED");
-    return confirmed.filter((item) => item.classKey === effectiveActiveClassKey);
-  }, [directives, effectiveActiveClassKey]);
-
-  const filteredDirectives = useMemo(() => {
-    const keyword = directiveQuery.trim().toLowerCase();
-    if (!keyword) return visibleDirectives;
-    return visibleDirectives.filter((item) => {
-      const owner = item.studentId ? formatTeacherStudentLabel(item, "") : "Cả lớp";
-      return owner.toLowerCase().includes(keyword)
-        || String(item.instruction || "").toLowerCase().includes(keyword);
-    });
-  }, [directiveQuery, visibleDirectives]);
-  const renderedDirectives = filteredDirectives.slice(0, directiveVisibleCount);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDirectiveVisibleCount(DIRECTIVE_BATCH_SIZE), 0);
-    return () => window.clearTimeout(timer);
-  }, [directiveQuery, effectiveActiveClassKey]);
-
-  const toggleDirectiveExpanded = (directiveId) => {
-    setExpandedDirectiveIds((current) => {
-      const next = new Set(current);
-      if (next.has(directiveId)) next.delete(directiveId);
-      else next.add(directiveId);
-      return next;
-    });
-  };
-
-  const formStudents = useMemo(() => {
-    const key = form.classKey || effectiveActiveClassKey;
-    if (!key) return studentRows;
-    return studentRows.filter((student) => student.classKey === key);
-  }, [effectiveActiveClassKey, form.classKey, studentRows]);
 
   const studiedCount = scopedRows.filter((student) => student.hasActivity).length;
   const weakCount = scopedRows.filter((student) => student.weakTopics.length > 0).length;
@@ -277,21 +253,13 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
       setCourseId?.(scope.courseId);
       setClassId?.(scope.classId);
     }
-    setForm((value) => ({
-      ...value,
-      classKey: key,
-      studentId: "",
-    }));
   };
 
-  const openStudent = (student) => {
+  const openStudent = (student, focus = "support") => {
     setSelectedStudent(student);
     setSelectedSummary(null);
-    setForm((value) => ({
-      ...value,
-      classKey: student.classKey || value.classKey,
-      studentId: student.studentId || "",
-    }));
+    setDrawerFocus(focus);
+    setVisibleChatCount(RECENT_CHAT_LIMIT);
   };
 
   const openTranscript = (summary) => {
@@ -310,61 +278,13 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
     setSelectedSummary(null);
   };
 
-  const applyDirectiveToStudent = (student) => {
-    setForm((value) => ({
-      ...value,
-      classKey: student.classKey || value.classKey,
-      studentId: student.studentId || "",
-    }));
-    if (student.classKey) setActiveClassKey(student.classKey);
-    window.document.querySelector(".teacher-directive-form textarea")?.focus();
-  };
-
-  const createDirective = async (event) => {
-    event.preventDefault();
-    if (!form.instruction.trim()) return;
-    const selectedStudentScope = studentRows.find((student) => student.studentId === form.studentId);
-    const scope =
-      classScopes.find(
-        (item) => item.key === (form.classKey || selectedStudentScope?.classKey || effectiveActiveClassKey),
-      ) || activeScope;
-    if (!scope?.courseId || !scope?.classId) {
-      triggerToast?.("Hãy chọn lớp trước khi gửi chỉ dẫn.");
-      return;
-    }
-    setSaving(true);
-    try {
-      const draft = await tutorSessionApi.createDirective(teacherId, {
-        studentId: form.studentId.trim() || null,
-        topic: null,
-        instruction: form.instruction.trim(),
-        supportLevel: form.supportLevel,
-        courseId: scope.courseId,
-        classId: scope.classId,
-      });
-      await tutorSessionApi.confirmDirective(teacherId, draft.id);
-      setForm({ classKey: form.classKey || scope.key, studentId: "", instruction: "", supportLevel: "STANDARD" });
-      triggerToast?.("Đã xác nhận chỉ dẫn. AI Tutor sẽ áp dụng từ lượt học tiếp theo.");
-      await queryClient.invalidateQueries({ queryKey: tutoringQueryKey, exact: true });
-    } catch (error) {
-      triggerToast?.(getUserFacingError(error, "Không thể lưu chỉ dẫn sư phạm."), 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const archiveDirective = async (directiveId) => {
-    try {
-      await tutorSessionApi.archiveDirective(teacherId, directiveId);
-      await queryClient.invalidateQueries({ queryKey: tutoringQueryKey, exact: true });
-    } catch (error) {
-      triggerToast?.(getUserFacingError(error, "Không thể ngừng áp dụng chỉ dẫn."), 'error');
-    }
-  };
-
-
   const renderStudentRow = (student) => {
-    const chatCount = student.sessions.length + student.summaries.length;
+    const chatCount = collectRecentChats(student).length;
+    const recentChatLabel = chatCount === 0
+      ? "Chưa có đoạn chat"
+      : chatCount <= RECENT_CHAT_LIMIT
+        ? `Xem ${chatCount} đoạn chat gần nhất`
+        : `Xem ${RECENT_CHAT_LIMIT} đoạn chat gần nhất`;
     return (
       <article key={`${student.classKey}-${student.studentId || student.id}`} className="tt-student">
         <div className="tt-student__main">
@@ -372,9 +292,6 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
           <div className="tt-student__copy">
             <div className="tt-student__name-row">
               <strong>{formatTeacherStudentLabel(student)}</strong>
-              {student.hasActivity
-                ? <Tag color="success">Đã học với AI</Tag>
-                : <Tag>Chưa học</Tag>}
             </div>
             <span className="tt-student__email">{getPersonEmail(student) || "Chưa có email"}</span>
             <span className="tt-student__activity">{student.activityLabel}</span>
@@ -397,13 +314,18 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
           <Button
             type="primary"
             size="small"
-            icon={<MessageSquareText size={13} />}
-            onClick={() => openStudent(student)}
+            icon={<Lightbulb size={13} />}
+            onClick={() => openStudent(student, "support")}
           >
-            Xem {chatCount} đoạn chat
+            Xem gợi ý hỗ trợ
           </Button>
-          <Button size="small" icon={<Send size={13} />} onClick={() => applyDirectiveToStudent(student)}>
-            Gửi chỉ dẫn
+          <Button
+            size="small"
+            icon={<MessageSquareText size={13} />}
+            disabled={chatCount === 0}
+            onClick={() => openStudent(student, "chats")}
+          >
+            {recentChatLabel}
           </Button>
         </div>
       </article>
@@ -417,7 +339,7 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
       <PageHeader
         eyebrow="AI Tutor"
         title="Theo dõi AI Tutor theo từng lớp"
-        description="Chọn lớp bạn phụ trách, xem bài đã học của từng sinh viên và gửi chỉ dẫn sư phạm cho AI Tutor."
+        description="Chọn lớp bạn phụ trách, xem gợi ý hỗ trợ và 5 đoạn chat gần nhất của từng sinh viên."
         actions={
           <div className="teacher-tutoring-stats">
             <div>
@@ -472,7 +394,7 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
               </label>
               <div className="tt-toolbar__meta">
                 <strong>{tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length} sinh viên</strong>
-                <span>trong {activeScope.label} · chọn sinh viên để xem đoạn chat và gửi chỉ dẫn</span>
+                <span>trong {activeScope.label} · chọn sinh viên để xem gợi ý hỗ trợ hoặc đoạn chat gần nhất</span>
               </div>
             </>
           ) : (
@@ -511,7 +433,7 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
             <h2>Các lớp bạn đang đứng lớp</h2>
             <p>
               {classScopes.length} lớp · {overviewTotalStudents} sinh viên.
-              Chọn một lớp để xem danh sách sinh viên, đoạn chat và chỉ dẫn đang áp dụng.
+              Chọn một lớp để xem danh sách sinh viên, gợi ý hỗ trợ và đoạn chat gần nhất.
             </p>
           </div>
           {filteredOverviewBundles.length === 0 ? (
@@ -552,7 +474,7 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
                     <span className="tt-class-card__features">
                       <span><Users size={12} /> Sinh viên</span>
                       <span><MessageSquareText size={12} /> Đoạn chat</span>
-                      <span><BookOpenCheck size={12} /> Chỉ dẫn AI</span>
+                      <span><Lightbulb size={12} /> Gợi ý hỗ trợ</span>
                     </span>
                   </button>
                 </Card>
@@ -566,7 +488,18 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
       )}
 
       {activeScope && (
-        <div className="tt-layout">
+        <div className="tt-layout tt-layout--single">
+          {weakCount > 0 && (
+            <Card className="tt-side-note" variant="borderless">
+              <div className="tt-side-note__row">
+                <TriangleAlert size={15} />
+                <p>
+                  <strong>{weakCount} sinh viên cần củng cố</strong> ở trang hiện tại (được xếp lên đầu danh sách).
+                  Mở <em>Xem gợi ý hỗ trợ</em> hoặc <em>5 đoạn chat gần nhất</em> để xem chi tiết.
+                </p>
+              </div>
+            </Card>
+          )}
           <Card
             className="tt-roster"
             variant="borderless"
@@ -610,279 +543,193 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
               </nav>
             )}
           </Card>
-
-          <div className="tt-side">
-            <Card
-              className="tt-directive"
-              variant="borderless"
-              title={(
-                <span className="tt-card-title">
-                  <BookOpenCheck size={16} /> Chỉ dẫn sư phạm cho AI Tutor
-                </span>
-              )}
-            >
-              <form className="teacher-directive-form tt-form" onSubmit={createDirective}>
-                <label className="tt-field">
-                  <span>Lớp áp dụng</span>
-                  <Select
-                    value={form.classKey || effectiveActiveClassKey || undefined}
-                    placeholder="Chọn lớp"
-                    options={classScopes.map((scope) => ({ value: scope.key, label: scope.label }))}
-                    onChange={(key) => setForm((value) => ({ ...value, classKey: key, studentId: "" }))}
-                  />
-                </label>
-                <label className="tt-field">
-                  <span>Sinh viên</span>
-                  <Select
-                    value={form.studentId || ""}
-                    showSearch
-                    optionFilterProp="label"
-                    placeholder="Chọn sinh viên (gõ để tìm trong danh sách đã tải)"
-                    options={[
-                      { value: "", label: "Cả lớp" },
-                      ...formStudents.map((student) => ({
-                        value: student.studentId || "",
-                        label: classScopes.length > 1
-                          ? `${student.classId} · ${formatTeacherStudentLabel(student)}`
-                          : formatTeacherStudentLabel(student),
-                      })),
-                    ]}
-                    onChange={(value) => setForm((current) => ({ ...current, studentId: value }))}
-                  />
-                </label>
-                <label className="tt-field">
-                  <span>Mức hỗ trợ</span>
-                  <Select
-                    value={form.supportLevel}
-                    options={[
-                      { value: "HIGH_SUPPORT", label: "Hướng dẫn kỹ, từng bước" },
-                      { value: "STANDARD", label: "Cân bằng giải thích và thực hành" },
-                      { value: "CHALLENGE", label: "Tăng thử thách, giảm gợi ý" },
-                    ]}
-                    onChange={(value) => setForm((current) => ({ ...current, supportLevel: value }))}
-                  />
-                </label>
-                <label className="tt-field">
-                  <span>Nhận xét / chỉ dẫn cho AI Tutor</span>
-                  <Input.TextArea
-                    value={form.instruction}
-                    onChange={(event) => setForm((value) => ({ ...value, instruction: event.target.value }))}
-                    placeholder="Ví dụ: Giải thích từng bước, dùng ví dụ gần thực tế, nhắc lại thuật ngữ quan trọng và kiểm tra mức độ hiểu sau mỗi phần."
-                    rows={4}
-                    required
-                  />
-                  <small className="tt-field__hint">
-                    Định hướng cách giải thích, ví dụ, độ khó và cách kiểm tra hiểu; AI vẫn ưu tiên syllabus và tài liệu chính thức của môn.
-                  </small>
-                </label>
-                <Button type="primary" htmlType="submit" block loading={saving}>
-                  Xác nhận và áp dụng
-                </Button>
-              </form>
-
-              <div className="tt-directive-list">
-                <div className="tt-directive-list__head">
-                  <h3>Đang áp dụng tại lớp này</h3>
-                  {visibleDirectives.length > 0 && <Tag color="blue">{visibleDirectives.length}</Tag>}
-                </div>
-                {visibleDirectives.length > 0 && (
-                  <Input
-                    className="tt-directive-search"
-                    value={directiveQuery}
-                    onChange={(event) => setDirectiveQuery(event.target.value)}
-                    placeholder="Tìm chỉ dẫn theo sinh viên hoặc nội dung"
-                    aria-label="Tìm chỉ dẫn đang áp dụng"
-                    allowClear
-                  />
-                )}
-                {visibleDirectives.length === 0 && (
-                  <p className="tt-directive-empty">Chưa có chỉ dẫn nào đang áp dụng.</p>
-                )}
-                {visibleDirectives.length > 0 && filteredDirectives.length === 0 && (
-                  <p className="tt-directive-empty">Không có chỉ dẫn nào khớp với từ khóa.</p>
-                )}
-                {renderedDirectives.length > 0 && (
-                <div className="tt-directive-scroll">
-                {renderedDirectives.map((item) => {
-                  const isLongInstruction = String(item.instruction || "").length > 220;
-                  const isExpanded = expandedDirectiveIds.has(item.id);
-                  return (
-                    <article key={item.id} className="tt-directive-item">
-                      <div className="tt-directive-item__head">
-                        <strong>
-                          {item.classLabel ? `${item.classLabel} · ` : ""}
-                          {item.studentId ? formatTeacherStudentLabel(item, "Sinh viên") : "Cả lớp"}
-                        </strong>
-                        <Tag color={item.supportLevel === "HIGH_SUPPORT" ? "orange" : item.supportLevel === "CHALLENGE" ? "purple" : "blue"}>
-                          {supportLevelLabel(item.supportLevel)}
-                        </Tag>
-                      </div>
-                      <p className={isLongInstruction && !isExpanded ? "tt-directive-item__clamp" : undefined}>
-                        {item.instruction}
-                      </p>
-                      <div className="tt-directive-item__actions">
-                        {isLongInstruction && (
-                          <Button type="link" size="small" onClick={() => toggleDirectiveExpanded(item.id)}>
-                            {isExpanded ? "Thu gọn" : "Xem đầy đủ"}
-                          </Button>
-                        )}
-                        <Button danger size="small" onClick={() => archiveDirective(item.id)}>
-                          Ngừng áp dụng
-                        </Button>
-                      </div>
-                    </article>
-                  );
-                })}
-                {filteredDirectives.length > renderedDirectives.length && (
-                  <Button
-                    block
-                    onClick={() => setDirectiveVisibleCount((count) => count + DIRECTIVE_BATCH_SIZE)}
-                  >
-                    Hiển thị thêm (còn {filteredDirectives.length - renderedDirectives.length} chỉ dẫn)
-                  </Button>
-                )}
-                </div>
-                )}
-              </div>
-            </Card>
-
-            <Card className="tt-side-note" variant="borderless">
-              <div className="tt-side-note__row">
-                <TriangleAlert size={15} />
-                <p>
-                  <strong>{weakCount} sinh viên cần củng cố</strong> ở trang hiện tại. Mở hồ sơ sinh viên để xem
-                  chủ đề yếu, câu hỏi gần đây và toàn bộ đoạn chat trước khi gửi chỉ dẫn riêng.
-                </p>
-              </div>
-            </Card>
-          </div>
         </div>
       )}
 
       <Drawer
-        title={selectedSummary ? "Hội thoại" : "Bài đã học"}
+        title={selectedSummary
+          ? "Hội thoại"
+          : drawerFocus === "chats"
+            ? "Đoạn chat gần nhất"
+            : "Gợi ý hỗ trợ"}
         width={760}
         className="teacher-transcript-drawer"
         rootClassName="teacher-transcript-drawer"
         open={Boolean(selectedStudent)}
         onClose={() => {
           setSelectedStudent(null);
+          setDrawerFocus("support");
+          setVisibleChatCount(RECENT_CHAT_LIMIT);
           closeTranscript();
         }}
       >
-        {selectedStudent && !selectedSummary && (
-          <div className="teacher-student-detail">
-            <header className="teacher-detail-hero">
-              <span className="teacher-student-card__avatar">{studentInitials(selectedStudent)}</span>
-              <div>
-                <strong>{selectedStudentLabel}</strong>
-                <span>
-                  {selectedStudent.classLabel ? `${selectedStudent.classLabel} · ` : ""}
-                  {getPersonEmail(selectedStudent) || "Chưa có email"}
-                </span>
+        {selectedStudent && !selectedSummary && (() => {
+          const allChats = collectRecentChats(selectedStudent);
+          const visibleChats = allChats.slice(0, visibleChatCount);
+          const hiddenChatCount = allChats.length - visibleChats.length;
+          const chatSection = (
+            <section className="teacher-detail-section" id="teacher-recent-chats">
+              <div className="teacher-detail-section__heading">
+                <div>
+                  <h3>Đoạn chat gần nhất ({allChats.length})</h3>
+                  <p className="teacher-detail-section__hint">
+                    {hiddenChatCount > 0
+                      ? `Đang hiện ${visibleChats.length}/${allChats.length}.`
+                      : "Buổi học và tổng kết gửi giảng viên, mới nhất trước."}
+                  </p>
+                </div>
               </div>
-            </header>
-
-            <section className="teacher-detail-section">
-              <h3>Chủ đề đã học</h3>
-              {selectedStudent.studiedTopics?.length ? (
-                <TopicList items={selectedStudent.studiedTopics} wrap />
+              {allChats.length === 0 ? (
+                <p className="teacher-tutoring-empty">Sinh viên này chưa có đoạn chat với AI Tutor.</p>
               ) : (
-                <p className="teacher-tutoring-empty">Chưa ghi nhận chủ đề ngắn từ buổi học.</p>
-              )}
-            </section>
-
-            {selectedStudent.weakTopics?.length > 0 && (
-              <section className="teacher-detail-section">
-                <h3>Cần củng cố</h3>
-                <TopicList items={selectedStudent.weakTopics} tone="weak" wrap />
-              </section>
-            )}
-            <section className="teacher-detail-section">
-              <h3>Đánh giá tiến bộ của AI</h3>
-              <AdaptiveLearningReviewPanel
-                embedded
-                forcedStudentId={selectedStudent.studentId || selectedStudent.id || ""}
-                courseId={selectedStudent.courseId || activeScope?.courseId || ""}
-                classId={selectedStudent.classId || activeScope?.classId || ""}
-                triggerToast={triggerToast}
-              />
-            </section>
-
-
-            {selectedStudent.recentQuestions?.length > 0 && (
-              <section className="teacher-detail-section">
-                <h3>Câu hỏi gần đây</h3>
-                <ol className="teacher-question-list">
-                  {selectedStudent.recentQuestions.slice(0, 8).map((question) => (
-                    <li key={question}>{question}</li>
-                  ))}
-                </ol>
-              </section>
-            )}
-
-            {!selectedStudent.hasActivity && (
-              <p className="teacher-transcript__empty">Sinh viên này chưa học với AI Tutor.</p>
-            )}
-
-            {selectedStudent.sessions?.length > 0 && (
-              <section className="teacher-detail-section">
-                <h3>Buổi học</h3>
                 <div className="teacher-detail-stack">
-                  {selectedStudent.sessions.map((session) => (
-                    <article key={session.id} className="teacher-detail-item">
+                  {visibleChats.map((item) => (
+                    <article key={`${item._chatKind}-${item.id}`} className="teacher-detail-item">
                       <div>
-                        <strong>{sessionHeadline(session, selectedStudent.studiedTopics)}</strong>
+                        <strong>{sessionHeadline(item, selectedStudent.studiedTopics)}</strong>
                         <span>
-                          {sessionStatusLabel(session.status)}
+                          {item._chatKind === "session"
+                            ? sessionStatusLabel(item.status)
+                            : "Tổng kết gửi giảng viên"}
                           {" · "}
-                          {session.studentTurnCount || 0} lượt
-                          {formatTutorWhen(session.updatedAt || session.startedAt)
-                            ? ` · ${formatTutorWhen(session.updatedAt || session.startedAt)}`
+                          {item.studentTurnCount || 0} lượt
+                          {item._chatKind === "summary" ? ` · ${supportLevelLabel(item.supportLevel)}` : ""}
+                          {formatTutorWhen(item.updatedAt || item.createdAt || item.sharedWithTeacherAt || item.startedAt)
+                            ? ` · ${formatTutorWhen(item.updatedAt || item.createdAt || item.sharedWithTeacherAt || item.startedAt)}`
                             : ""}
                         </span>
                       </div>
+                      {item._chatKind === "summary" && item.summaryText ? <p>{item.summaryText}</p> : null}
                       <button
                         type="button"
                         className="teacher-tutoring-btn"
-                        onClick={() => openSessionTranscript(session)}
+                        onClick={() => (item._chatKind === "session"
+                          ? openSessionTranscript(item)
+                          : openTranscript(item))}
                       >
-                        Xem hội thoại
+                        {item._chatKind === "session" ? "Xem hội thoại" : "Xem hội thoại đầy đủ"}
                       </button>
                     </article>
                   ))}
+                  {hiddenChatCount > 0 && (
+                    <Button
+                      block
+                      className="teacher-detail-more"
+                      onClick={() => setVisibleChatCount((count) => count + RECENT_CHAT_LIMIT)}
+                    >
+                      Hiển thị thêm
+                    </Button>
+                  )}
                 </div>
-              </section>
-            )}
-
-            {selectedStudent.summaries?.length > 0 && (
+              )}
+            </section>
+          );
+          const supportSections = (
+            <>
               <section className="teacher-detail-section">
-                <h3>Tổng kết gửi giảng viên</h3>
-                <div className="teacher-detail-stack">
-                  {selectedStudent.summaries.map((summary) => (
-                    <article key={summary.id} className="teacher-detail-item">
-                      <div>
-                        <strong>{sessionHeadline(summary, selectedStudent.studiedTopics)}</strong>
-                        <span>
-                          {summary.studentTurnCount || 0} lượt
-                          {" · "}
-                          {supportLevelLabel(summary.supportLevel)}
-                          {formatTutorWhen(summary.createdAt || summary.sharedWithTeacherAt)
-                            ? ` · ${formatTutorWhen(summary.createdAt || summary.sharedWithTeacherAt)}`
-                            : ""}
-                        </span>
-                      </div>
-                      {summary.summaryText ? <p>{summary.summaryText}</p> : null}
-                      <button type="button" className="teacher-tutoring-btn" onClick={() => openTranscript(summary)}>
-                        Xem hội thoại đầy đủ
-                      </button>
-                    </article>
-                  ))}
-                </div>
+                <h3>Chủ đề đã học</h3>
+                {selectedStudent.studiedTopics?.length ? (
+                  <TopicList items={selectedStudent.studiedTopics} wrap />
+                ) : (
+                  <p className="teacher-tutoring-empty">Chưa ghi nhận chủ đề ngắn từ buổi học.</p>
+                )}
               </section>
-            )}
-          </div>
-        )}
+
+              {selectedStudent.weakTopics?.length > 0 && (
+                <section className="teacher-detail-section">
+                  <h3>Cần củng cố</h3>
+                  <TopicList items={selectedStudent.weakTopics} tone="weak" wrap />
+                </section>
+              )}
+
+              <section className="teacher-detail-section">
+                <h3>Đánh giá tiến bộ của AI</h3>
+                <AdaptiveLearningReviewPanel
+                  embedded
+                  forcedStudentId={selectedStudent.studentId || selectedStudent.id || ""}
+                  courseId={selectedStudent.courseId || activeScope?.courseId || ""}
+                  classId={selectedStudent.classId || activeScope?.classId || ""}
+                  triggerToast={triggerToast}
+                />
+              </section>
+
+              <section className="teacher-detail-section">
+                <h3>Cách AI hỗ trợ bạn học</h3>
+                <StudentTeachingRagPanel
+                  studentId={selectedStudent.studentId || selectedStudent.id || ""}
+                  courseId={selectedStudent.courseId || activeScope?.courseId || ""}
+                  classId={selectedStudent.classId || activeScope?.classId || ""}
+                  triggerToast={triggerToast}
+                  masteredTopics={selectedStudent.studiedTopics || selectedStudent.learnedTopics || []}
+                  improveTopics={selectedStudent.weakTopics || []}
+                  recentResults={(selectedStudent.recentQuestions || []).map((question) => `Đã hỏi: ${question}`)}
+                />
+              </section>
+
+              {selectedStudent.recentQuestions?.length > 0 && (
+                <section className="teacher-detail-section">
+                  <h3>Câu hỏi gần đây</h3>
+                  <ol className="teacher-question-list">
+                    {selectedStudent.recentQuestions.slice(0, 8).map((question) => (
+                      <li key={question}>{question}</li>
+                    ))}
+                  </ol>
+                </section>
+              )}
+            </>
+          );
+
+          return (
+            <div className="teacher-student-detail">
+              <header className="teacher-detail-hero">
+                <span className="teacher-student-card__avatar">{studentInitials(selectedStudent)}</span>
+                <div>
+                  <strong>{selectedStudentLabel}</strong>
+                  <span>
+                    {selectedStudent.classLabel ? `${selectedStudent.classLabel} · ` : ""}
+                    {getPersonEmail(selectedStudent) || "Chưa có email"}
+                  </span>
+                </div>
+              </header>
+
+              <div className="teacher-detail-tabs">
+                <Button
+                  type={drawerFocus === "support" ? "primary" : "default"}
+                  size="small"
+                  icon={<Lightbulb size={13} />}
+                  onClick={() => setDrawerFocus("support")}
+                >
+                  Gợi ý hỗ trợ
+                </Button>
+                <Button
+                  type={drawerFocus === "chats" ? "primary" : "default"}
+                  size="small"
+                  icon={<MessageSquareText size={13} />}
+                  onClick={() => setDrawerFocus("chats")}
+                >
+                  {allChats.length > RECENT_CHAT_LIMIT
+                    ? `${RECENT_CHAT_LIMIT} đoạn chat gần nhất`
+                    : "Đoạn chat gần nhất"}
+                </Button>
+              </div>
+
+              {drawerFocus === "chats" ? chatSection : supportSections}
+              {drawerFocus === "support" && allChats.length > 0 && (
+                <div className="teacher-detail-section teacher-detail-section--jump">
+                  <Button
+                    block
+                    icon={<MessageSquareText size={14} />}
+                    onClick={() => setDrawerFocus("chats")}
+                  >
+                    {allChats.length > RECENT_CHAT_LIMIT
+                      ? `Xem ${RECENT_CHAT_LIMIT} đoạn chat gần nhất`
+                      : `Xem ${allChats.length} đoạn chat gần nhất`}
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {selectedStudent && selectedSummary && (
           <div className="teacher-transcript">

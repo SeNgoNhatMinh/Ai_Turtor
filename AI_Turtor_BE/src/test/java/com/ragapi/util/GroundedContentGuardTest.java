@@ -93,21 +93,25 @@ class GroundedContentGuardTest {
     }
 
     @Test
-    void removesQuizWhoseFunctionIsAbsentFromMaterial() {
+    void keepsTheUnderstandingCheckWhenALaterPassRevalidatesTheAnswer() {
         String answer = """
+                ## Theo tài liệu môn học
+                Servlet đọc một tham số query.
+
                 ## Kiểm tra hiểu
-                Câu hỏi: isinstance() có được tài liệu đề cập không?
+                Câu hỏi: doPost() có được tài liệu đoạn này nhắc không?
                 A. Có
                 B. Không
                 Đáp án: B
-                Giải thích: Tài liệu không đề cập.
+                Giải thích: Đoạn trích đang mở nói về query.
                 """;
 
         String filtered = GroundedContentGuard.stripUnsupportedOptionalSections(
                 answer,
-                "The material discusses type() only."
+                "The material discusses doGet and one query parameter."
         );
 
-        assertThat(filtered).isBlank();
+        assertThat(filtered).contains("## Kiểm tra hiểu", "doPost()");
+        assertThat(filtered).contains("Servlet đọc một tham số query.");
     }
 }

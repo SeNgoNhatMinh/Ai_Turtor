@@ -3,6 +3,8 @@ package com.ragapi.controller;
 import com.ragapi.dto.cotraining.*;
 import com.ragapi.service.ChapterOutlineService;
 import com.ragapi.service.ExpertCoTrainingService;
+import com.ragapi.service.harness.HarnessCaseService;
+import com.ragapi.service.harness.HarnessReplayRunner;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,8 @@ import java.util.Map;
 public class ExpertCoTrainingController {
     private final ExpertCoTrainingService service;
     private final ChapterOutlineService chapterOutlineService;
+    private final HarnessCaseService harnessCaseService;
+    private final HarnessReplayRunner harnessReplayRunner;
 
     @GetMapping("/chapters/suggested")
     @Operation(summary = "Suggest course chapters from indexed materials (headings/titles)")
@@ -157,13 +161,21 @@ public class ExpertCoTrainingController {
     public ResponseEntity<?> submitGoldQa(
             @RequestBody SubmitGoldQaRequest request,
             @RequestParam(defaultValue = "false") boolean exam) {
-        return respond(() -> exam ? service.submitGoldQaAndExam(request) : service.submitGoldQa(request));
+        return respond(() -> {
+            var saved = exam ? service.submitGoldQaAndExam(request) : service.submitGoldQa(request);
+            if (exam) harnessCaseService.captureLowEval(saved);
+            return saved;
+        });
     }
 
     @PostMapping("/gold-qa/{id}/exam")
     @Operation(summary = "First exam = baseline without teaching note; retake injects teacher notes for before/after compare.")
     public ResponseEntity<?> examGoldQa(@PathVariable String id) {
-        return respond(() -> service.examGoldQa(id));
+        return respond(() -> {
+            var saved = service.examGoldQa(id);
+            harnessCaseService.captureLowEval(saved);
+            return saved;
+        });
     }
 
     @DeleteMapping("/gold-qa/{id}")
@@ -193,7 +205,13 @@ public class ExpertCoTrainingController {
 
     @PostMapping("/gold-qa/{id}/approve")
     public ResponseEntity<?> approveGoldQa(@PathVariable String id, @RequestBody ExpertReviewRequest request) {
-        return respondChecked(() -> service.reviewGoldQa(id, request, true));
+        return respondChecked(() -> {
+            var saved = service.reviewGoldQa(id, request, true);
+            if ("INDEXED".equalsIgnoreCase(saved.getStatus())) {
+                harnessReplayRunner.replayCourse(saved.getCourseId());
+            }
+            return saved;
+        });
     }
 
     @PostMapping("/gold-qa/{id}/reject")
@@ -234,6 +252,18 @@ public class ExpertCoTrainingController {
     @GetMapping("/eval-runs/{id}")
     public ResponseEntity<?> evalRunDetail(@PathVariable String id) {
         return respond(() -> service.evalRunDetail(id));
+    }
+
+    @GetMapping("/harness/cases")
+    @Operation(summary = "List automatic harness cases for a course")
+    public ResponseEntity<?> listHarnessCases(@RequestParam String courseId) {
+        return respond(() -> java.util.Map.of("cases", harnessCaseService.list(courseId)));
+    }
+
+    @PostMapping("/harness/cases/{id}/replay")
+    @Operation(summary = "Replay one open harness case through the same answer path")
+    public ResponseEntity<?> replayHarnessCase(@PathVariable String id) {
+        return respond(() -> harnessReplayRunner.replay(id));
     }
 
     private ResponseEntity<?> respond(Action action) {

@@ -124,7 +124,7 @@ function normalizeVietnameseSectionLine(line) {
   const body = line.slice(prefix.length).trim();
   if (!body || body.length > 90) return line;
 
-  const unwrappedBody = unwrapSimpleMarkdownDecoration(body);
+  const unwrappedBody = unwrapSimpleMarkdownDecoration(body).replace(/^\d+\.\s+/, '');
   const exactLabel = VIETNAMESE_EXACT_SECTION_LABELS[toVietnameseSectionKey(unwrappedBody)];
   if (exactLabel) {
     return `${prefix}${exactLabel}`;
@@ -947,9 +947,10 @@ function sanitizeLinks(text) {
  * Safe to call on every render — idempotent by design.
  *
  * @param {string} input  Raw AI markdown
+ * @param {{ headingStart?: number }} [options]
  * @returns {string}      Cleaned GFM markdown
  */
-export function normalizeAiMarkdown(input = '') {
+export function normalizeAiMarkdown(input = '', options = {}) {
   let text = normalizeUnicodeText(input);
   if (!text.trim()) return '';
 
@@ -984,8 +985,78 @@ export function normalizeAiMarkdown(input = '') {
   text = restoreBlocks(text, originalBlocks.vault);
 
   /* 17 */ text = collapseBlankLines(text);
+  text = dropEmptyHeadingsAndCloseNumbers(text, options.headingStart);
 
   return text;
+}
+
+const NUMBERED_HEADING = /^(#{2,3})[ \t]+(\d+)\.\s+(.+?)\s*$/;
+const ANY_SECTION_HEADING = /^(#{2,3})[ \t]+(?:\d+\.\s+)?(.+?)\s*$/;
+const STRUCTURAL_HEADING_KEYS = new Set([
+  'kiem tra hieu',
+  'understanding check',
+  'quiz tu luyen',
+  'hoc chuyen sau',
+  'hoc tiep phan nay',
+  'bai tiep theo',
+  'nguon tai lieu da dung',
+  'lo trinh hoc',
+  'bat dau the nao',
+]);
+
+function sectionKey(title) {
+  return toVietnameseSectionKey(String(title || '').replace(/^\d+\.\s+/, ''));
+}
+
+/**
+ * Drops a numbered section title that has no paragraph, list, or table under it,
+ * then closes the gap so the next title is 2 instead of 3.
+ */
+function dropEmptyHeadingsAndCloseNumbers(text, headingStart = 1) {
+  const lines = String(text || '').split('\n');
+  const insideFence = [];
+  let inFence = false;
+  for (let index = 0; index < lines.length; index += 1) {
+    insideFence[index] = inFence;
+    if (isFenceLine(lines[index])) inFence = !inFence;
+  }
+
+  const kept = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const heading = lines[index].match(NUMBERED_HEADING);
+    if (
+      heading
+      && !insideFence[index]
+      && !STRUCTURAL_HEADING_KEYS.has(sectionKey(heading[3]))
+      && !headingHasBody(lines, insideFence, index)
+    ) {
+      continue;
+    }
+    kept.push(lines[index]);
+  }
+
+  let number = Math.max(1, Number(headingStart) || 1) - 1;
+  inFence = false;
+  return kept.map((line) => {
+    if (isFenceLine(line)) {
+      inFence = !inFence;
+      return line;
+    }
+    if (inFence) return line;
+    const heading = line.match(NUMBERED_HEADING);
+    if (!heading || STRUCTURAL_HEADING_KEYS.has(sectionKey(heading[3]))) return line;
+    number += 1;
+    return `${heading[1]} ${number}. ${heading[3]}`;
+  }).join('\n');
+}
+
+function headingHasBody(lines, insideFence, headingIndex) {
+  for (let index = headingIndex + 1; index < lines.length; index += 1) {
+    if (isFenceLine(lines[index])) return true;
+    if (insideFence[index] || !lines[index].trim()) continue;
+    return !ANY_SECTION_HEADING.test(lines[index]);
+  }
+  return false;
 }
 
 export function stripSourceSection(input = '') {

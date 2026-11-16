@@ -83,6 +83,23 @@ public class AdaptiveLearningReviewController {
         }
     }
 
+    @PostMapping("/{reviewId}/retry")
+    public ResponseEntity<?> retry(
+            @PathVariable String reviewId,
+            Authentication authentication) {
+        try {
+            AdaptiveLearningReview review = reviewService.get(reviewId);
+            accessGuard.allowTeacherForClassOrAdmin(
+                    requesterId(authentication), requesterRole(authentication),
+                    review.getCourseId(), review.getClassId());
+            return ResponseEntity.ok(reviewService.retryEvaluation(reviewId));
+        } catch (IllegalStateException error) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", error.getMessage()));
+        } catch (IllegalArgumentException error) {
+            return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
+        }
+    }
+
     @PostMapping("/{reviewId}/decision")
     public ResponseEntity<?> decide(
             @PathVariable String reviewId,
@@ -93,7 +110,8 @@ public class AdaptiveLearningReviewController {
             accessGuard.allowTeacherForClassOrAdmin(
                     requesterId(authentication), requesterRole(authentication),
                     review.getCourseId(), review.getClassId());
-            return ResponseEntity.ok(reviewService.decide(reviewId, requesterId(authentication), request));
+            return ResponseEntity.ok(reviewService.decide(
+                    reviewId, requesterId(authentication), requesterRole(authentication), request));
         } catch (IllegalStateException error) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", error.getMessage()));
         } catch (IllegalArgumentException error) {

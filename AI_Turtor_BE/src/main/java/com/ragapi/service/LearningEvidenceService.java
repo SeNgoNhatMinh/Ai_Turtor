@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Creates evidence exclusively from authoritative application events. Chat
@@ -86,6 +87,15 @@ public class LearningEvidenceService {
     public List<LearningEvidence> listForStudentCourse(String studentId, String courseId) {
         return repository.findByStudentIdAndCourseIdOrderByEventAtDescCreatedAtDesc(
                 requireText(studentId, "studentId"), requireText(courseId, "courseId"));
+    }
+
+    /** Recent verified evidence for tutor personalization (freshness window). */
+    public List<LearningEvidence> listRecentForStudentCourse(String studentId, String courseId, int lookbackDays) {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(Math.max(1, lookbackDays));
+        return listForStudentCourse(studentId, courseId).stream()
+                .filter(item -> item.getEventAt() == null || !item.getEventAt().isBefore(cutoff))
+                .limit(40)
+                .collect(Collectors.toList());
     }
 
     /** A generated or unresolved manual quiz is not objective assessment evidence. */

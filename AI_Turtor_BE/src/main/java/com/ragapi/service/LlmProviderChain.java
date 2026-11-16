@@ -36,6 +36,11 @@ final class LlmProviderChain {
     private final Map<String, Instant> unavailableUntil = new ConcurrentHashMap<>();
     private final Map<String, AtomicLong> quotaStrikes = new ConcurrentHashMap<>();
     private final Map<String, ProviderMetrics> metrics = new ConcurrentHashMap<>();
+    private volatile Runnable cancelCheck = () -> {};
+
+    void setCancelCheck(Runnable cancelCheck) {
+        this.cancelCheck = cancelCheck == null ? () -> {} : cancelCheck;
+    }
 
     LlmProviderChain(List<Provider> providers, Duration cooldown) {
         this(providers, cooldown, Duration.ofMinutes(2), Duration.ofMinutes(15), Duration.ofHours(24), true, Clock.systemUTC());
@@ -165,7 +170,9 @@ final class LlmProviderChain {
             providerMetrics.attempts.incrementAndGet();
             long startedNanos = System.nanoTime();
             try {
+                cancelCheck.run();
                 String text = provider.generator().generate(prompt);
+                cancelCheck.run();
                 long elapsedMs = elapsedMillis(startedNanos);
                 Instant completedAt = clock.instant();
                 if (!acceptableAnswer.test(text)) {
@@ -186,6 +193,8 @@ final class LlmProviderChain {
                 log.info("LLM provider attempt succeeded: provider={}, model={}, elapsedMs={}",
                         provider.name(), provider.model(), elapsedMs);
                 return new Result(text, provider.name(), provider.model());
+            } catch (ChatGenerationGate.GenerationCancelledException cancelled) {
+                throw cancelled;
             } catch (Exception error) {
                 long elapsedMs = elapsedMillis(startedNanos);
                 Instant completedAt = clock.instant();

@@ -6,6 +6,8 @@ import com.ragapi.repository.CourseEnrollmentRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @AllArgsConstructor
 public class AccessGuardService {
@@ -69,6 +71,26 @@ public class AccessGuardService {
             return;
         }
         throw new IllegalArgumentException("Requester is not the teacher of this class section");
+    }
+
+    /** The requester teaches at least one class section of the course. */
+    public void allowTeacherForCourseOrAdmin(String requesterId, String requesterRole, String courseId) {
+        if (isAdmin(requesterRole)) {
+            return;
+        }
+        if (!isBlank(requesterId) && !isBlank(courseId) && classSectionRepository.findByCourseId(courseId.trim())
+                .stream()
+                .anyMatch(section -> requesterId.equals(section.getTeacherId()))) {
+            return;
+        }
+        throw new IllegalArgumentException("Requester does not teach this course");
+    }
+
+    public List<ClassSection> teacherSections(String requesterId) {
+        if (isBlank(requesterId)) {
+            return List.of();
+        }
+        return classSectionRepository.findByTeacherId(requesterId);
     }
 
     public void allowTeacherForStudentTranscript(

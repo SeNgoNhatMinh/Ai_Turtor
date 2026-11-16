@@ -331,3 +331,36 @@ test('does not split long markdown structures that are sensitive to line breaks'
   assert.match(output, /^\| --- \| --- \|$/m);
   assert.doesNotMatch(output, /\n\n\| Con trỏ/);
 });
+
+test('drops an empty numbered section and closes the number gap', () => {
+  const input = [
+    '## 1. Chẩn đoán lỗi sai',
+    '- Lựa chọn của em: B.',
+    '',
+    '## 2. Giảng lại để hiểu',
+    '',
+    '## 3. Giải thích khái niệm',
+    'Trong JSP, EL cung cấp implicit variables.',
+    '',
+    '## Kiểm tra hiểu',
+    'Câu hỏi: Scope nào đúng?',
+  ].join('\n');
+
+  const output = normalizeAiMarkdown(input);
+
+  assert.match(output, /## 1\. Chẩn đoán lỗi sai/);
+  assert.doesNotMatch(output, /Giảng lại để hiểu/);
+  assert.match(output, /## 2\. Giải thích khái niệm/);
+  assert.doesNotMatch(output, /## 3\./);
+  assert.match(output, /^## Kiểm tra hiểu$/m);
+});
+
+test('continues heading numbers when a later section is rendered on its own', () => {
+  const output = normalizeAiMarkdown([
+    '## 6. Tự thực hành',
+    '1. Viết một servlet mới.',
+  ].join('\n'), { headingStart: 5 });
+
+  assert.match(output, /^## 5\. Tự thực hành$/m);
+  assert.doesNotMatch(output, /^## 1\. Tự thực hành$/m);
+});

@@ -737,3 +737,30 @@
   padding: 12px 14px;
   border-left: 3px solid #6b7280;
 }
+
+.expert-training__harness p {
+  margin: 0 0 12px;
+  color: var(--color-text-secondary, #526071);
+}
+
+.expert-training__harness-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.expert-training__harness-list li {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid #e4eaf2;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.expert-training__harness-list small,
+.expert-training__harness-list span {
+  color: #526071;
+}

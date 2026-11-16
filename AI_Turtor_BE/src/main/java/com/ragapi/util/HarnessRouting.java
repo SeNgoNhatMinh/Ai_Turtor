@@ -27,6 +27,12 @@ public final class HarnessRouting {
         if (IntentClassifierService.MODE_ESCALATE.equals(mode)) {
             return IntentClassifierService.MODE_ESCALATE;
         }
+        if (IntentClassifierService.MODE_REFUSE.equals(mode) || "LOCAL".equals(mode)) {
+            return IntentClassifierService.MODE_REFUSE;
+        }
+        if (IntentClassifierService.MODE_CURRICULUM.equals(mode)) {
+            return IntentClassifierService.MODE_CURRICULUM;
+        }
         return null;
     }
 }

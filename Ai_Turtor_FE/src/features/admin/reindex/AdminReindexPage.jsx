@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, Button, Card, Col, Progress, Row, Tag, Typography } from 'antd';
 import { CheckCircle2, Database, RefreshCw, TriangleAlert } from 'lucide-react';
@@ -14,9 +14,18 @@ const { Paragraph, Text } = Typography;
 const getCourseId = (course = {}) => String(course.courseId || course.id || course.code || '').trim();
 const getCourseName = (course = {}) => course.courseName || course.name || course.title || 'Chưa có tên môn';
 
+function coursePercent(course) {
+  if (!course) return 0;
+  if (course.status === 'DONE' || course.status === 'FAILED') return 100;
+  if (course.status === 'PROCESSING' || course.status === 'STOPPING') {
+    return Math.max(0, Math.min(99, Number(course.percent) || 0));
+  }
+  if (course.status === 'CANCELLED') return Math.max(0, Math.min(100, Number(course.percent) || 0));
+  return 0;
+}
+
 export default function AdminReindexPage({ triggerToast }) {
-  const [states, setStates] = useState({});
-  const [running, setRunning] = useState(false);
+  const [run, setRun] = useState(null);
   const coursesQuery = useQuery({
     queryKey: queryKeys.adminCourses(),
     queryFn: ({ signal }) => adminAcademicApi.getCourses({ signal }),
@@ -28,63 +37,63 @@ export default function AdminReindexPage({ triggerToast }) {
     ? getUserFacingError(coursesQuery.error, 'Không thể tải danh sách môn học.')
     : '';
   const loadCourses = () => coursesQuery.refetch();
+  const running = run?.status === 'RUNNING' || run?.status === 'STOPPING';
+  const courseRun = (courseId) => (run?.courses || []).find((item) => item.courseId === courseId);
+  const processing = (run?.courses || []).find((item) => item.status === 'PROCESSING' || item.status === 'STOPPING');
 
   const summary = useMemo(() => {
-    const values = Object.values(states);
+    const values = courses.map((course) => (run?.courses || []).find((item) => item.courseId === getCourseId(course))).filter(Boolean);
     return {
       completed: values.filter((item) => item.status === 'DONE').length,
       failed: values.filter((item) => item.status === 'FAILED').length,
-      processing: values.filter((item) => item.status === 'PROCESSING').length,
+      processing: values.filter((item) => item.status === 'PROCESSING' || item.status === 'STOPPING').length,
     };
-  }, [states]);
+  }, [courses, run]);
 
-  const progress = courses.length ? Math.round(((summary.completed + summary.failed) / courses.length) * 100) : 0;
+  const progress = courses.length
+    ? Math.round(courses.reduce((sum, course) => sum + coursePercent(courseRun(getCourseId(course))), 0) / courses.length)
+    : 0;
 
-  const reindexCourse = async (course) => {
-    const courseId = getCourseId(course);
-    setStates((previous) => ({ ...previous, [courseId]: { status: 'PROCESSING' } }));
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const next = await materialsApi.currentReindexRun();
+        if (!cancelled) setRun(next);
+      } catch {
+        // Keep the last server snapshot if a poll fails.
+      }
+    };
+    tick();
+    const timer = window.setInterval(tick, running ? 1500 : 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [running]);
+
+  const runCourses = async (courseIds) => {
     try {
-      const result = await materialsApi.reindexCourseMaterials(courseId);
-      setStates((previous) => ({ ...previous, [courseId]: { status: 'DONE', result } }));
-      return true;
+      setRun(await materialsApi.startReindexRun(courseIds));
     } catch (reason) {
-      setStates((previous) => ({
-        ...previous,
-        [courseId]: { status: 'FAILED', message: getUserFacingError(reason, 'Reindex thất bại.') },
-      }));
-      return false;
+      triggerToast?.(getUserFacingError(reason, 'Không thể bắt đầu reindex.'));
     }
   };
 
-  const runSingleCourse = async (course) => {
-    if (running) return;
-    setRunning(true);
-    const success = await reindexCourse(course);
-    setRunning(false);
-    triggerToast?.(success
-      ? `Đã reindex môn ${getCourseId(course)} thành công.`
-      : `Không thể reindex môn ${getCourseId(course)}.`);
-  };
-
-  const runReindex = async () => {
-    if (running || !courses.length) return;
-    setRunning(true);
-    setStates(Object.fromEntries(courses.map((course) => [getCourseId(course), { status: 'WAITING' }])));
-    let failedCount = 0;
-
-    for (const course of courses) {
-      const success = await reindexCourse(course);
-      if (!success) failedCount += 1;
+  const stopReindex = async () => {
+    try {
+      setRun(await materialsApi.stopReindexRun());
+      triggerToast?.('Đã gửi lệnh dừng. Lô embedding đang chạy sẽ kết thúc rồi dừng.');
+    } catch (reason) {
+      triggerToast?.(getUserFacingError(reason, 'Không thể dừng reindex.'));
     }
-
-    setRunning(false);
-    triggerToast?.(failedCount ? `Hoàn tất với ${failedCount} môn bị lỗi.` : 'Đã reindex toàn bộ tài liệu thành công.');
   };
 
   const statusTag = (status) => {
     if (status === 'DONE') return <Tag color="success">Hoàn tất</Tag>;
     if (status === 'FAILED') return <Tag color="error">Thất bại</Tag>;
-    if (status === 'PROCESSING') return <Tag color="processing">Đang xử lý</Tag>;
+    if (status === 'CANCELLED') return <Tag color="warning">Đã dừng</Tag>;
+    if (status === 'PROCESSING' || status === 'STOPPING') return <Tag color="processing">Đang xử lý</Tag>;
     if (status === 'WAITING') return <Tag>Đang chờ</Tag>;
     return <Tag color="blue">Sẵn sàng</Tag>;
   };
@@ -95,7 +104,7 @@ export default function AdminReindexPage({ triggerToast }) {
         eyebrow="Quản trị dữ liệu AI"
         title="Reindex toàn bộ tài liệu"
         description="Tạo lại chỉ mục văn bản và hình ảnh cho học liệu đang có. Tài liệu gốc và API key không bị thay đổi."
-        actions={<Button icon={<RefreshCw size={16} />} onClick={loadCourses} disabled={running}>Làm mới</Button>}
+        actions={<Button icon={<RefreshCw size={16} />} onClick={loadCourses}>Làm mới</Button>}
       />
       {error && <Alert type="error" showIcon title={error} />}
       <Card className="reindex-hero">
@@ -103,13 +112,25 @@ export default function AdminReindexPage({ triggerToast }) {
           <div className="reindex-hero__icon"><Database size={30} /></div>
           <div>
             <h2>Cập nhật chỉ mục Hybrid Visual RAG</h2>
-            <Paragraph>Chế độ tự động xử lý lần lượt từng môn, không chạy song song, nhằm hạn chế quá tải embedding API và tiêu hao token quá nhanh.</Paragraph>
+            <Paragraph>Reindex chạy trên máy chủ. Rời trang này không hủy tiến độ. Bấm Dừng để dừng thật sau lô embedding hiện tại.</Paragraph>
           </div>
-          <Button type="primary" size="large" loading={running} disabled={loading || !courses.length} onClick={runReindex}>
-            {running ? 'Đang reindex...' : 'Reindex tất cả tài liệu'}
-          </Button>
+          <div className="reindex-hero__actions">
+            <Button type="primary" size="large" loading={running} disabled={loading || !courses.length || running} onClick={() => runCourses(courses.map(getCourseId))}>
+              {running ? 'Đang reindex...' : 'Reindex tất cả tài liệu'}
+            </Button>
+            {running && <Button danger size="large" onClick={stopReindex}>Dừng</Button>}
+          </div>
         </div>
         <Progress percent={progress} status={summary.failed ? 'exception' : running ? 'active' : 'normal'} />
+        {processing && (
+          <div className="reindex-live">
+            <div className="reindex-live__percent">{coursePercent(processing)}%</div>
+            <div>
+              <strong>{processing.stageLabel || 'Đang reindex'}</strong>
+              <p>{processing.courseId}{' · '}{processing.message || 'Đang bắt đầu...'}</p>
+            </div>
+          </div>
+        )}
       </Card>
       <Row gutter={[16, 16]} className="reindex-stats">
         <Col xs={12} lg={6}><Card><Text type="secondary">Tổng số môn</Text><strong>{courses.length}</strong></Card></Col>
@@ -124,32 +145,51 @@ export default function AdminReindexPage({ triggerToast }) {
           dataSource={courses}
           pagination={false}
           sticky={false}
-          scroll={{ x: 880, y: 480 }}
+          scroll={{ x: 1040, y: 480 }}
           columns={[
             { title: 'Mã môn', key: 'courseId', width: 120, ellipsis: true, render: (_, row) => <Text strong>{getCourseId(row)}</Text> },
             { title: 'Tên môn học', key: 'name', ellipsis: true, render: (_, row) => getCourseName(row) },
-            { title: 'Trạng thái', key: 'status', width: 130, render: (_, row) => statusTag(states[getCourseId(row)]?.status) },
+            { title: 'Trạng thái', key: 'status', width: 130, render: (_, row) => statusTag(courseRun(getCourseId(row))?.status) },
+            {
+              title: 'Tiến độ',
+              key: 'percent',
+              width: 150,
+              render: (_, row) => {
+                const item = courseRun(getCourseId(row));
+                const status = item?.status;
+                return (
+                  <Progress
+                    percent={coursePercent(item)}
+                    size="small"
+                    status={status === 'FAILED' ? 'exception' : status === 'PROCESSING' || status === 'STOPPING' ? 'active' : undefined}
+                  />
+                );
+              },
+            },
             {
               title: 'Chi tiết',
               key: 'message',
               ellipsis: true,
-              render: (_, row) => states[getCourseId(row)]?.message || '—',
+              render: (_, row) => courseRun(getCourseId(row))?.message || '—',
             },
             {
               title: 'Thao tác',
               key: 'action',
               width: 170,
               fixed: 'right',
-              render: (_, row) => (
-                <Button
-                  icon={<RefreshCw size={14} />}
-                  loading={states[getCourseId(row)]?.status === 'PROCESSING'}
-                  disabled={running && states[getCourseId(row)]?.status !== 'PROCESSING'}
-                  onClick={() => runSingleCourse(row)}
-                >
-                  Reindex môn này
-                </Button>
-              ),
+              render: (_, row) => {
+                const item = courseRun(getCourseId(row));
+                const activeRow = item?.status === 'PROCESSING' || item?.status === 'STOPPING';
+                return (
+                  <Button
+                    icon={<RefreshCw size={14} />}
+                    disabled={running && !activeRow}
+                    onClick={() => (activeRow ? stopReindex() : runCourses([getCourseId(row)]))}
+                  >
+                    {activeRow ? 'Dừng' : 'Reindex môn này'}
+                  </Button>
+                );
+              },
             },
           ]}
         />

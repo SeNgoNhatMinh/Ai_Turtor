@@ -24,8 +24,7 @@ public final class GroundedContentGuard {
             "(?ium)^#{1,6}\\s*(?:lưu ý để học tốt hơn|study tips?)\\s*$"
     );
     private static final Pattern OPTIONAL_PEDAGOGY_HEADING = Pattern.compile(
-            "(?ium)^#{1,6}\\s*(?:kiểm tra hiểu|understanding check|"
-                    + "học tiếp phần này|học chuyên sâu)\\s*$"
+            "(?ium)^#{1,6}\\s*(?:học tiếp phần này|học chuyên sâu)\\s*$"
     );
     private static final Pattern EXPLICIT_STUDY_ADVICE = Pattern.compile(
             "(?iu)\\b(?:thực hành|bài tập|ôn tập|luyện tập|hãy thử|lưu ý|"

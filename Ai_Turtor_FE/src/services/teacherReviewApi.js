@@ -168,4 +168,10 @@ export const teacherReviewApi = {
       body: JSON.stringify(payload),
     });
   },
+
+  async retryAdaptiveLearningReview(reviewId) {
+    return request(`${API_BASE_URL}/teacher/ai-support/learning-reviews/${encodePath(reviewId)}/retry`, {
+      method: 'POST',
+    });
+  },
 };

@@ -36,4 +36,27 @@ describe('UnderstandingCheckQuiz', () => {
     expect(screen.getByText(/Đáp án đúng là B/)).toBeVisible();
     expect(onLockAnswer).toHaveBeenCalledTimes(1);
   });
+
+  it('stores the choice without revealing the answer before the quiz is finished', () => {
+    render(
+      <UnderstandingCheckQuiz
+        revealGrade={false}
+        quiz={{
+          question: 'Spring xử lý tên view như thế nào?',
+          options: [
+            { key: 'A', text: 'Trả view trực tiếp' },
+            { key: 'B', text: 'Gọi ViewResolver' },
+          ],
+          correctKey: 'B',
+          explanation: 'ViewResolver phân giải tên view.',
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /A\s*Trả view trực tiếp/i }));
+
+    expect(screen.getByText(/Đã lưu lựa chọn A/)).toBeVisible();
+    expect(screen.queryByText('Chưa đúng.')).toBeNull();
+    expect(screen.queryByText(/ViewResolver phân giải/)).toBeNull();
+  });
 });

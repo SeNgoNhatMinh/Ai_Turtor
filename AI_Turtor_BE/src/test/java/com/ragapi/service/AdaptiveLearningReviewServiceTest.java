@@ -13,6 +13,9 @@ import com.ragapi.repository.AdaptiveLearningReviewRepository;
 import com.ragapi.repository.AiConversationRepository;
 import com.ragapi.repository.AiMessageRepository;
 import com.ragapi.repository.ClassSectionRepository;
+import com.ragapi.service.behavior.BehaviorActor;
+import com.ragapi.service.behavior.StudentTeachingProfileService;
+import com.ragapi.service.behavior.TeachingBehaviorService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -49,6 +52,8 @@ class AdaptiveLearningReviewServiceTest {
     @Mock OpenRouterChatService chatService;
     @Spy ObjectMapper objectMapper = new ObjectMapper();
     @Mock PedagogicalDirectiveService directiveService;
+    @Mock TeachingBehaviorService behaviorService;
+    @Mock StudentTeachingProfileService profileService;
 
     @InjectMocks AdaptiveLearningReviewService service;
 
@@ -697,6 +702,115 @@ class AdaptiveLearningReviewServiceTest {
 
         assertThat(decided.getStatus()).isEqualTo("REJECTED");
         verify(directiveService, never()).createDraft(any(), anyString(), anyString());
+    }
+
+    @Test
+    void newReviewAppliesItsStrategiesWhilePendingEvenWhenLevelIsUnchanged() {
+        stubCourseConversations(COURSE, conversations(COURSE, 2));
+        stubQuestionCycle(10, cycleMessages(10, SUBSTANTIVE_ANSWER));
+        when(chatService.generateUtility(anyString()))
+                .thenReturn(assessmentJson(60, 60, 60, 60, "STANDARD"));
+
+        service.onStudentQuestionAnswered(STUDENT, COURSE, CLASS);
+
+        ArgumentCaptor<AdaptiveLearningReview> captor = ArgumentCaptor.forClass(AdaptiveLearningReview.class);
+        verify(behaviorService).createPendingFromReview(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo("PENDING");
+        assertThat(captor.getValue().getTeachingRecommendations()).containsExactly("Tăng bài tập tự làm");
+        verify(profileService).mergeFromReview(captor.getValue());
+        // Same level as before: no AI directive is needed, but strategies still apply.
+        verify(directiveService, never()).createDraft(any(), anyString(), anyString());
+    }
+
+    @Test
+    void rejectDecisionRevertsAiStrategiesToDefaultTeaching() {
+        AdaptiveLearningReview review = pendingReview();
+        review.setAppliedDirectiveId("dir-auto");
+        when(reviewRepository.findById("rev-1")).thenReturn(Optional.of(review));
+        when(reviewRepository.save(any(AdaptiveLearningReview.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(directiveService.resolveSupportLevel(STUDENT, COURSE, CLASS)).thenReturn("STANDARD");
+
+        AdaptiveLearningReviewDecisionRequest request = new AdaptiveLearningReviewDecisionRequest();
+        request.setDecision("REJECT");
+        AdaptiveLearningReview decided = service.decide("rev-1", "teacher-1", request);
+
+        assertThat(decided.getStatus()).isEqualTo("REJECTED");
+        verify(behaviorService).rejectReviewBehaviors("rev-1");
+        verify(directiveService).archiveIfPresent("dir-auto");
+        verify(behaviorService, never()).approveReviewBehaviors(any(), any(), any(), any());
+        verify(realtimeEvents).publishToUser(eq(STUDENT), eq("SUPPORT_LEVEL_CHANGED"), anyString(),
+                anyString(), eq("STANDARD"), any());
+    }
+
+    @Test
+    void approveKeepsOnlyCheckedStrategiesPlusOtherAndSharesThem() {
+        AdaptiveLearningReview review = pendingReview();
+        review.setTeachingRecommendations(List.of("Ví dụ thực tế về đa hình", "Thêm câu kiểm tra ngắn"));
+        when(reviewRepository.findById("rev-1")).thenReturn(Optional.of(review));
+        when(reviewRepository.save(any(AdaptiveLearningReview.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        PedagogicalDirective directive = new PedagogicalDirective();
+        directive.setId("dir-1");
+        when(directiveService.createDraft(any(PedagogicalDirectiveRequest.class), eq("teacher-1"), eq("teacher-1")))
+                .thenReturn(directive);
+        when(directiveService.confirm("dir-1", "teacher-1")).thenReturn(directive);
+        var approvedBehavior = com.ragapi.entity.TeachingBehavior.builder().id("b-1").build();
+        when(behaviorService.approveReviewBehaviors(any(), any(), any(), any())).thenReturn(List.of(approvedBehavior));
+
+        AdaptiveLearningReviewDecisionRequest request = new AdaptiveLearningReviewDecisionRequest();
+        request.setDecision("APPROVE");
+        request.setTeacherFeedback("Ổn.");
+        request.setSelectedStrategies(List.of("Thêm câu kiểm tra ngắn"));
+        request.setCustomStrategy("Luôn so sánh với Java trước");
+        request.setShareScope("domain");
+        request.setShareDomain("oop");
+        AdaptiveLearningReview decided = service.decide("rev-1", "teacher-1", "TEACHER", request);
+
+        assertThat(decided.getTeacherSelectedStrategies()).containsExactly("Thêm câu kiểm tra ngắn");
+        assertThat(decided.getTeacherCustomStrategy()).isEqualTo("Luôn so sánh với Java trước");
+        verify(behaviorService).approveReviewBehaviors(eq(decided), eq(List.of("Thêm câu kiểm tra ngắn")),
+                eq("Luôn so sánh với Java trước"), any(BehaviorActor.class));
+        verify(behaviorService).shareBehaviors(eq(List.of(approvedBehavior)), eq("DOMAIN"), eq("OOP"),
+                eq(COURSE), anyList(), any(BehaviorActor.class));
+        ArgumentCaptor<PedagogicalDirectiveRequest> directiveCaptor =
+                ArgumentCaptor.forClass(PedagogicalDirectiveRequest.class);
+        verify(directiveService).createDraft(directiveCaptor.capture(), eq("teacher-1"), eq("teacher-1"));
+        // Strategies are no longer duplicated into the directive text.
+        assertThat(directiveCaptor.getValue().getInstruction()).doesNotContain("Ví dụ thực tế về đa hình");
+    }
+
+    @Test
+    void approveRejectsStrategiesThatTheAiDidNotSuggest() {
+        AdaptiveLearningReview review = pendingReview();
+        when(reviewRepository.findById("rev-1")).thenReturn(Optional.of(review));
+
+        AdaptiveLearningReviewDecisionRequest request = new AdaptiveLearningReviewDecisionRequest();
+        request.setDecision("APPROVE");
+        request.setTeacherFeedback("Ổn.");
+        request.setSelectedStrategies(List.of("Chiến lược tự bịa"));
+
+        assertThatThrownBy(() -> service.decide("rev-1", "teacher-1", request))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(directiveService, never()).archiveIfPresent(anyString());
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    void usedBehaviorsAreScoredAgainstThePreviousReview() {
+        AdaptiveLearningReview previous = pendingReview();
+        previous.setKnowledgePercent(40);
+        stubCourseConversations(COURSE, conversations(COURSE, 2));
+        stubQuestionCycle(20, cycleMessages(10, SUBSTANTIVE_ANSWER));
+        when(reviewRepository.findByStudentIdAndCourseIdOrderByCreatedAtDesc(STUDENT, COURSE))
+                .thenReturn(List.of(previous));
+        when(profileService.takeUsedBehaviorIds(STUDENT, COURSE)).thenReturn(List.of("b-1", "b-2"));
+        when(chatService.generateUtility(anyString()))
+                .thenReturn(assessmentJson(70, 70, 60, 60, "STANDARD"));
+
+        service.onStudentQuestionAnswered(STUDENT, COURSE, CLASS);
+
+        verify(behaviorService).recordOutcome(List.of("b-1", "b-2"), true);
     }
 
     @Test

@@ -27,26 +27,31 @@ export function useStudentLearningActions({
     const chapterTitle = String(suggestion?.chapterTitle || '').trim();
     const hasSourceProvenance = sourceMaterialIds.length > 0;
     const isGuidedLesson = isGuidedLessonPrompt(prompt);
+    const isWorkReview = Boolean(suggestion?.guidedPracticeAttempt);
     const studySuggestionKey = getStudySuggestionKey(suggestion);
+    const visibleQuestion = isWorkReview ? 'Ôn tập lại' : text;
     const studySuggestionContext = {
-      displayQuestion: text,
-      clickedSuggestion: text,
+      displayQuestion: visibleQuestion,
+      clickedSuggestion: visibleQuestion,
       studySuggestionKey,
     };
-    const requestContext = hasImprovePlanProvenance || hasSourceProvenance || isGuidedLesson
+    const requestContext = hasImprovePlanProvenance || hasSourceProvenance || isGuidedLesson || isWorkReview
       ? {
         ...studySuggestionContext,
-        interactionType: hasImprovePlanProvenance
-          ? 'IMPROVE_PLAN_REVIEW'
-          : (suggestion?.interactionType
-            || (isGuidedLesson ? 'GUIDED_LESSON' : 'SOURCE_BACKED_STUDY_TIP')),
-        displayQuestion: text,
+        interactionType: isWorkReview
+          ? 'GUIDED_PRACTICE_REVIEW'
+          : (hasImprovePlanProvenance
+            ? 'IMPROVE_PLAN_REVIEW'
+            : (suggestion?.interactionType
+              || (isGuidedLesson ? 'GUIDED_LESSON' : 'SOURCE_BACKED_STUDY_TIP'))),
+        displayQuestion: visibleQuestion,
         improvePlanId: suggestion?.improvePlanId || '',
         planItemId: suggestion?.planItemId || '',
         sourceMaterialIds,
         sourceChunkIds,
         chapterKey,
         chapterTitle,
+        clickedSuggestion: visibleQuestion,
       }
       : studySuggestionContext;
     if (sendChatMessage) {

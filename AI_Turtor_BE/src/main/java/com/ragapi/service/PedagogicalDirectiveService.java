@@ -116,20 +116,37 @@ public class PedagogicalDirectiveService {
         return directives;
     }
 
+    /**
+     * Directive-only tutor context (support level + teacher guidance).
+     * Teaching behaviors are resolved later by {@code TeachingOrchestrator} on RAG teaching paths only.
+     */
     public String buildTutorContext(String studentId, String courseId, String classId) {
         return resolveTutorGuidance(studentId, courseId, classId).tutorContext();
     }
 
     /**
-     * Resolves the teacher-controlled support level and its prompt context from the same
-     * directive snapshot. Reusing this snapshot for a whole tutor turn prevents a concurrent
-     * directive update from mixing an old session level with new prompt guidance.
+     * Support level and teacher directive text only. Does not retrieve or record teaching behaviors.
+     * Reusing this snapshot for a whole tutor turn prevents a concurrent directive update from
+     * mixing an old session level with new prompt guidance.
      */
     public TutorGuidanceSnapshot resolveTutorGuidance(String studentId, String courseId, String classId) {
         List<PedagogicalDirective> directives = activeDirectives(studentId, courseId, classId);
-        String supportLevel = resolveSupportLevel(directives);
-        if (directives.isEmpty()) return new TutorGuidanceSnapshot(supportLevel, "");
+        return new TutorGuidanceSnapshot(resolveSupportLevel(directives), directiveContext(directives));
+    }
 
+    /**
+     * @deprecated Behaviors are resolved by TeachingOrchestrator after intent routing.
+     * This overload ignores question/domain and returns the directive-only snapshot.
+     */
+    @Deprecated
+    public TutorGuidanceSnapshot resolveTutorGuidance(
+            String studentId, String courseId, String classId, String question, String domain) {
+        return resolveTutorGuidance(studentId, courseId, classId);
+    }
+
+    private String directiveContext(List<PedagogicalDirective> directives) {
+        if (directives.isEmpty()) return "";
+        String supportLevel = resolveSupportLevel(directives);
         StringBuilder context = new StringBuilder()
                 .append("- ACTIVE SUPPORT LEVEL: ")
                 .append(supportLevel)
@@ -142,7 +159,7 @@ public class PedagogicalDirectiveService {
                 .forEach(directive -> context.append("\n- Teacher guidance: ")
                         .append(directive.getTopic() == null ? "" : directive.getTopic() + ": ")
                         .append(directive.getInstruction()));
-        return new TutorGuidanceSnapshot(supportLevel, context.toString());
+        return context.toString();
     }
 
     public record TutorGuidanceSnapshot(String supportLevel, String tutorContext) {}

@@ -335,14 +335,51 @@
   min-width: 0;
 }
 
-.session-item-title .ant-typography {
+.session-title-marquee {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
   color: #202123;
   font-size: 13px;
   font-weight: 650;
   line-height: 1.35;
+  white-space: nowrap;
 }
 
-.session-item.ant-list-item-selected .session-item-title .ant-typography {
+.session-title-marquee__text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+  transform: translateX(0);
+  transition: transform 0.28s ease;
+}
+
+.session-item:hover .session-title-marquee.is-overflow .session-title-marquee__text,
+.session-item:focus-within .session-title-marquee.is-overflow .session-title-marquee__text {
+  width: max-content;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  transform: translateX(calc(-1 * var(--marquee-shift, 0px)));
+  transition: transform var(--marquee-duration, 3s) linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-item:hover .session-title-marquee.is-overflow .session-title-marquee__text,
+  .session-item:focus-within .session-title-marquee.is-overflow .session-title-marquee__text {
+    width: auto;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transform: none;
+    transition: none;
+  }
+}
+
+.session-item.ant-list-item-selected .session-title-marquee {
   color: #111827;
 }
 

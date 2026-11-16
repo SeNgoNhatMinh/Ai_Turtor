@@ -81,8 +81,17 @@ public class CourseAnswerService implements CourseAnswerGateway {
         if (localAnswer == null) {
             localAnswer = requestPolicyService.buildOffTopicRedirect(question, courseId);
         }
+        if (localAnswer == null
+                && ("OFF_TOPIC".equalsIgnoreCase(interactionType)
+                || "CONVERSATIONAL".equalsIgnoreCase(interactionType))) {
+            localAnswer = requestPolicyService.buildCasualRedirect(courseId);
+        }
         if (localAnswer != null) {
             return localAnswer;
+        }
+        if ("OFF_TOPIC".equalsIgnoreCase(interactionType)
+                || "CONVERSATIONAL".equalsIgnoreCase(interactionType)) {
+            return requestPolicyService.buildCasualRedirect(courseId);
         }
         return generationService.generateTutorInteraction(
                 question,
@@ -126,6 +135,21 @@ public class CourseAnswerService implements CourseAnswerGateway {
             String teachingMode,
             String retrievalHint
     ) throws IOException {
+        return askWithPersonalizedTutorContext(
+                question, courseId, classId, pedagogicalContext, learnerMemoryContext,
+                teachingMode, retrievalHint, null);
+    }
+
+    public CourseRagAnswer askWithPersonalizedTutorContext(
+            String question,
+            String courseId,
+            String classId,
+            String pedagogicalContext,
+            String learnerMemoryContext,
+            String teachingMode,
+            String retrievalHint,
+            com.ragapi.service.behavior.plan.TeachingPlan teachingPlan
+    ) throws IOException {
         return pipelineService.answer(CourseAnswerRequest.builder()
                 .question(question)
                 .courseId(courseId)
@@ -134,6 +158,7 @@ public class CourseAnswerService implements CourseAnswerGateway {
                 .learnerMemoryContext(learnerMemoryContext)
                 .teachingMode(teachingMode)
                 .retrievalHint(retrievalHint)
+                .teachingPlan(teachingPlan)
                 .build());
     }
 
@@ -164,6 +189,19 @@ public class CourseAnswerService implements CourseAnswerGateway {
             String learnerMemoryContext,
             RagQueryIntent ragQueryIntent
     ) throws IOException {
+        return askWithImprovePlanContext(
+                question, courseId, classId, pedagogicalContext, learnerMemoryContext, ragQueryIntent, null);
+    }
+
+    public CourseRagAnswer askWithImprovePlanContext(
+            String question,
+            String courseId,
+            String classId,
+            String pedagogicalContext,
+            String learnerMemoryContext,
+            RagQueryIntent ragQueryIntent,
+            com.ragapi.service.behavior.plan.TeachingPlan teachingPlan
+    ) throws IOException {
         String teachingMode = ragQueryIntent == null || ragQueryIntent.getTeachingMode() == null
                 ? "EXPLAIN_CONCEPT"
                 : ragQueryIntent.getTeachingMode();
@@ -177,6 +215,7 @@ public class CourseAnswerService implements CourseAnswerGateway {
                 .teachingMode(teachingMode)
                 .retrievalHint(retrievalHint)
                 .ragQueryIntent(ragQueryIntent)
+                .teachingPlan(teachingPlan)
                 .build());
     }
 

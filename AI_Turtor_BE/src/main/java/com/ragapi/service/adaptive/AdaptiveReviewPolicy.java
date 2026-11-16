@@ -23,7 +23,8 @@ public final class AdaptiveReviewPolicy {
     private AdaptiveReviewPolicy() {}
 
     public static void validateAssessment(Map<String, Object> map) {
-        // Exactly the 9-key prompt contract (no overallPercent; backend derives it).
+        // The 11-key prompt contract (no overallPercent; backend derives it).
+        // learnsBestWith / struggleSignals are optional so older models still parse.
         for (String key : List.of("knowledgePercent", "practicePercent",
                 "independencePercent", "confidencePercent")) {
             int value = number(map.get(key), -1);

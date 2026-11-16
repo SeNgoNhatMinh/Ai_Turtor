@@ -2,6 +2,8 @@ package com.ragapi.util;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -66,6 +68,21 @@ class ChapterHeadingUtilsTest {
         assertFalse(ChapterHeadingUtils.isStudySuggestionTitle("About the Author"));
         assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Conventions Used in This Book"));
         assertFalse(ChapterHeadingUtils.isStudyUnitTitle("Conventions Used in This Book"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Advertisement"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Who This Book Is Not For"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Introduction"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Summary"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Giới thiệu"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("What You Will Not Learn in This Book"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Part I: Creating Enterprise Applications"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Part II: Adding Spring Framework Into the Mix"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Professional: Java® for Web Applications"));
+        assertFalse(ChapterHeadingUtils.isStudyUnitTitle("Advertisement"));
+        assertFalse(ChapterHeadingUtils.isStudyUnitTitle("What You Will Not Learn in This Book"));
+        assertFalse(ChapterHeadingUtils.isStudyUnitTitle("Part I: Creating Enterprise Applications"));
+        assertTrue(ChapterHeadingUtils.isStudyUnitTitle("Introduction to Servlets"));
+        assertTrue(ChapterHeadingUtils.isStudyUnitTitle("Chapter 1. Introduction to JSP"));
+        assertTrue(ChapterHeadingUtils.isStudyUnitTitle("Using Services and Repositories"));
         assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Contributor List for Python Cookbook"));
         assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("List of Contributors"));
         assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("A.1 Contributor List for Python"));
@@ -76,5 +93,41 @@ class ChapterHeadingUtilsTest {
         assertFalse(ChapterHeadingUtils.isStudyUnitTitle("A string is a sequence"));
         assertTrue(ChapterHeadingUtils.isStudyUnitTitle("Alternative execution"));
         assertTrue(ChapterHeadingUtils.isStudyUnitTitle("Chapter 1 Servlet Basics"));
+    }
+
+    @Test
+    void studySuggestionsStartAtChapterOneAndDropBackMatter() {
+        List<String> kept = ChapterHeadingUtils.studySuggestionRange(List.of(
+                "Who This Book Is For",
+                "0.1 Outline of the Book",
+                "Chapter 1. Introduction to JSP",
+                "1.2 A JSP page",
+                "Chương 2. Servlet cơ bản",
+                "Chapter 3 Session Tracking",
+                "Appendix A. Installing Tomcat",
+                "Answers to Review Questions",
+                "Index"
+        ));
+
+        assertEquals(List.of(
+                "Chapter 1. Introduction to JSP",
+                "1.2 A JSP page",
+                "Chương 2. Servlet cơ bản",
+                "Chapter 3 Session Tracking"
+        ), kept);
+    }
+
+    @Test
+    void studySuggestionsKeepUnnumberedLessonsWhenTheBookHasNoChapterNumbers() {
+        List<String> kept = ChapterHeadingUtils.studySuggestionRange(List.of(
+                "Variables, expressions, and statements",
+                "Conditionals and recursion",
+                "Appendix A. Debugging"
+        ));
+
+        assertEquals(List.of(
+                "Variables, expressions, and statements",
+                "Conditionals and recursion"
+        ), kept);
     }
 }

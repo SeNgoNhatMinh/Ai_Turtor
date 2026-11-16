@@ -12,6 +12,9 @@ test('normalizes harness modes used by the frontend', () => {
   assert.equal(normalizeHarnessMode('course_ai'), 'RAG');
   assert.equal(normalizeHarnessMode('CODE_MENTOR'), 'CODE');
   assert.equal(normalizeHarnessMode('ESCALATE'), 'ESCALATE');
+  assert.equal(normalizeHarnessMode('REFUSE'), 'REFUSE');
+  assert.equal(normalizeHarnessMode('LOCAL'), 'REFUSE');
+  assert.equal(normalizeHarnessMode('curriculum'), 'CURRICULUM');
   assert.equal(normalizeHarnessMode(), 'RAG');
 });
 

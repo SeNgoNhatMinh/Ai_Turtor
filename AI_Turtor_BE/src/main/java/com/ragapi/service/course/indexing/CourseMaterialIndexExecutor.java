@@ -51,8 +51,14 @@ public class CourseMaterialIndexExecutor {
 
     public IndexResult indexAndMark(CourseMaterial material, Consumer<IndexProgress> progress) throws IOException {
         try {
-            int indexedChunks = indexContent(material, progress == null ? ignored -> { } : progress);
+            Consumer<IndexProgress> report = progress == null ? ignored -> { } : progress;
+            int indexedChunks = indexContent(material, report);
+            int visualTotal = Math.max(indexedChunks, 1);
+            report.accept(new IndexProgress("VISUAL", visualTotal, visualTotal, 0, 0, indexedChunks, indexedChunks,
+                    0, null, indexedChunks, List.of()));
             int indexedVisualPages = indexVisualEvidence(material);
+            report.accept(new IndexProgress("OUTLINES", visualTotal, visualTotal, 0, 0, indexedChunks, indexedChunks,
+                    0, null, indexedChunks, List.of()));
             material.setIndexingStatus(CourseMaterialIndexStatus.INDEXED);
             material.setIndexedAt(LocalDateTime.now());
             material.setIndexingError(null);
@@ -61,6 +67,8 @@ public class CourseMaterialIndexExecutor {
             publishMaterialEvent(material, "MATERIAL_INDEXED", CourseMaterialIndexStatus.INDEXED);
             refreshChapterOutlines(material.getCourseId());
             return new IndexResult(indexedChunks, indexedVisualPages);
+        } catch (ReindexCancelledException cancelled) {
+            throw cancelled;
         } catch (IOException | RuntimeException e) {
             markIndexingFailed(material, e.getMessage());
             throw e;
@@ -68,6 +76,10 @@ public class CourseMaterialIndexExecutor {
     }
 
     public ReindexResult reindexAndMark(CourseMaterial material) throws IOException {
+        return reindexAndMark(material, ignored -> { });
+    }
+
+    public ReindexResult reindexAndMark(CourseMaterial material, Consumer<IndexProgress> progress) throws IOException {
         if (material == null || material.getContent() == null || material.getContent().isBlank()) {
             throw new IllegalArgumentException("Course material has no extracted content to reindex");
         }
@@ -75,13 +87,15 @@ public class CourseMaterialIndexExecutor {
         try {
             long deletedChunks = vectorService.deleteChunksByMaterialId(material.getId());
             long deletedVisualPages = visualVectorService.deleteMaterial(material.getId());
-            IndexResult indexed = indexAndMark(material);
+            IndexResult indexed = indexAndMark(material, progress);
             return new ReindexResult(
                     deletedChunks,
                     deletedVisualPages,
                     indexed.indexedChunks(),
                     indexed.indexedVisualPages()
             );
+        } catch (ReindexCancelledException cancelled) {
+            throw cancelled;
         } catch (IOException | RuntimeException failure) {
             if (!CourseMaterialIndexStatus.FAILED.equals(material.getIndexingStatus())) {
                 markIndexingFailed(material, failure.getMessage());

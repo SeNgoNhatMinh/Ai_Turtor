@@ -29,14 +29,12 @@ export function withCurriculumWelcome(messages, {
   courseId,
   curriculumWelcome,
   isMessagesLoading = false,
-  hasStartedLearning = false,
 } = {}) {
   const safeMessages = Array.isArray(messages) ? messages : [];
   const answer = String(curriculumWelcome || '').trim();
   const curriculumId = `curriculum-${courseId}`;
   const conversationMessages = safeMessages.filter((message) => message?.id !== curriculumId);
 
-  if (hasStartedLearning) return conversationMessages;
   if (!answer || isMessagesLoading) return safeMessages;
 
   return [{

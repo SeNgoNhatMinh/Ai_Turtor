@@ -1,5 +1,6 @@
 package com.ragapi.service;
 
+import com.ragapi.dto.IntentClassification;
 import com.ragapi.dto.TutorIntentContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -197,7 +199,7 @@ class IntentClassifierServiceTest {
     void classScheduleQuestion_isMarkedOffTopic() {
         var result = service.classify("mai mấy giờ học", "", "CEA201");
 
-        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
+        assertEquals(IntentClassifierService.MODE_REFUSE, result.getMode());
         assertEquals("OFF_TOPIC", result.getSubIntent());
         assertFalse(result.getRequiresCourseMaterial());
     }
@@ -206,16 +208,18 @@ class IntentClassifierServiceTest {
     void greeting_isMarkedConversational() {
         var result = service.classify("xin chào", "", "CEA201");
 
-        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
-        assertEquals("CONVERSATIONAL", result.getSubIntent());
+        assertEquals(IntentClassifierService.MODE_CURRICULUM, result.getMode());
+        assertEquals(IntentClassifierService.MODE_CURRICULUM, result.getSubIntent());
         assertFalse(result.getRequiresCourseMaterial());
+        assertEquals("RULE", result.getRoutingStrategy());
+        verifyNoInteractions(llmClassifier);
     }
 
     @Test
     void incompleteInput_isRejectedWithoutCallingHostedLlm() {
         var result = service.classify("hôm nay tôi muốn...", "", "DBI202");
 
-        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
+        assertEquals(IntentClassifierService.MODE_REFUSE, result.getMode());
         assertEquals("OFF_TOPIC", result.getSubIntent());
         assertFalse(result.getRequiresCourseMaterial());
         assertEquals("LOCAL_VALIDATION", result.getRoutingStrategy());
@@ -223,11 +227,73 @@ class IntentClassifierServiceTest {
     }
 
     @Test
-    void obviousNonAcademicQuestion_isRejectedWithoutCallingHostedLlm() {
-        var result = service.classify("viết cho mình một bài thơ", "", "DBI202");
+    void harnessAgentReadsContextAndKeepsCasualQuestionsLocal() {
+        when(llmClassifier.classify(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.of(localAgentDecision("OFF_TOPIC")));
 
+        var weather = service.classify("hôm nay trời có mưa ko", "", "PRJ301", servletLessonContext());
+        var identity = service.classify("Mày biết tao là ai ko", "", "PRJ301", servletLessonContext());
+
+        assertEquals(IntentClassifierService.MODE_REFUSE, weather.getMode());
+        assertEquals("OFF_TOPIC", weather.getSubIntent());
+        assertEquals(IntentClassifierService.MODE_REFUSE, identity.getMode());
+        assertEquals("OFF_TOPIC", identity.getSubIntent());
+        assertFalse(weather.getRequiresCourseMaterial());
+        assertEquals("HARNESS_AGENT", weather.getRoutingStrategy());
+        assertEquals("HARNESS_AGENT", identity.getRoutingStrategy());
+        verify(llmClassifier, org.mockito.Mockito.atLeastOnce())
+                .classify(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void harnessGuardRejectsAgentRouteThatWouldAnswerCasualQuestionsFromCourseMaterial() {
+        when(llmClassifier.classify(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.of(IntentClassification.builder()
+                        .mode(IntentClassifierService.MODE_RAG)
+                        .subIntent("EXPLAIN_CONCEPT")
+                        .requiresCourseMaterial(true)
+                        .routingStrategy("LLM")
+                        .confidence(0.8)
+                        .domain("WEB")
+                        .reason("mistook weather for a lesson")
+                        .answerPolicy("Answer from course material")
+                        .build()));
+
+        var result = service.classify("mai có mưa ko", "", "PRJ301", servletLessonContext());
+
+        assertEquals(IntentClassifierService.MODE_REFUSE, result.getMode());
         assertEquals("OFF_TOPIC", result.getSubIntent());
         assertFalse(result.getRequiresCourseMaterial());
+        assertEquals("HARNESS_GUARD", result.getRoutingStrategy());
+    }
+
+    @Test
+    void obviousNonAcademicQuestion_usesLocalReplyWhenAgentIsUnavailable() {
+        var result = service.classify("viết cho mình một bài thơ", "", "DBI202");
+
+        assertEquals(IntentClassifierService.MODE_REFUSE, result.getMode());
+        assertEquals("OFF_TOPIC", result.getSubIntent());
+        assertFalse(result.getRequiresCourseMaterial());
+        assertEquals("RULE", result.getRoutingStrategy());
+        verify(llmClassifier).classify(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void ambiguousQuestion_canBeDeferredToTheN8nAgent() {
+        var result = service.classify("hôm nay trời có mưa ko", "", "PRJ301", servletLessonContext(), true);
+
+        assertEquals("AGENT", result.getMode());
+        assertEquals("NEEDS_AGENT", result.getSubIntent());
+        assertEquals("NEEDS_AGENT", result.getRoutingStrategy());
+        verifyNoInteractions(llmClassifier);
+    }
+
+    @Test
+    void explicitAcademicQuestion_skipsHarnessAgent() {
+        var result = service.classify("Servlet là gì?", "", "PRJ301");
+
+        assertEquals("EXPLAIN_CONCEPT", result.getSubIntent());
+        assertTrue(result.getRequiresCourseMaterial());
         assertEquals("RULE", result.getRoutingStrategy());
         verifyNoInteractions(llmClassifier);
     }
@@ -248,6 +314,19 @@ class IntentClassifierServiceTest {
         assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
         assertTrue(result.getRequiresCourseMaterial());
         assertEquals("SAFE_RAG_FALLBACK", result.getRoutingStrategy());
+    }
+
+    private static IntentClassification localAgentDecision(String subIntent) {
+        return IntentClassification.builder()
+                .mode(IntentClassifierService.MODE_RAG)
+                .subIntent(subIntent)
+                .requiresCourseMaterial(false)
+                .routingStrategy("LLM")
+                .confidence(0.91)
+                .domain("GENERAL_STUDY")
+                .reason("Harness agent selected a local reply")
+                .answerPolicy("Respond without course-material RAG.")
+                .build();
     }
 
     private static final String SERVLET_LESSON_HISTORY = """
@@ -324,8 +403,11 @@ class IntentClassifierServiceTest {
     void greeting_staysConversationalEvenWithLessonHistory() {
         var result = service.classify("xin chào", "", "CEA201", servletLessonContext());
 
-        assertEquals("CONVERSATIONAL", result.getSubIntent());
+        assertEquals(IntentClassifierService.MODE_CURRICULUM, result.getMode());
+        assertEquals(IntentClassifierService.MODE_CURRICULUM, result.getSubIntent());
         assertFalse(result.getRequiresCourseMaterial());
+        assertEquals("RULE", result.getRoutingStrategy());
+        verifyNoInteractions(llmClassifier);
     }
 
     @Test

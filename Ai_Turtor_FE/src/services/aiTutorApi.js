@@ -31,6 +31,17 @@ const normalizeAiQueryResponse = (response) => {
 };
 
 export const aiTutorApi = {
+  async cancelGeneration(traceId) {
+    if (!traceId) return { cancelled: false };
+    return request(`${API_BASE_URL}/ai/generations/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ traceId }),
+      timeoutMs: 8000,
+      skipUnauthorizedRedirect: true,
+    });
+  },
+
   async sendQuery(payload, userId, userName = '', userEmail = '', options = {}) {
     requireValidTutorPayload(payload);
     const params = new URLSearchParams({ userId });

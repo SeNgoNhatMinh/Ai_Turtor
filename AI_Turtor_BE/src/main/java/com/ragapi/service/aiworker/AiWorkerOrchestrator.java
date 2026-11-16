@@ -1,6 +1,8 @@
 package com.ragapi.service.aiworker;
 
 import lombok.extern.slf4j.Slf4j;
+import com.ragapi.service.ChatGenerationGate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -8,6 +10,8 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import org.slf4j.MDC;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -27,10 +31,16 @@ public class AiWorkerOrchestrator {
 
     private final Executor executor;
     private final AiWorkerTraceService traceService;
+    private ChatGenerationGate generationGate;
 
     public AiWorkerOrchestrator(@Qualifier("aiWorkerExecutor") Executor executor, AiWorkerTraceService traceService) {
         this.executor = executor;
         this.traceService = traceService;
+    }
+
+    @Autowired(required = false)
+    void setGenerationGate(ChatGenerationGate generationGate) {
+        this.generationGate = generationGate;
     }
 
     public <T> Map<String, AiWorkerResult<T>> executeParallel(
@@ -52,8 +62,17 @@ public class AiWorkerOrchestrator {
             traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "STARTED", null, 0L, "Worker started");
 
             try {
+                java.util.Map<String, String> context = MDC.getCopyOfContextMap();
                 CompletableFuture<AiWorkerResult<T>> future = CompletableFuture
-                        .supplyAsync(() -> task.get(), executor)
+                        .supplyAsync(() -> {
+                            if (context != null) MDC.setContextMap(context);
+                            try {
+                                if (generationGate != null) generationGate.checkpoint();
+                                return task.get();
+                            } finally {
+                                MDC.clear();
+                            }
+                        }, executor)
                         .orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS)
                         .handle((value, failure) -> {
                             long elapsedMs = elapsedMs(started);
@@ -71,6 +90,7 @@ public class AiWorkerOrchestrator {
                             traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "FAILED", null, elapsedMs, cause.getClass().getSimpleName());
                             return AiWorkerResult.failed(cause.getClass().getSimpleName(), elapsedMs);
                         });
+                if (generationGate != null) generationGate.track(future);
                 futures.put(workerName, future);
             } catch (RejectedExecutionException rejected) {
                 log.warn("AI worker {} rejected because the bounded pool is saturated", workerName);

@@ -70,6 +70,21 @@ public class StudentDailyQuestionQuotaService {
         }
     }
 
+    /** Give back one question when the student stops generation before an answer is saved. */
+    public void releaseOne(String studentId, String courseId) {
+        if (studentId == null || studentId.isBlank() || courseId == null || courseId.isBlank()) return;
+        ZonedDateTime now = ZonedDateTime.now(zoneId);
+        String documentId = documentId(
+                studentId.trim(),
+                courseId.trim().toUpperCase(java.util.Locale.ROOT),
+                now.toLocalDate());
+        Query query = Query.query(Criteria.where("_id").is(documentId).and("questionCount").gt(0));
+        Update update = new Update()
+                .inc("questionCount", -1)
+                .set("updatedAt", LocalDateTime.from(now));
+        mongoTemplate.findAndModify(query, update, StudentDailyQuestionUsage.class);
+    }
+
     public QuotaUsage currentUsage(String studentId, String courseId) {
         if (studentId == null || studentId.isBlank() || courseId == null || courseId.isBlank()) {
             throw new IllegalArgumentException("Student ID and course ID are required");
