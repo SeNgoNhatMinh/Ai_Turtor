@@ -2,8 +2,6 @@ import { useState } from 'react';
 import PageHeader from '../../../components/common/PageHeader';
 import { uiCopy } from '../../../constants/uiCopy';
 import TeacherGradingTab from './TeacherGradingTab';
-import { assignmentApi } from '../../../services/assignmentApi';
-import { getUserFacingError } from '../../../services/apiClient';
 import { useTeacherDashboard } from '../dashboard/useTeacherDashboard';
 import { useTeacherGrading } from './useTeacherGrading';
 
@@ -18,35 +16,11 @@ export default function TeacherGradingPage({ teacherId, courseId, classId, trigg
   });
   const [score, setScore] = useState('');
   const [feedback, setFeedback] = useState('');
-  const [weakTopics, setWeakTopics] = useState([]);
 
-  const handleGradeSubmit = (event) => {
-    event.preventDefault();
-    const submissionId = grading.selectedTeacherSub?.id || grading.selectedTeacherSub?.submissionId;
-    if (!submissionId) return;
-    grading.handleTeacherGradeSubmit(submissionId, score, feedback, weakTopics).then((succeeded) => {
-      if (succeeded) {
-        setScore('');
-        setFeedback('');
-        setWeakTopics([]);
-      }
-    });
-  };
-
-  const handleSelectSubmission = async (submission, type) => {
-    let selected = submission;
-    if (type === 'quizzes') {
-      selected = await grading.selectQuizSubmission(submission);
-    } else {
-      grading.setSelectedTeacherSub(submission);
-    }
-    setScore(type === 'assignments'
-      ? (selected?.score ?? '')
-      : (selected?.teacherReviewedScore ?? selected?.autoScore ?? selected?.score ?? ''));
+  const handleSelectSubmission = async (submission) => {
+    const selected = await grading.selectQuizSubmission(submission);
+    setScore(selected?.teacherReviewedScore ?? selected?.autoScore ?? selected?.score ?? '');
     setFeedback(selected?.teacherFeedback || '');
-    if (type === 'assignments') {
-      setWeakTopics(selected?.weakTopics || []);
-    }
   };
 
   const handleTeacherQuizReview = async (quizSessionId, reviewedScore, reviewFeedback) => {
@@ -58,29 +32,10 @@ export default function TeacherGradingPage({ teacherId, courseId, classId, trigg
     return succeeded;
   };
 
-  const handleDownloadSubmission = async (submission) => {
-    const submissionId = submission?.id || submission?.submissionId || submission;
-    if (!submissionId) return;
-    try {
-      const blob = await assignmentApi.downloadSubmissionFile(submissionId);
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = submission?.submittedFileName || `submission-${submissionId}`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể tải bài nộp này.'), 'error');
-    }
-  };
-
   return (
     <div className="portal-section teacher-feature-page">
       <PageHeader eyebrow="Giảng dạy" title={uiCopy.teacher.grading.title} description={uiCopy.teacher.grading.subtitle} />
       <TeacherGradingTab
-        teacherSubmissions={grading.teacherSubmissions}
         quizSubmissions={grading.quizSubmissions}
         quizAttemptPage={grading.quizAttemptPage}
         quizPage={grading.quizPage}
@@ -90,22 +45,13 @@ export default function TeacherGradingPage({ teacherId, courseId, classId, trigg
         isQuizSubmissionsLoading={grading.isQuizSubmissionsLoading}
         loadingQuizDetailId={grading.loadingQuizDetailId}
         selectedTeacherSub={grading.selectedTeacherSub}
-        setSelectedTeacherSub={grading.setSelectedTeacherSub}
         onSelectSubmission={handleSelectSubmission}
         teacherGradeScore={score}
         setTeacherGradeScore={setScore}
         teacherGradeFeedback={feedback}
         setTeacherGradeFeedback={setFeedback}
-        teacherGradeWeakTopics={weakTopics}
-        setTeacherGradeWeakTopics={setWeakTopics}
-        onGradeSubmit={handleGradeSubmit}
         handleTeacherQuizReview={handleTeacherQuizReview}
-        handleDownloadSubmission={handleDownloadSubmission}
-        answerKeyUploadingId={grading.answerKeyUploadingId}
-        aiGradingSubmissionId={grading.aiGradingSubmissionId}
         gradingMutationKeys={grading.gradingMutationKeys}
-        handleUploadAnswerKey={grading.handleUploadAnswerKey}
-        handleAiGradeSubmission={grading.handleAiGradeSubmission}
       />
     </div>
   );

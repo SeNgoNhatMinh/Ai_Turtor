@@ -1,7 +1,5 @@
 package com.ragapi.service;
 
-import com.ragapi.entity.Assignment;
-import com.ragapi.entity.AssignmentSubmission;
 import com.ragapi.entity.ClassSection;
 import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.entity.CourseMaterial;
@@ -10,8 +8,6 @@ import com.ragapi.entity.KnowledgeCandidate;
 import com.ragapi.entity.QuestionEscalation;
 import com.ragapi.entity.StudentCourseMemory;
 import com.ragapi.entity.Mentor;
-import com.ragapi.repository.AssignmentRepository;
-import com.ragapi.repository.AssignmentSubmissionRepository;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseEnrollmentRepository;
 import com.ragapi.repository.CourseMaterialRepository;
@@ -35,8 +31,6 @@ public class LearningDashboardService {
 
     private final CourseEnrollmentRepository enrollmentRepository;
     private final ClassSectionRepository classSectionRepository;
-    private final AssignmentRepository assignmentRepository;
-    private final AssignmentSubmissionRepository submissionRepository;
     private final CourseMaterialRepository materialRepository;
     private final StudentCourseMemoryRepository memoryRepository;
     private final QuestionEscalationRepository escalationRepository;
@@ -50,13 +44,6 @@ public class LearningDashboardService {
                 .toList();
         List<String> courseIds = enrollments.stream().map(CourseEnrollment::getCourseId).distinct().toList();
 
-        List<Assignment> assignments = assignmentRepository.findAll().stream()
-                .filter(item -> courseIds.contains(item.getCourseId()))
-                .filter(item -> isStudentTargeted(item, studentId, enrollments))
-                .toList();
-        List<AssignmentSubmission> submissions = submissionRepository.findByStudentId(studentId).stream()
-                .filter(item -> isBlank(courseId) || courseId.equals(item.getCourseId()))
-                .toList();
         List<StudentCourseMemory> memories = courseIds.stream()
                 .map(cid -> memoryRepository.findByStudentIdAndCourseId(studentId, cid).orElse(null))
                 .filter(item -> item != null)
@@ -71,8 +58,6 @@ public class LearningDashboardService {
         Map<String, Object> dashboard = new LinkedHashMap<>();
         dashboard.put("studentId", studentId);
         dashboard.put("enrollments", enrollments);
-        dashboard.put("assignments", assignments);
-        dashboard.put("submissions", submissions);
         dashboard.put("memories", memories);
         dashboard.put("improvePlans", plans);
         dashboard.put("escalations", escalations);
@@ -92,16 +77,6 @@ public class LearningDashboardService {
                 .toList();
         List<CourseEnrollment> students = classes.stream()
                 .flatMap(section -> enrollmentRepository.findByCourseIdAndClassId(section.getCourseId(), section.getClassId()).stream())
-                .toList();
-        List<Assignment> assignments = assignmentRepository.findAll().stream()
-                .filter(item -> matchesTeacherId(teacherId, item.getTeacherId()))
-                .filter(item -> isBlank(courseId) || courseId.equals(item.getCourseId()))
-                .filter(item -> isBlank(classId) || classId.equals(item.getClassId()))
-                .toList();
-        List<AssignmentSubmission> submissions = submissionRepository.findAll().stream()
-                .filter(item -> matchesTeacherId(teacherId, item.getTeacherId()))
-                .filter(item -> isBlank(courseId) || courseId.equals(item.getCourseId()))
-                .filter(item -> isBlank(classId) || classId.equals(item.getClassId()))
                 .toList();
         List<CourseMaterial> materials = materialRepository.findAll().stream()
                 .filter(item -> matchesTeacherId(teacherId, item.getTeacherId()))
@@ -130,8 +105,6 @@ public class LearningDashboardService {
         dashboard.put("teacherId", teacherId);
         dashboard.put("classes", classes);
         dashboard.put("students", students);
-        dashboard.put("assignments", assignments);
-        dashboard.put("submissions", submissions);
         dashboard.put("materials", materials);
         dashboard.put("escalations", escalations);
         dashboard.put("pendingKnowledgeCandidates", candidates);
@@ -139,8 +112,6 @@ public class LearningDashboardService {
         dashboard.put("analytics", Map.of(
                 "classCount", classes.size(),
                 "studentCount", students.size(),
-                "assignmentCount", assignments.size(),
-                "submissionCount", submissions.size(),
                 "pendingEscalationCount", escalations.stream().filter(item -> !"COMPLETED".equalsIgnoreCase(item.getStatus())).count(),
                 "pendingKnowledgeCandidateCount", candidates.size()
         ));
@@ -164,14 +135,6 @@ public class LearningDashboardService {
                         item.getCourseId(), item.getClassId(), item.getStatus())
                 .stream().filter(value -> value != null)
                 .anyMatch(value -> value.toLowerCase().contains(q));
-    }
-
-    private boolean isStudentTargeted(Assignment assignment, String studentId, List<CourseEnrollment> enrollments) {
-        if ("SELECTED_STUDENTS".equalsIgnoreCase(assignment.getTargetType())) {
-            return assignment.getTargetStudentIds() != null && assignment.getTargetStudentIds().contains(studentId);
-        }
-        return enrollments.stream().anyMatch(enrollment -> assignment.getCourseId().equals(enrollment.getCourseId())
-                && assignment.getClassId().equals(enrollment.getClassId()));
     }
 
     private boolean isAssignedToTeacher(QuestionEscalation escalation, String teacherId) {

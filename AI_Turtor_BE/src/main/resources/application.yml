@@ -85,8 +85,6 @@ upload:
     min-text-length: 50
   code:
     max-size-mb: 2
-  assignment:
-    max-size-mb: 50
   excel:
     max-size-mb: 5
 

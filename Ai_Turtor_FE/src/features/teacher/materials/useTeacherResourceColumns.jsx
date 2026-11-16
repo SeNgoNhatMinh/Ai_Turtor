@@ -7,14 +7,8 @@ import { getRecordId } from '../shared/teacherUtils';
 import { getMaterialDisplayName } from '../../../utils/sourceLabels';
 
 export function useTeacherResourceColumns({
-  assignmentActions,
   materialActions,
 }) {
-  const {
-    onDownload: onDownloadAssignment,
-    onEdit: onEditAssignment,
-    onDelete: onDeleteAssignment,
-  } = assignmentActions;
   const {
     onDownload: onDownloadMaterial,
     onEdit: onEditMaterial,
@@ -22,62 +16,6 @@ export function useTeacherResourceColumns({
     canManage: canManageMaterial,
     pendingId: materialActionId,
   } = materialActions;
-
-  const assignmentColumns = useMemo(() => [
-    {
-      accessorKey: 'title',
-      header: 'Tên bài tập',
-      cell: ({ row }) => <span className="teacher-resource-title">{row.getValue('title') || 'Bài tập chưa đặt tên'}</span>,
-    },
-    {
-      accessorKey: 'assignmentType',
-      header: 'Loại',
-      cell: ({ row }) => <Tag>{String(row.getValue('assignmentType') || 'ASSIGNMENT').toUpperCase() === 'EXAM' ? 'Bài kiểm tra' : 'Bài tập'}</Tag>,
-    },
-    {
-      accessorKey: 'maxScore',
-      header: 'Điểm tối đa',
-      cell: ({ row }) => <span>{row.getValue('maxScore') ?? 10}</span>,
-    },
-    {
-      accessorKey: 'targetType',
-      header: 'Đối tượng',
-      cell: ({ row }) => (
-        <Tag color={row.getValue('targetType') === 'SELECTED_STUDENTS' ? 'orange' : 'green'}>
-          {row.getValue('targetType') === 'SELECTED_STUDENTS' ? 'Sinh viên được chọn' : 'Cả lớp'}
-        </Tag>
-      ),
-    },
-    {
-      accessorKey: 'dueAt',
-      header: 'Hạn nộp',
-      cell: ({ row }) => {
-        const value = row.getValue('dueAt');
-        return <span className="teacher-resource-meta">{value ? new Date(value).toLocaleString() : '-'}</span>;
-      },
-    },
-    { accessorKey: 'status', header: 'Trạng thái', cell: ({ row }) => <StatusLabel status={row.getValue('status') || 'PUBLISHED'} /> },
-    {
-      id: 'actions',
-      header: '',
-      cell: ({ row }) => (
-        <EntityActionMenu
-          ariaLabel="Thao tác bài tập"
-          items={[
-            { key: 'edit', label: 'Chỉnh sửa', icon: <Pencil size={14} />, disabled: !onEditAssignment },
-            { key: 'download', label: 'Tải xuống', icon: <Download size={14} />, disabled: !onDownloadAssignment },
-            { type: 'divider' },
-            { key: 'delete', label: 'Xóa', icon: <Trash2 size={14} />, danger: true, disabled: !onDeleteAssignment },
-          ]}
-          onAction={(key) => {
-            if (key === 'edit') onEditAssignment?.(row.original);
-            if (key === 'download') onDownloadAssignment?.(row.original);
-            if (key === 'delete') onDeleteAssignment?.(row.original);
-          }}
-        />
-      ),
-    },
-  ], [onDeleteAssignment, onDownloadAssignment, onEditAssignment]);
 
   const materialColumns = useMemo(() => [
     {
@@ -158,5 +96,5 @@ export function useTeacherResourceColumns({
     },
   ], [canManageMaterial, materialActionId, onDeleteMaterial, onDownloadMaterial, onEditMaterial]);
 
-  return { assignmentColumns, materialColumns };
+  return { materialColumns };
 }

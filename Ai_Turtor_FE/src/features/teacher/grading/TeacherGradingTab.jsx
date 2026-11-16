@@ -1,11 +1,8 @@
-import { useState } from 'react';
 import GradingSubmissionList from './components/GradingSubmissionList';
-import FileAssignmentGradingPanel from './components/FileAssignmentGradingPanel';
 import QuizGradingPanel from './components/QuizGradingPanel';
 import '../../student/quizzes/Quiz.css';
 
 function TeacherGradingTab({
-  teacherSubmissions = [],
   quizSubmissions = [],
   quizAttemptPage = {},
   quizPage = 0,
@@ -15,40 +12,20 @@ function TeacherGradingTab({
   isQuizSubmissionsLoading = false,
   loadingQuizDetailId = '',
   selectedTeacherSub,
-  setSelectedTeacherSub,
   onSelectSubmission,
   teacherGradeScore,
   setTeacherGradeScore,
   teacherGradeFeedback,
   setTeacherGradeFeedback,
-  teacherGradeWeakTopics,
-  setTeacherGradeWeakTopics,
-  onGradeSubmit,
   handleTeacherQuizReview,
-  handleDownloadSubmission,
-  answerKeyUploadingId = '',
-  aiGradingSubmissionId = '',
   gradingMutationKeys = [],
-  handleUploadAnswerKey,
-  handleAiGradeSubmission,
 }) {
-  const [activeTab, setActiveTab] = useState('assignments');
-  const currentList = activeTab === 'assignments' ? teacherSubmissions : quizSubmissions;
-  const selectedSubmissionId = selectedTeacherSub?.submissionId || selectedTeacherSub?.id || '';
-  const assignmentReviewSubmitting = gradingMutationKeys.includes(`assignment-review:${selectedSubmissionId}`);
   const quizReviewSubmitting = gradingMutationKeys.includes(`quiz-review:${selectedTeacherSub?.id || ''}`);
-
-  const changeTab = (nextTab) => {
-    setActiveTab(nextTab);
-    setSelectedTeacherSub(null);
-  };
 
   return (
     <div className="grid-2-cols portal-view">
       <GradingSubmissionList
-        activeTab={activeTab}
-        onTabChange={changeTab}
-        submissions={currentList}
+        submissions={quizSubmissions}
         selectedSubmission={selectedTeacherSub}
         onSelectSubmission={onSelectSubmission}
         quizAttemptPage={quizAttemptPage}
@@ -60,26 +37,7 @@ function TeacherGradingTab({
         loadingQuizDetailId={loadingQuizDetailId}
       />
 
-      {selectedTeacherSub && activeTab === 'assignments' && (
-        <FileAssignmentGradingPanel
-          submission={selectedTeacherSub}
-          score={teacherGradeScore}
-          setScore={setTeacherGradeScore}
-          feedback={teacherGradeFeedback}
-          setFeedback={setTeacherGradeFeedback}
-          weakTopics={teacherGradeWeakTopics}
-          setWeakTopics={setTeacherGradeWeakTopics}
-          onGradeSubmit={onGradeSubmit}
-          onDownload={handleDownloadSubmission}
-          answerKeyUploadingId={answerKeyUploadingId}
-          aiGradingSubmissionId={aiGradingSubmissionId}
-          reviewSubmitting={assignmentReviewSubmitting}
-          onUploadAnswerKey={handleUploadAnswerKey}
-          onAiGrade={handleAiGradeSubmission}
-        />
-      )}
-
-      {selectedTeacherSub && activeTab === 'quizzes' && (
+      {selectedTeacherSub && (
         <QuizGradingPanel
           submission={selectedTeacherSub}
           score={teacherGradeScore}

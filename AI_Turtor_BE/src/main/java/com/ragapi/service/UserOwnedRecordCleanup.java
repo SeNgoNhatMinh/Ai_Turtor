@@ -22,7 +22,7 @@ import java.util.Set;
  * Mongo has no foreign keys. This is the ownership map used when a user is deleted.
  *
  * Owned rows are removed with the account. Shared academic rows stay, and only the
- * user reference is cleared, so courses, classes, materials and assignments remain.
+ * user reference is cleared, so courses, classes and materials remain.
  */
 @Service
 @RequiredArgsConstructor
@@ -47,7 +47,6 @@ public class UserOwnedRecordCleanup {
             "learning_evidence",
             "student_daily_question_usage",
             "quiz_sessions",
-            "assignment_submissions",
             "student_course_memories",
             "ai_answer_reviews",
             "tutor_session_summaries",
@@ -79,10 +78,8 @@ public class UserOwnedRecordCleanup {
             new SharedUserRef("class_sections", "teacherId"),
             new SharedUserRef("class_sections", "teacherEmail"),
             new SharedUserRef("course_materials", "teacherId"),
-            new SharedUserRef("assignments", "teacherId"),
             new SharedUserRef("quiz_assignments", "teacherId"),
             new SharedUserRef("quiz_sessions", "teacherId"),
-            new SharedUserRef("assignment_submissions", "teacherId"),
             new SharedUserRef("knowledge_candidates", "teacherId"),
             new SharedUserRef("knowledge_candidates", "reviewedBy"),
             new SharedUserRef("mentor_answers", "teacherId"),

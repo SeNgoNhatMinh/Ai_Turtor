@@ -54,14 +54,6 @@ const navigationItems = [
     icon: BookOpen,
   },
   {
-    key: 'student-assignments',
-    workspace: 'student',
-    group: 'Học liệu',
-    label: 'Bài tập',
-    description: 'Xem đề, theo dõi hạn nộp và gửi bài làm.',
-    icon: FileText,
-  },
-  {
     key: 'student-escalation',
     workspace: 'student',
     group: 'Hỗ trợ',
@@ -92,8 +84,8 @@ const navigationItems = [
     workspace: 'teacher',
     allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
     group: 'Giảng dạy',
-    label: 'Tài liệu & bài tập',
-    description: 'Xem học liệu và giao bài tập cho lớp.',
+    label: 'Tài liệu học tập',
+    description: 'Xem học liệu của lớp được phân công.',
     icon: UploadCloud,
   },
   {
@@ -101,8 +93,8 @@ const navigationItems = [
     workspace: 'teacher',
     allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
     group: 'Giảng dạy',
-    label: 'Chấm bài nộp',
-    description: 'Chấm bài sinh viên và công bố nhận xét.',
+    label: 'Chấm quiz',
+    description: 'Xem bài làm quiz và xác nhận điểm cuối.',
     icon: CheckSquare,
   },
   {

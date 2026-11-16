@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../app/queryKeys';
-import { assignmentApi } from '../../../services/assignmentApi';
 import { materialsApi } from '../../../services/materialsApi';
 import { quizApi } from '../../../services/quizApi';
 import { teacherReviewApi } from '../../../services/teacherReviewApi';
@@ -27,7 +26,6 @@ const loadActionItems = async ({ teacherId, role, courseId, classId, signal }) =
       page: 0,
       size: 1,
     }, { signal }),
-    assignmentApi.getClassSubmissions(courseId, classId, teacherId, { signal }),
     teacherReviewApi.getTeacherEscalations(teacherId, { courseId, classId }, { signal }),
     reviewLoader,
     materialsApi.getCourseMaterials(courseId, classId, { signal }),
@@ -38,10 +36,9 @@ const loadActionItems = async ({ teacherId, role, courseId, classId, signal }) =
   }
   const value = (index) => results[index].status === 'fulfilled' ? results[index].value : null;
   const quizCount = Number(value(0)?.totalElements || value(0)?.attempts?.length || 0);
-  const submissions = asArray(value(1), 'submissions', 'content').filter((item) => !isClosed(item.status));
-  const escalations = asArray(value(2), 'escalations', 'inbox', 'content').filter((item) => !isClosed(item.status));
-  const reviews = Array.isArray(value(3)) ? value(3) : [];
-  const failedMaterials = asArray(value(4), 'materials', 'content').filter((item) => {
+  const escalations = asArray(value(1), 'escalations', 'inbox', 'content').filter((item) => !isClosed(item.status));
+  const reviews = Array.isArray(value(2)) ? value(2) : [];
+  const failedMaterials = asArray(value(3), 'materials', 'content').filter((item) => {
     const status = String(item.indexingStatus || item.status || '').toUpperCase();
     return status === 'FAILED' || status === 'INDEXING_FAILED' || status === 'ERROR';
   });
@@ -52,13 +49,6 @@ const loadActionItems = async ({ teacherId, role, courseId, classId, signal }) =
       title: `${quizCount} bài quiz chờ duyệt điểm`,
       description: 'Kiểm tra điểm tự động và xác nhận điểm cuối.',
       status: 'PENDING_REVIEW',
-      tab: 'teacher-grading',
-    },
-    submissions.length && {
-      key: 'assignment-review',
-      title: `${submissions.length} bài tập tệp chờ chấm`,
-      description: 'Xem tệp sinh viên nộp và công bố nhận xét.',
-      status: 'SUBMITTED',
       tab: 'teacher-grading',
     },
     escalations.length && {
@@ -105,8 +95,7 @@ export function useTeacherActionCenter({ teacherId, role, courseId, classId }) {
 
   useRealtimeEvent([
     ...REALTIME_EVENT_TYPES.material,
-    ...REALTIME_EVENT_TYPES.teacherAssignment,
-    ...REALTIME_EVENT_TYPES.assignmentAiGrading,
+    ...REALTIME_EVENT_TYPES.quizHistory,
   ], (event) => {
     if (eventMatchesCourse(event, courseId)) invalidate();
   });

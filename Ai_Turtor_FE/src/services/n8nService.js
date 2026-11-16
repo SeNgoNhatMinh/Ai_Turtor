@@ -1,5 +1,4 @@
 import {
-  N8N_ASSIGNMENT_GRADING_TIMEOUT_MS,
   N8N_CHAT_TIMEOUT_MS,
   N8N_QUIZ_TIMEOUT_MS,
   N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS,
@@ -76,22 +75,6 @@ export const n8nService = {
       ...options,
     });
     return ensureHarnessSuccess(response, 'Không thể hoàn tất luồng nộp quiz.');
-  },
-
-  async gradeAssignmentSubmission(payload, options = {}) {
-    const response = await postN8n('/teacher-assignment-ai-grade', payload, {
-      timeoutMs: N8N_ASSIGNMENT_GRADING_TIMEOUT_MS,
-      ...options,
-    });
-    const result = ensureHarnessSuccess(response, 'Không thể hoàn tất luồng AI hỗ trợ chấm bài.');
-    if (!(result.id || result.submissionId) || !result.aiGradingStatus) {
-      const error = new Error('n8n assignment grading returned an invalid receipt.');
-      error.name = 'N8nError';
-      error.userMessage = 'AI không trả về kết quả chấm đã xác nhận. Chưa có điểm cuối nào được lưu.';
-      error.details = result;
-      throw error;
-    }
-    return result;
   },
 
   async analyzeTutorV2Coverage(payload, options = {}) {

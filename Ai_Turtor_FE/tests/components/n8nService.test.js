@@ -89,29 +89,6 @@ describe('n8n education workflow service', () => {
     });
   });
 
-  it('requires a confirmed assignment grading receipt', async () => {
-    postN8n.mockResolvedValue({
-      id: 'submission-1',
-      aiGradingStatus: 'SUGGESTED',
-      aiSuggestedScore: 8,
-    });
-    const result = await n8nService.gradeAssignmentSubmission({
-      submissionId: 'submission-1',
-      teacherId: 'teacher-1',
-    });
-    expect(result.aiSuggestedScore).toBe(8);
-    expect(postN8n).toHaveBeenLastCalledWith('/teacher-assignment-ai-grade', {
-      submissionId: 'submission-1',
-      teacherId: 'teacher-1',
-    }, { timeoutMs: 300_000 });
-
-    postN8n.mockResolvedValue({ message: 'Backend request failed' });
-    await expect(n8nService.gradeAssignmentSubmission({
-      submissionId: 'submission-1',
-      teacherId: 'teacher-1',
-    })).rejects.toThrow(/invalid receipt/);
-  });
-
   it('uses Tutor V2 webhook paths without placing JWT compatibility data in the body', async () => {
     postN8n.mockResolvedValue({ gaps: [] });
     await n8nService.analyzeTutorV2Coverage({ courseId: 'PRO192', chapters: ['OOP'] });

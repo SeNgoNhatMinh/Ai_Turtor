@@ -1,13 +1,11 @@
 package com.ragapi.service;
 
 import com.ragapi.dto.RagQueryIntent;
-import com.ragapi.entity.AssignmentSubmission;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.entity.ImprovePlan;
 import com.ragapi.entity.ImprovePlanItem;
 import com.ragapi.entity.StudentCourseMemory;
 import com.ragapi.entity.StudentWeakTopic;
-import com.ragapi.repository.AssignmentSubmissionRepository;
 import com.ragapi.repository.CourseMaterialRepository;
 import com.ragapi.repository.ImprovePlanRepository;
 import com.ragapi.util.TextSanitizer;
@@ -39,7 +37,6 @@ public class ImprovePlanService {
     );
 
     private final ImprovePlanRepository improvePlanRepository;
-    private final AssignmentSubmissionRepository submissionRepository;
     private final CourseMaterialRepository materialRepository;
     private final CourseMaterialChunkingService chunkingService;
 
@@ -48,24 +45,13 @@ public class ImprovePlanService {
             throw new IllegalArgumentException("studentId and courseId are required to generate improve plan");
         }
 
-        List<AssignmentSubmission> submissions = submissionRepository.findByStudentId(memory.getStudentId()).stream()
-                .filter(item -> memory.getCourseId().equals(item.getCourseId()))
-                .toList();
-
         Set<String> weakTopics = new LinkedHashSet<>();
         if (memory.getWeakTopics() != null) weakTopics.addAll(memory.getWeakTopics());
-        submissions.stream()
-                .filter(item -> item.getWeakTopics() != null)
-                .flatMap(item -> item.getWeakTopics().stream())
-                .forEach(weakTopics::add);
 
         List<String> evidence = new ArrayList<>();
         if (memory.getRecentQuestions() != null && !memory.getRecentQuestions().isEmpty()) {
             evidence.add("Recent questions: " + Math.min(memory.getRecentQuestions().size(), 20));
         }
-        submissions.stream()
-                .filter(item -> item.getScore() != null)
-                .forEach(item -> evidence.add("Assignment score: " + item.getScore() + " for submission " + item.getId()));
         if (memory.getImproveSuggestions() != null) {
             memory.getImproveSuggestions().stream()
                     .filter(item -> item != null && !item.isBlank())
@@ -76,7 +62,6 @@ public class ImprovePlanService {
         List<ImprovePlanItem> planItemDetails = buildPlanItemDetails(
                 weakTopics,
                 memory,
-                submissions,
                 generatedBy,
                 now
         );
@@ -85,7 +70,7 @@ public class ImprovePlanService {
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-        String riskLevel = calculateRiskLevel(weakTopics.size(), submissions);
+        String riskLevel = calculateRiskLevel(weakTopics.size());
 
         ImprovePlan plan = improvePlanRepository
                 .findFirstByStudentIdAndCourseIdAndStatusOrderByGeneratedAtDesc(memory.getStudentId(), memory.getCourseId(), "ACTIVE")
@@ -206,7 +191,6 @@ public class ImprovePlanService {
     private List<ImprovePlanItem> buildPlanItemDetails(
             Set<String> weakTopics,
             StudentCourseMemory memory,
-            List<AssignmentSubmission> submissions,
             String generatedBy,
             LocalDateTime now
     ) {
@@ -222,12 +206,6 @@ public class ImprovePlanService {
             items.add(buildTopicPlanItem(topic, "practice", "Thực hành " + topic,
                     "Làm một bài thực hành nhỏ về " + topic + " dựa trên tài liệu môn học.",
                     grounding, generatedBy, now));
-        }
-        boolean hasLowScore = submissions.stream()
-                .anyMatch(item -> item.getScore() != null && item.getScore() < 5.0);
-        if (hasLowScore) {
-            items.add(legacyPlanItem("low-score-feedback", "Xem lại phản hồi bài tập điểm thấp", now, generatedBy));
-            items.add(legacyPlanItem("weak-assignment-step", "Nhờ AI Tutor giải thích từng bước chủ đề yếu nhất trong bài tập", now, generatedBy));
         }
         if (items.isEmpty()) {
             items.add(legacyPlanItem("recent-material-review", "Ôn lại tài liệu môn học gần đây", now, generatedBy));
@@ -483,12 +461,9 @@ public class ImprovePlanService {
                 .trim();
     }
 
-    private String calculateRiskLevel(int weakTopicCount, List<AssignmentSubmission> submissions) {
-        long lowScores = submissions.stream()
-                .filter(item -> item.getScore() != null && item.getScore() < 5.0)
-                .count();
-        if (weakTopicCount >= 4 || lowScores >= 2) return "HIGH";
-        if (weakTopicCount >= 2 || lowScores == 1) return "MEDIUM";
+    private String calculateRiskLevel(int weakTopicCount) {
+        if (weakTopicCount >= 4) return "HIGH";
+        if (weakTopicCount >= 2) return "MEDIUM";
         return "LOW";
     }
 

@@ -1,6 +1,5 @@
 export 'plugpro/plugpro.dart';
 export 'portal/portal.dart';
-export 'assignment_tile.dart';
 export 'ai_markdown_body.dart';
 export 'chat_bubble.dart';
 export 'rag_source_evidence_panel.dart';

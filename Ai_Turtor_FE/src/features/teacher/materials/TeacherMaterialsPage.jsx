@@ -6,7 +6,6 @@ import { materialsApi } from '../../../services/materialsApi';
 import { useTeacherDashboard } from '../dashboard/useTeacherDashboard';
 import { findTeacherClass, getClassCourseId, getClassOptionValue } from '../shared/teacherUtils';
 import TeacherMaterialsView from './TeacherMaterialsView';
-import { useTeacherAssignmentsController } from './useTeacherAssignmentsController';
 import { useTeacherMaterialController } from './useTeacherMaterialController';
 import './TeacherMaterialsPage.css';
 
@@ -21,12 +20,6 @@ export default function TeacherMaterialsPage({
 }) {
   const dashboard = useTeacherDashboard({ teacherId, courseId, classId });
   const courseMaterialData = useCourseMaterialsController({ courseId, classId, teacherId, triggerToast });
-  const assignments = useTeacherAssignmentsController({
-    courseId,
-    classId,
-    teacherUserId: teacherId,
-    triggerToast,
-  });
   const materials = useTeacherMaterialController({
     courseId,
     classId,
@@ -82,9 +75,7 @@ export default function TeacherMaterialsPage({
           classesLoading: dashboard.teacherDashboardLoading,
           onClassChange: handleMaterialClassChange,
         }}
-        assignments={assignments}
         materials={materials}
-        teacherStudents={dashboard.teacherStudents}
         courseMaterials={courseMaterialData.courseMaterials}
         onReloadCourseMaterials={courseMaterialData.loadCourseMaterials}
         onDownloadMaterial={courseMaterialData.handleDownloadMaterial}

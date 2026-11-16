@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import LogRocket from 'logrocket';
 import { queryKeys } from '../app/queryKeys';
-import { assignmentApi } from '../services/assignmentApi';
 import { materialsApi } from '../services/materialsApi';
 import { getUserFacingError } from '../services/apiClient';
 import { asArray, normalizeCourseMaterial } from '../services/normalizers';
@@ -239,15 +238,10 @@ export function useCourseMaterialsController({
     if (classIdVal) formData.append('classId', classIdVal);
 
     try {
-      if (title.toLowerCase().includes('assignment')) {
-        await assignmentApi.uploadAssignment(courseId, classIdVal || classId, formData);
-        triggerToast('Đã xuất bản bài tập mới.');
-      } else {
-        await materialsApi.uploadMaterial(courseId, formData);
-        LogRocket.track('MaterialUploaded', { courseId });
-        triggerToast('Đã tải học liệu môn học.');
-        await queryClient.invalidateQueries({ queryKey: ['materials', courseId] });
-      }
+      await materialsApi.uploadMaterial(courseId, formData);
+      LogRocket.track('MaterialUploaded', { courseId });
+      triggerToast('Đã tải học liệu môn học.');
+      await queryClient.invalidateQueries({ queryKey: ['materials', courseId] });
       setUploadProgress(100);
       setUploadProgressText('Tải lên hoàn tất.');
     } catch (error) {

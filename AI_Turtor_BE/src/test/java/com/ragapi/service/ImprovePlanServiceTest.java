@@ -5,7 +5,6 @@ import com.ragapi.entity.CourseMaterial;
 import com.ragapi.entity.ImprovePlan;
 import com.ragapi.entity.ImprovePlanItem;
 import com.ragapi.entity.StudentCourseMemory;
-import com.ragapi.repository.AssignmentSubmissionRepository;
 import com.ragapi.repository.CourseMaterialRepository;
 import com.ragapi.repository.ImprovePlanRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,9 +29,6 @@ class ImprovePlanServiceTest {
     private ImprovePlanRepository improvePlanRepository;
 
     @Mock
-    private AssignmentSubmissionRepository submissionRepository;
-
-    @Mock
     private CourseMaterialRepository materialRepository;
 
     private ImprovePlanService service;
@@ -41,7 +37,6 @@ class ImprovePlanServiceTest {
     void setUp() {
         service = new ImprovePlanService(
                 improvePlanRepository,
-                submissionRepository,
                 materialRepository,
                 new CourseMaterialChunkingService()
         );
@@ -64,7 +59,6 @@ class ImprovePlanServiceTest {
                         + "Need means resources still needed before a process can finish."
         );
 
-        when(submissionRepository.findByStudentId("student-1")).thenReturn(List.of());
         when(materialRepository.findByCourseId("OSG202")).thenReturn(List.of(material));
         when(improvePlanRepository.findFirstByStudentIdAndCourseIdAndStatusOrderByGeneratedAtDesc(
                 "student-1", "OSG202", "ACTIVE"

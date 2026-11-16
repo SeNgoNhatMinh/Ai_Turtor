@@ -7,7 +7,6 @@ abstract final class AppRoutes {
   static const studentCourses = '/s/courses';
   static const studentTutor = '/s/tutor';
   static const studentCodeMentor = '/s/tutor/code-mentor';
-  static const studentAssignments = '/s/assignments';
   static const studentMaterials = '/s/materials';
   static const studentProgress = '/s/progress';
   static const studentProfile = '/s/profile';
@@ -26,7 +25,6 @@ abstract final class AppRoutes {
   static const teacherHome = '/t/home';
   static const teacherClasses = '/t/classes';
   static const teacherInbox = '/t/inbox';
-  static const teacherAssignments = '/t/assignments';
   static const teacherProfile = '/t/profile';
 
   static String studentTutorChat(String conversationId, {String? messageId}) {
@@ -39,10 +37,6 @@ abstract final class AppRoutes {
     return uri.toString();
   }
 
-  static String studentAssignmentDetail(String assignmentId) =>
-      '/s/assignments/$assignmentId';
-  static String studentAssignmentSubmit(String assignmentId) =>
-      '/s/assignments/$assignmentId/submit';
   static String studentImprovePlan(String courseId) =>
       '/s/profile/improve/$courseId';
   static String escalationOffer(String escalationId) =>
@@ -63,16 +57,8 @@ abstract final class AppRoutes {
 
   static String teacherClassRoster(String courseId, String classId) =>
       '/t/classes/$courseId/$classId/students';
-  static String teacherClassAssignments(String courseId, String classId) =>
-      '/t/classes/$courseId/$classId/assignments';
-  static String teacherClassSubmissions(String courseId, String classId) =>
-      '/t/classes/$courseId/$classId/assignments/submissions';
   static String teacherEscalationAnswer(String escalationId) =>
       '/t/inbox/escalations/$escalationId/answer';
-  static String teacherSubmissions(String assignmentId) =>
-      '/t/assignments/$assignmentId/submissions';
-  static String teacherGradeSubmission(String submissionId) =>
-      '/t/submissions/$submissionId/grade';
 
   static const seniorReviewQueue = '/t/review/senior-pending';
   static const knowledgeCandidates = '/t/candidates';
@@ -120,7 +106,6 @@ abstract final class AppRoutes {
     teacherHome,
     teacherClasses,
     teacherInbox,
-    teacherAssignments,
     teacherProfile,
   ];
 }

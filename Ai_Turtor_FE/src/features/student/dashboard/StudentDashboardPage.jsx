@@ -7,7 +7,6 @@ import {
   Bot,
   CircleGauge,
   ClipboardCheck,
-  FileCheck2,
   Flame,
   GraduationCap,
   Layers3,
@@ -42,7 +41,6 @@ const QUICK_ACTIONS = [
   { icon: Bot, title: 'Hỏi AI Tutor', description: 'Học theo tài liệu môn học', tab: 'student-chat' },
   { icon: ClipboardCheck, title: 'Làm quiz', description: 'Luyện tập và kiểm tra nhanh', tab: 'student-quizzes' },
   { icon: BookOpen, title: 'Xem học liệu', description: 'Tài liệu do giảng viên chia sẻ', tab: 'student-materials' },
-  { icon: FileCheck2, title: 'Làm bài tập', description: 'Xem đề và nộp bài theo hạn', tab: 'student-assignments' },
   { icon: MessageCircle, title: 'Hỏi giảng viên', description: 'Theo dõi yêu cầu hỗ trợ', tab: 'student-escalation' },
 ];
 

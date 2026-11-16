@@ -10,8 +10,6 @@ import '../../features/admin/presentation/admin_mentor_escalations_screen.dart';
 import '../../features/admin/presentation/admin_mentors_screen.dart';
 import '../../features/admin/presentation/admin_users_screen.dart';
 import '../../features/ai_tutor/presentation/ai_tutor_screens.dart';
-import '../../features/assignments/presentation/assignments_screens.dart';
-import '../../features/assignments/presentation/submit_assignment_screen.dart';
 import '../../features/auth/application/auth_controller.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
@@ -31,7 +29,6 @@ import '../../features/profile/presentation/change_password_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/senior/presentation/senior_queue_screens.dart';
-import '../../features/teacher_assignments/presentation/teacher_assignments_screens.dart';
 import '../../features/quiz/presentation/student_quiz_screens.dart';
 import '../../features/quiz/presentation/teacher_quiz_screen.dart';
 import '../../shared/models/senior_queue.dart';
@@ -171,28 +168,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const TutorEntryScreen(),
           ),
           GoRoute(
-            path: AppRoutes.studentAssignments,
-            builder: (_, __) => const StudentAssignmentsScreen(),
-          ),
-          GoRoute(
             path: AppRoutes.studentMaterials,
             builder: (_, __) => const StudentMaterialsScreen(),
           ),
           GoRoute(
             path: AppRoutes.studentProgress,
             builder: (_, __) => const LearningProgressScreen(),
-          ),
-          GoRoute(
-            path: '/s/assignments/:assignmentId',
-            builder: (_, state) => AssignmentDetailScreen(
-              assignmentId: state.pathParameters['assignmentId']!,
-            ),
-          ),
-          GoRoute(
-            path: '/s/assignments/:assignmentId/submit',
-            builder: (_, state) => SubmitAssignmentScreen(
-              assignmentId: state.pathParameters['assignmentId']!,
-            ),
           ),
           GoRoute(
             path: '/s/tutor/code-mentor',
@@ -257,20 +238,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: '/t/classes/:courseId/:classId/assignments',
-            builder: (_, state) => TeacherClassAssignmentsScreen(
-              courseId: state.pathParameters['courseId']!,
-              classId: state.pathParameters['classId']!,
-            ),
-          ),
-          GoRoute(
-            path: '/t/classes/:courseId/:classId/assignments/submissions',
-            builder: (_, state) => ClassSubmissionsScreen(
-              courseId: state.pathParameters['courseId']!,
-              classId: state.pathParameters['classId']!,
-            ),
-          ),
-          GoRoute(
             path: '/t/classes/:courseId/:classId/materials',
             builder: (_, state) => TeacherMaterialsScreen(
               courseId: state.pathParameters['courseId']!,
@@ -286,23 +253,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => EscalationAnswerScreen(
               escalationId: state.pathParameters['escalationId']!,
               item: state.extra as TeacherEscalationItem?,
-            ),
-          ),
-          GoRoute(
-            path: AppRoutes.teacherAssignments,
-            builder: (_, __) => const TeacherAssignmentsScreen(),
-          ),
-          GoRoute(
-            path: '/t/assignments/:assignmentId/submissions',
-            builder: (_, state) => TeacherSubmissionsScreen(
-              assignmentId: state.pathParameters['assignmentId']!,
-            ),
-          ),
-          GoRoute(
-            path: '/t/submissions/:submissionId/grade',
-            builder: (_, state) => GradeSubmissionScreen(
-              submissionId: state.pathParameters['submissionId']!,
-              item: state.extra as SubmissionItem?,
             ),
           ),
           GoRoute(

@@ -2,8 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/network_providers.dart';
-import '../../../core/utils/json_helpers.dart';
-import '../../../shared/models/assignment.dart';
 import '../../../shared/models/student_dashboard.dart';
 
 class HomeRepository {
@@ -24,13 +22,6 @@ class HomeRepository {
       },
     );
     return StudentDashboard.fromJson(response.data ?? {});
-  }
-
-  Future<List<Assignment>> fetchAssignments(String studentId) async {
-    final response = await _dio.get<dynamic>(
-      '/api/students/$studentId/assignments',
-    );
-    return parseList(response.data, Assignment.fromJson);
   }
 }
 

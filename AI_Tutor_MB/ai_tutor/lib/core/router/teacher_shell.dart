@@ -55,11 +55,6 @@ class TeacherShell extends ConsumerWidget {
             badgeCount: inboxBadge,
           ),
           FptBottomNavItem(
-            label: l10n.tabAssignments,
-            icon: LucideIcons.clipboardList,
-            activeIcon: LucideIcons.clipboardList,
-          ),
-          FptBottomNavItem(
             label: l10n.tabProfile,
             icon: LucideIcons.user,
             activeIcon: LucideIcons.user,

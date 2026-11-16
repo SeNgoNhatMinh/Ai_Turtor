@@ -17,8 +17,6 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/models/course.dart';
 import '../../../shared/models/course_material.dart';
 import '../../../shared/widgets/widgets.dart';
-import '../../assignments/application/assignments_controller.dart';
-import '../../assignments/presentation/widgets/student_assignment_card.dart';
 import '../../courses/application/courses_controller.dart';
 import '../../courses/data/courses_repository.dart';
 import '../application/student_materials_controller.dart';
@@ -39,7 +37,6 @@ class StudentMaterialsScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final tabController = useTabController(initialLength: 2);
     final courses = ref.watch(coursesControllerProvider);
     final selected = ref.watch(selectedCourseProvider);
 
@@ -79,7 +76,7 @@ class StudentMaterialsScreen extends HookConsumerWidget {
         return Scaffold(
           backgroundColor: Colors.transparent,
           appBar: FptAppBar(
-            title: 'Tài liệu & bài tập',
+            title: 'Tài liệu học tập',
             leading: IconButton(
               icon: const Icon(LucideIcons.arrowLeft),
               onPressed: () =>
@@ -104,28 +101,7 @@ class StudentMaterialsScreen extends HookConsumerWidget {
                   },
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Insets.screenH),
-                child: TabBar(
-                  controller: tabController,
-                  labelColor: AppColors.primary,
-                  unselectedLabelColor: AppColors.textTertiary,
-                  indicatorColor: AppColors.primary,
-                  tabs: const [
-                    Tab(text: 'Tài liệu'),
-                    Tab(text: 'Bài tập'),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: TabBarView(
-                  controller: tabController,
-                  children: [
-                    _MaterialsTab(scope: scope),
-                    _AssignmentsTab(course: active),
-                  ],
-                ),
-              ),
+              Expanded(child: _MaterialsTab(scope: scope)),
             ],
           ),
         );
@@ -425,109 +401,6 @@ class _StudentMaterialTile extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _AssignmentsTab extends HookConsumerWidget {
-  const _AssignmentsTab({required this.course});
-
-  final Course course;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final query = useState('');
-    final data = ref.watch(assignmentsControllerProvider);
-
-    return data.when(
-      loading: () => const LoadingSkeleton(itemCount: 4),
-      error: (error, _) => ErrorState(
-        message: describeError(error),
-        onRetry: () => ref.invalidate(assignmentsControllerProvider),
-      ),
-      data: (payload) {
-        final assignments = payload.assignments
-            .map(payload.enriched)
-            .where(
-              (item) =>
-                  item.courseId == course.id ||
-                  item.courseId == course.code ||
-                  item.courseCode == course.code,
-            )
-            .toList();
-        final needle = query.value.trim().toLowerCase();
-        final visible = needle.isEmpty
-            ? assignments
-            : assignments
-                  .where((item) => item.title.toLowerCase().contains(needle))
-                  .toList();
-
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Insets.screenH,
-                Insets.md,
-                Insets.screenH,
-                Insets.sm,
-              ),
-              child: TextField(
-                onChanged: (value) => query.value = value,
-                decoration: InputDecoration(
-                  hintText: 'Tìm bài tập...',
-                  prefixIcon: const Icon(LucideIcons.search, size: 18),
-                  filled: true,
-                  fillColor: AppColors.raised,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(Radii.md),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: assignments.isEmpty
-                  ? EmptyState(
-                      title: l10n.emptyAssignmentsTitle,
-                      message: 'Chưa có bài tập nào cho môn ${course.code}.',
-                      ctaLabel: l10n.refresh,
-                      onCta: () =>
-                          ref.invalidate(assignmentsControllerProvider),
-                    )
-                  : visible.isEmpty
-                  ? const EmptyState(
-                      title: 'Không tìm thấy bài tập',
-                      message: 'Thử từ khóa khác theo tên bài tập.',
-                    )
-                  : RefreshIndicator(
-                      color: AppColors.primary,
-                      onRefresh: () =>
-                          ref.refresh(assignmentsControllerProvider.future),
-                      child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(
-                          Insets.screenH,
-                          Insets.sm,
-                          Insets.screenH,
-                          Insets.xxxl,
-                        ),
-                        itemCount: visible.length,
-                        separatorBuilder: (_, __) => const Gap(Insets.md),
-                        itemBuilder: (context, index) {
-                          final assignment = visible[index];
-                          return StudentAssignmentCard(
-                            assignment: assignment,
-                            onTap: () => context.push(
-                              AppRoutes.studentAssignmentDetail(assignment.id),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-            ),
-          ],
-        );
-      },
     );
   }
 }

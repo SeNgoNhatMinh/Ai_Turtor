@@ -1,8 +1,6 @@
 package com.ragapi.service;
 
 import com.ragapi.entity.QuestionEscalation;
-import com.ragapi.repository.AssignmentRepository;
-import com.ragapi.repository.AssignmentSubmissionRepository;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseEnrollmentRepository;
 import com.ragapi.repository.CourseMaterialRepository;
@@ -27,8 +25,6 @@ class LearningDashboardServiceTest {
 
     @Mock CourseEnrollmentRepository enrollmentRepository;
     @Mock ClassSectionRepository classSectionRepository;
-    @Mock AssignmentRepository assignmentRepository;
-    @Mock AssignmentSubmissionRepository submissionRepository;
     @Mock CourseMaterialRepository materialRepository;
     @Mock StudentCourseMemoryRepository memoryRepository;
     @Mock QuestionEscalationRepository escalationRepository;

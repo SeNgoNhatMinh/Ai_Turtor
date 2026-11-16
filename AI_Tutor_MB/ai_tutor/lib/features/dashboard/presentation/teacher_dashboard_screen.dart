@@ -159,10 +159,6 @@ class TeacherDashboardScreen extends ConsumerWidget {
       context.push(AppRoutes.teacherEscalationAnswer(task.referenceId!));
       return;
     }
-    if (type == 'GRADING' && task.referenceId != null) {
-      context.push(AppRoutes.teacherSubmissions(task.referenceId!));
-      return;
-    }
     context.go(AppRoutes.teacherInbox);
   }
 }
@@ -198,16 +194,6 @@ class _StatGrid extends StatelessWidget {
                 icon: LucideIcons.messageCircle,
                 tint: AppColors.warningBg,
                 iconColor: AppColors.warning,
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: StatCard(
-                label: l10n.statGrading,
-                value: data.pendingGrading,
-                icon: LucideIcons.clipboardCheck,
-                tint: AppColors.infoBg,
-                iconColor: AppColors.info,
               ),
             ),
             SizedBox(

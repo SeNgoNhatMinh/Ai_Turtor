@@ -59,13 +59,6 @@ export const uiCopy = {
       title: "Tài liệu học tập",
       subtitle: "Xem và tải tài liệu do giảng viên chia sẻ cho đúng lớp học phần.",
     },
-    assignments: {
-      title: "Bài tập được giao",
-      subtitle: "Theo dõi yêu cầu, hạn nộp và gửi bài làm theo từng môn học.",
-      empty: "Chọn một bài tập để xem chi tiết",
-      uploadText: "Kéo thả tệp vào đây hoặc bấm để chọn",
-      uploadHint: "Hỗ trợ các định dạng được backend cho phép, tối đa 50 MB",
-    },
     support: {
       title: "Hỗ trợ từ giảng viên",
       subtitle: "Theo dõi câu hỏi khó, trao đổi với giảng viên phù hợp và nhận câu trả lời chính thức.",
@@ -86,12 +79,12 @@ export const uiCopy = {
       subtitle: "Tạo draft, kiểm tra đáp án, xuất bản và duyệt điểm quiz trực tuyến.",
     },
     materials: {
-      title: "Tài liệu & bài tập",
-      subtitle: "Quản lý học liệu theo lớp và giao bài tập có tệp đính kèm cho sinh viên.",
+      title: "Tài liệu học tập",
+      subtitle: "Xem học liệu của lớp được phân công.",
     },
     grading: {
-      title: "Chấm bài nộp",
-      subtitle: "Xem bài làm, điểm gợi ý và xác nhận điểm cuối cùng cho sinh viên.",
+      title: "Chấm quiz",
+      subtitle: "Xem bài làm quiz và xác nhận điểm cuối cùng cho sinh viên.",
     },
     review: {
       title: "Hàng chờ hỗ trợ & tri thức AI",

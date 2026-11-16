@@ -8,7 +8,6 @@ const studentPages = {
   'student-chat': lazy(() => import('../../features/student/chat/StudentChatPage')),
   'student-quizzes': lazy(() => import('../../features/student/quizzes/PracticeQuizzesPage')),
   'student-materials': lazy(() => import('../../features/student/materials/StudentMaterialsPage')),
-  'student-assignments': lazy(() => import('../../features/student/materials/StudentAssignmentsPage')),
   'student-escalation': lazy(() => import('../../features/student/mentor-review/MentorReviewPage')),
 };
 

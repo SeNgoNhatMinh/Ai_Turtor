@@ -38,22 +38,6 @@ class TeacherDashboard {
       return 0;
     }
 
-    var pendingGrading = readInt(
-      json['pendingGrading'],
-      'pendingSubmissionCount',
-      ['pendingSubmissions'],
-    );
-    if (pendingGrading == 0) {
-      final submissions = unwrapList(json['submissions']);
-      pendingGrading = submissions.where((item) {
-        if (item is! Map) return false;
-        final status = item['status']?.toString().toUpperCase();
-        return status == 'SUBMITTED' ||
-            status == 'PENDING_REVIEW' ||
-            status == 'NEEDS_REVIEW';
-      }).length;
-    }
-
     return TeacherDashboard(
       classCount: readInt(json['classCount'], 'classCount', ['totalClasses']),
       pendingEscalations: readInt(
@@ -61,7 +45,11 @@ class TeacherDashboard {
         'pendingEscalationCount',
         ['escalationCount'],
       ),
-      pendingGrading: pendingGrading,
+      pendingGrading: readInt(
+        json['pendingGrading'],
+        'pendingSubmissionCount',
+        ['pendingSubmissions'],
+      ),
       pendingReviews: readInt(
         json['pendingReviews'],
         'pendingKnowledgeCandidateCount',
@@ -112,19 +100,6 @@ List<TodayTask> _parseTodayTasks(Map<String, dynamic> json) {
             : 'Escalation chờ xử lý',
         type: 'ESCALATION',
         referenceId: item['id']?.toString(),
-      ),
-    );
-  }
-
-  for (final item in unwrapList(json['submissions'])) {
-    if (item is! Map) continue;
-    final status = item['status']?.toString().toUpperCase();
-    if (status != 'SUBMITTED' && status != 'PENDING_REVIEW') continue;
-    tasks.add(
-      TodayTask(
-        title: item['assignmentTitle']?.toString() ?? 'Bài nộp cần chấm',
-        type: 'GRADING',
-        referenceId: item['assignmentId']?.toString(),
       ),
     );
   }

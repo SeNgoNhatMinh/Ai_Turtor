@@ -102,17 +102,6 @@ async function mockBackend(page, unexpectedRequests) {
       '/api/tutor/students/student-1/courses/PRO192/support-profile': {},
       '/api/tutor/students/student-1/courses/PRO192/question-quota': { used: 0, remaining: 10, limit: 10 },
       '/api/tts/voices': [],
-      '/api/students/student-1/assignments': {
-        assignments: [{
-          id: 'assignment-1',
-          title: 'E2E Assignment',
-          courseId: 'PRO192',
-          classId: 'SE1833',
-          assignmentType: 'ASSIGNMENT',
-          targetType: 'ALL_CLASS',
-        }],
-      },
-      '/api/students/student-1/submissions': { submissions: [] },
       '/api/tutor/students/student-1/courses/PRO192/memory': {},
       '/api/tutor/students/student-1/courses/PRO192/quizzes': { quizzes: [] },
       '/api/tutor/students/student-1/courses/PRO192/quiz-assignments': { assignments: [] },
@@ -297,13 +286,12 @@ test('student login resolves enrollment context and supports dark mode', async (
 test('student materials remains readable in dark mode', async ({ page }) => {
   await signIn(page);
   await page.goto('/student/materials');
-  await expect(page.getByRole('cell', { name: 'E2E Assignment', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tài liệu học tập' })).toBeVisible();
 
   await page.getByRole('switch', { name: 'Dùng giao diện tối' }).click();
   await expect(page.locator('.student-materials-page')).toBeVisible();
   await expect(page.locator('.student-materials-context')).toHaveCSS('background-color', 'rgb(23, 23, 23)');
   await expect(page.locator('.student-materials-page .ant-table-thead th').first()).toHaveCSS('color', 'rgb(243, 244, 246)');
-  await expect(page.getByRole('tab', { name: 'Bài tập được giao' })).toHaveCSS('color', 'rgb(255, 255, 255)');
 });
 
 test('main student workspace does not overflow the viewport', async ({ page }) => {

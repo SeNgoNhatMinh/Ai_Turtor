@@ -197,7 +197,7 @@ class ProfileScreen extends ConsumerWidget {
                             if (!isTeacher)
                               _ProfileMenuItem(
                                 icon: Icons.menu_book_outlined,
-                                title: 'Tài liệu & bài tập',
+                                title: 'Tài liệu học tập',
                                 onTap: () =>
                                     context.push(AppRoutes.studentMaterials),
                               ),
@@ -215,13 +215,6 @@ class ProfileScreen extends ConsumerWidget {
                                 badgeCount: chatUnread,
                                 onTap: () =>
                                     context.push(AppRoutes.escalationHistory),
-                              ),
-                            if (!isTeacher)
-                              _ProfileMenuItem(
-                                icon: Icons.assignment_outlined,
-                                title: l10n.assignmentsTab,
-                                onTap: () =>
-                                    context.go(AppRoutes.studentAssignments),
                               ),
                             if (!isTeacher)
                               _ProfileMenuItem(
