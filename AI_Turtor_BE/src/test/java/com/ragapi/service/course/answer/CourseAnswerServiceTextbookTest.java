@@ -51,6 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -147,6 +148,13 @@ class CourseAnswerServiceTextbookTest {
         org.mockito.Mockito.lenient().when(chatService.generateWorker1Answer(anyString(), anyString()))
                 .thenAnswer(invocation -> chatService.generate(
                         invocation.getArgument(0), invocation.getArgument(1)));
+        org.mockito.Mockito.lenient().when(materialRepository.findMetadataByIds(any()))
+                .thenAnswer(invocation -> {
+                    List<CourseMaterial> loaded = materialRepository.findAllById(invocation.getArgument(0));
+                    return loaded == null ? List.of() : loaded;
+                });
+        org.mockito.Mockito.lenient().when(materialRepository.findMetadataById(anyString()))
+                .thenAnswer(invocation -> materialRepository.findById(invocation.getArgument(0)));
     }
 
     @Test
@@ -492,7 +500,7 @@ class CourseAnswerServiceTextbookTest {
         verify(chatService).generate(promptCaptor.capture(), eq(followUp));
         assertTrue(promptCaptor.getValue().contains(specChunk.content()));
         verify(vectorService).searchTextbookWithScores(eq(retrievalFocus), eq("PRJ301"), isNull());
-        verify(fallbackSearchService).searchTextbook(eq(retrievalFocus), eq("PRJ301"), isNull(), eq(8));
+        verify(fallbackSearchService, never()).searchTextbook(any(), any(), any(), anyInt());
         verifyNoInteractions(answerCacheService, cacheHitAuditService);
     }
 

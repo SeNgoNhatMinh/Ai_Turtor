@@ -138,6 +138,10 @@ llm:
   cloud-failover-timeout-seconds: ${LLM_CLOUD_FAILOVER_TIMEOUT_SECONDS:12}
   # Hard upper bound for provider attempts inside one logical generation call.
   max-provider-attempts: ${LLM_MAX_PROVIDER_ATTEMPTS:8}
+  # Groq on-demand rejects a single request larger than its 8000 token-per-minute
+  # limit. The input budget leaves room for a full lesson, not a stub.
+  max-input-tokens: ${LLM_MAX_INPUT_TOKENS:5000}
+  max-output-tokens: ${LLM_MAX_OUTPUT_TOKENS:2048}
   # Must stay below the n8n Course RAG Query timeout (300 seconds).
   generation-deadline-seconds: ${LLM_GENERATION_DEADLINE_SECONDS:180}
   groq:

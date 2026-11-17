@@ -2,6 +2,7 @@ package com.ragapi.service.course.search;
 
 import com.ragapi.service.course.gateway.CourseKnowledgeSearchGateway;
 import com.ragapi.service.course.model.CourseRetrievalQuery;
+import com.ragapi.service.course.model.RetrievedCourseChunk;
 import dev.langchain4j.data.embedding.Embedding;
 import org.junit.jupiter.api.Test;
 
@@ -70,5 +71,26 @@ class CourseRetrievalCandidateServiceTest {
         verify(gateway, never()).searchTextbookWithScores("question", "course-1", null);
         verify(gateway, never()).searchTextbookWithScores(
                 eq("question"), eq("course-1"), eq(null), any(Embedding.class));
+    }
+
+    @Test
+    void skipsMongoLexicalScanWhenElasticsearchAlreadyReturnedChunks() throws Exception {
+        CourseKnowledgeSearchGateway gateway = mock(CourseKnowledgeSearchGateway.class);
+        CourseMaterialTextSearchService lexical = mock(CourseMaterialTextSearchService.class);
+        when(gateway.supportsPreparedQueryEmbedding()).thenReturn(false);
+        when(gateway.searchTextbookKeywordWithScores(any(), eq("course-1"), eq(null), anyInt()))
+                .thenReturn(List.of(new RetrievedCourseChunk(
+                        "A linked list node stores a next reference.",
+                        0.8,
+                        "material-1",
+                        "course-1",
+                        null,
+                        null,
+                        "COURSE")));
+        CourseRetrievalCandidateService service = new CourseRetrievalCandidateService(gateway, lexical);
+
+        service.retrievePrimary(new CourseRetrievalQuery("next", "next"), "course-1", null, List.of());
+
+        verify(lexical, never()).searchTextbook(any(), any(), any(), anyInt());
     }
 }

@@ -58,7 +58,7 @@ public class CodeMentorService {
 
         if (!TechnicalIntentDetector.isCodeMentorQuestion(request.getQuestion(), request.getCode())) {
             return CodeMentorResponse.builder()
-                    .answer("Mình là AI Mentor cho câu hỏi kỹ thuật và học tập CNTT. Câu hỏi này chưa đủ thông tin để hướng dẫn an toàn. Hãy gửi rõ môn học, chủ đề, đề bài cần gợi ý, hướng làm hiện tại, hoặc đoạn code/error log cần kiểm tra.")
+                    .answer("Tôi là người kèm cặp cho câu hỏi kỹ thuật và học tập CNTT. Câu hỏi này chưa đủ thông tin để tôi hướng dẫn an toàn. Em hãy gửi rõ môn học, chủ đề, đề bài cần gợi ý, hướng làm hiện tại, hoặc đoạn code/error log cần kiểm tra.")
                     .mode("CODE")
                     .assignmentSafetyApplied(false)
                     .weakTopics(List.of())

@@ -49,8 +49,8 @@ public class CourseAnswerRequestPolicyService {
         }
 
         return safeConversationAnswer(
-                "Mình không thể cung cấp mã nguồn, API key, token, cấu hình nội bộ hoặc thông tin nhạy cảm của hệ thống. "
-                        + "Nếu bạn cần hỗ trợ học tập, hãy hỏi về nội dung môn học hoặc gửi đoạn code/lỗi cần được mentor hướng dẫn debug."
+                "Tôi không thể cung cấp mã nguồn, API key, token, cấu hình nội bộ hoặc thông tin nhạy cảm của hệ thống. "
+                        + "Nếu em cần hỗ trợ học tập, em hãy hỏi về nội dung môn học hoặc gửi đoạn code/lỗi cần được hướng dẫn debug."
         );
     }
 
@@ -96,8 +96,8 @@ public class CourseAnswerRequestPolicyService {
         }
         if (StudentChatIntentDetector.isIncompleteOrMeaningless(question)) {
             return safeConversationAnswer(
-                    "Câu hỏi của bạn chưa hoàn chỉnh hoặc chưa có nội dung học tập cụ thể. "
-                            + "Hãy nhập đầy đủ chủ đề hoặc câu hỏi trong môn " + courseId
+                    "Câu hỏi của em chưa hoàn chỉnh hoặc chưa có nội dung học tập cụ thể. "
+                            + "Em hãy nhập đầy đủ chủ đề hoặc câu hỏi trong môn " + courseId
                             + ", ví dụ: \"Giải thích khái niệm ...\" hoặc \"... hoạt động như thế nào?\""
             );
         }
@@ -105,17 +105,17 @@ public class CourseAnswerRequestPolicyService {
             return buildCasualRedirect(courseId);
         }
         return safeConversationAnswer(
-                "Mình là AI Tutor môn " + courseId + ", chỉ hỗ trợ câu hỏi học thuật và nội dung tài liệu môn học. "
-                        + "Mình không sử dụng API AI bên ngoài cho câu hỏi ngoài phạm vi học tập. "
-                        + "Với lịch học, phòng học, điểm số hoặc thông tin lớp, bạn hãy xem trên hệ thống lớp hoặc hỏi giáo viên/mentor phụ trách."
+                "Tôi là người kèm cặp môn " + courseId + ", chỉ hỗ trợ câu hỏi học thuật và nội dung tài liệu môn học. "
+                        + "Tôi không trả lời câu hỏi ngoài phạm vi học tập. "
+                        + "Với lịch học, phòng học, điểm số hoặc thông tin lớp, em hãy xem trên hệ thống lớp hoặc hỏi giáo viên/mentor phụ trách."
         );
     }
 
     public CourseRagAnswer buildCasualRedirect(String courseId) {
         return safeConversationAnswer(
-                "Mình chỉ nhận câu hỏi học thuật của môn " + courseId
+                "Tôi chỉ nhận câu hỏi học thuật của môn " + courseId
                         + ": khái niệm, bài học, hoặc lỗi code trong môn. "
-                        + "Mình không nói chuyện phiếm và không trả lời câu ngoài bài học."
+                        + "Tôi không nói chuyện phiếm và không trả lời câu ngoài bài học."
         );
     }
 

@@ -226,7 +226,9 @@ class CourseAnswerGenerationStageServiceTest {
 
         CourseRagAnswer result = service.generate(prepared);
 
-        assertEquals(firstAnswer, result.getAnswer());
+        assertEquals(
+                "## 1. Explanation\nExpression Language reads scoped values without embedding Java code.",
+                result.getAnswer());
         verify(generationService, never()).generateGroundedQualityFallbackAnswer(
                 anyString(), anyString(), anyString(), anyString(), anyString(), anyBoolean());
     }
@@ -596,5 +598,81 @@ class CourseAnswerGenerationStageServiceTest {
         assertSame(unavailable, result);
         verify(generationService, times(1)).generateGroundedQualityFallbackAnswer(
                 anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean());
+    }
+
+    @Test
+    void workerTwoRetriesUntilTheReplyIsARealQuiz() {
+        CourseAnswerGenerationService generationService = mock(CourseAnswerGenerationService.class);
+        CourseAnswerPromptService promptService = mock(CourseAnswerPromptService.class);
+        CourseAnswerEvidenceService evidenceService = mock(CourseAnswerEvidenceService.class);
+        CanonicalTutorAnswerCacheService cacheService = mock(CanonicalTutorAnswerCacheService.class);
+        CourseAnswerResultService resultService = mock(CourseAnswerResultService.class);
+        CourseAnswerGenerationStageService service = new CourseAnswerGenerationStageService(
+                generationService, promptService, evidenceService, cacheService, resultService,
+                mock(AiWorkerTraceService.class), inlineWorkerOrchestrator());
+
+        CourseAnswerRequest request = CourseAnswerRequest.builder()
+                .question("Node next trỏ tới đâu")
+                .courseId("CSD203")
+                .classId("CSD203-01")
+                .teachingMode("LESSON_TEACH")
+                .build();
+        CourseAnswerPreparation prepared = new CourseAnswerPreparation(
+                request,
+                System.nanoTime(),
+                request.question(),
+                "CSD203",
+                request.question(),
+                List.of(),
+                "Trong danh sách liên kết đơn, mỗi nút có một tham chiếu next tới nút kế tiếp.",
+                Map.of(),
+                "COURSE_MATERIAL",
+                List.of("CSD material"),
+                0.9,
+                true,
+                false,
+                false,
+                null
+        );
+        String lesson = """
+                ## 1. Danh sách liên kết đơn
+                Trong danh sách liên kết đơn, mỗi nút chỉ có một tham chiếu next tới nút kế tiếp.
+                Nhờ vậy việc chèn hoặc xóa ở đầu danh sách chỉ tốn thời gian hằng số.
+                """;
+        String quiz = """
+                Q1.
+                Tham chiếu next của một nút trỏ tới đâu?
+                A. Tới chính nó
+                B. Tới nút kế tiếp
+                C. Tới nút đứng trước
+                D. Tới toàn bộ danh sách
+                Đáp án đúng: B
+                Giải thích: next trỏ tới nút kế tiếp trong danh sách liên kết đơn.
+                """;
+
+        when(promptService.buildPrompt(
+                anyString(), anyString(), eq(List.of("CSD material")), anyString(), anyString(),
+                anyBoolean(), eq(null), eq(null), eq("LESSON_TEACH"), anyBoolean()))
+                .thenReturn("prompt");
+        when(generationService.generateWorker1GroundedAnswer(
+                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null), anyBoolean()))
+                .thenReturn(lesson);
+        when(generationService.generateWorkerUtilityAnswer(anyString()))
+                .thenReturn("Access denied")
+                .thenReturn(quiz)
+                .thenReturn("- So sánh danh sách liên kết đơn và kép\n- Khi nào nên dùng mảng thay vì linked list");
+        when(evidenceService.selectAnswerEvidenceChunks(eq(List.of()), eq(request.question()), anyString()))
+                .thenReturn(List.of());
+        when(evidenceService.buildSourceLabels(eq(List.of()), eq(Map.of()))).thenReturn(List.of());
+        when(evidenceService.buildSourceEvidence(eq(List.of()), eq("CSD203"), eq(Map.of()), anyString()))
+                .thenReturn(List.of());
+
+        CourseRagAnswer result = service.generate(prepared);
+
+        assertEquals(true, result.getAnswer().contains("## Kiểm tra hiểu"));
+        assertEquals(true, result.getAnswer().contains("Đáp án đúng: B"));
+        assertEquals(true, result.getAnswer().contains("## Học chuyên sâu"));
+        verify(generationService, times(2)).generateWorkerUtilityAnswer(contains("Worker 2"));
+        verify(generationService, times(1)).generateWorkerUtilityAnswer(contains("Worker 3"));
     }
 }

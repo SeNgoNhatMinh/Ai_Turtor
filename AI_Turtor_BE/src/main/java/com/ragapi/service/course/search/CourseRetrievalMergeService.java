@@ -83,6 +83,28 @@ public class CourseRetrievalMergeService {
         return result;
     }
 
+    /** Titles and ids for the answer. The book body stays out of this read. */
+    public Map<String, CourseMaterial> loadMetadata(List<RetrievedCourseChunk> chunks) {
+        if (chunks == null || chunks.isEmpty()) {
+            return Map.of();
+        }
+        Set<String> materialIds = chunks.stream()
+                .map(RetrievedCourseChunk::materialId)
+                .filter(Objects::nonNull)
+                .filter(id -> !id.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (materialIds.isEmpty()) {
+            return Map.of();
+        }
+        List<CourseMaterial> materials = materialRepository.findMetadataByIds(materialIds);
+        if (materials == null || materials.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, CourseMaterial> result = new LinkedHashMap<>();
+        materials.forEach(material -> result.put(material.getId(), material));
+        return result;
+    }
+
     private List<RetrievedCourseChunk> mergeAdditionalKnowledge(
             CourseRetrievalQuery query,
             String courseId,

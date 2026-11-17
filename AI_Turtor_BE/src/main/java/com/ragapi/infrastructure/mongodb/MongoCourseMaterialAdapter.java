@@ -33,6 +33,22 @@ public class MongoCourseMaterialAdapter implements CourseMaterialStoreGateway {
     }
 
     @Override
+    public Optional<CourseMaterial> findMetadataById(String materialId) {
+        if (materialId == null || materialId.isBlank()) {
+            return Optional.empty();
+        }
+        return repository.findOneByIdWithoutContent(materialId);
+    }
+
+    @Override
+    public List<CourseMaterial> findMetadataByIds(Collection<String> materialIds) {
+        if (materialIds == null || materialIds.isEmpty()) {
+            return List.of();
+        }
+        return repository.findAllByIdWithoutContent(materialIds);
+    }
+
+    @Override
     public List<CourseMaterial> findByCourseId(String courseId) {
         return repository.findByCourseId(courseId);
     }

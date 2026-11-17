@@ -15,6 +15,10 @@ public interface CourseMaterialStoreGateway {
 
     List<CourseMaterial> findAllById(Collection<String> materialIds);
 
+    Optional<CourseMaterial> findMetadataById(String materialId);
+
+    List<CourseMaterial> findMetadataByIds(Collection<String> materialIds);
+
     List<CourseMaterial> findByCourseId(String courseId);
 
     List<CourseMaterial> findBySourceType(String sourceType);

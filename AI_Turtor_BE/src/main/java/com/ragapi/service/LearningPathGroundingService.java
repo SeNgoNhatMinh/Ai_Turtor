@@ -296,7 +296,7 @@ public class LearningPathGroundingService {
     public String guidanceAnswer(String courseId) {
         List<SuggestionItem> lessons = openingLessons(courseId, DEFAULT_LESSON_COUNT);
         StringBuilder message = new StringBuilder();
-        message.append("Bạn chưa nói phần muốn học, nên mình chưa soạn bài học cho bạn.\n\n");
+        message.append("Em chưa nói phần muốn học, nên tôi chưa soạn bài học cho em.\n\n");
         message.append("Hãy hỏi đúng một trong các cách sau:\n");
         message.append("- Một khái niệm trong môn: \"object là gì?\" hoặc \"class dùng để làm gì?\"\n");
         message.append("- Một bài cụ thể: bấm một gợi ý bên dưới, hoặc gõ \"Bắt đầu bài 1: …\"\n");
@@ -331,7 +331,7 @@ public class LearningPathGroundingService {
                 }
             }
         }
-        message.append("\n\nBạn muốn học bài nào, hãy gửi đúng dòng bài đó.");
+        message.append("\n\nEm muốn học bài nào, hãy gửi đúng dòng bài đó.");
         return message.toString().trim();
     }
 
@@ -426,9 +426,9 @@ public class LearningPathGroundingService {
         String normalized = supportLevel == null ? "" : supportLevel.trim().toUpperCase(Locale.ROOT);
         return switch (normalized) {
             case "HIGH_SUPPORT" ->
-                    "Các bài dưới đây là chương có trong tài liệu. Mình chia nhỏ để học lần lượt, từng chương một.";
+                    "Các bài dưới đây là chương có trong tài liệu. Tôi chia nhỏ để em học lần lượt, từng chương một.";
             case "CHALLENGE" ->
-                    "Các bài dưới đây là chương có trong tài liệu. Mình giữ ít bài hơn để bạn tự suy luận từ đúng chương đó.";
+                    "Các bài dưới đây là chương có trong tài liệu. Tôi giữ ít bài hơn để em tự suy luận từ đúng chương đó.";
             default -> "Các bài dưới đây là chương có trong tài liệu môn học.";
         };
     }

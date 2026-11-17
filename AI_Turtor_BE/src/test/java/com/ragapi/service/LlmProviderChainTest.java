@@ -154,6 +154,63 @@ class LlmProviderChainTest {
     }
 
     @Test
+    void retriesTheSameProviderWithAShorterPromptWhenTheInputExceedsTheTokenLimit() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        AtomicReference<String> retried = new AtomicReference<>();
+        String prompt = "COURSE MATERIAL CONTEXT:\n" + "A".repeat(20_000) + "\nSTUDENT QUESTION:\nBài 3: Files";
+        LlmProviderChain chain = chain(provider("groq", sent -> {
+            if (calls.incrementAndGet() == 1) {
+                throw new RuntimeException(
+                        "Request too large for model on tokens per minute (TPM): Limit 8000, Requested 9334");
+            }
+            retried.set(sent);
+            return "lesson about files";
+        }));
+
+        LlmProviderChain.Result result = chain.generate(prompt);
+
+        assertEquals("lesson about files", result.text());
+        assertEquals("groq", result.provider());
+        assertEquals(2, calls.get());
+        assertTrue(retried.get().length() < prompt.length());
+        assertTrue(retried.get().contains("Bài 3: Files"));
+        assertTrue(chain.snapshot().stream()
+                .filter(row -> "groq".equals(row.get("provider")))
+                .findFirst().orElseThrow().get("quotaFailures").equals(0L));
+    }
+
+    @Test
+    void continuesAfterGroqNetworkAccessDeniedInsteadOfAbortingTheChain() throws Exception {
+        LlmProviderChain chain = chain(
+                provider("groq-2", prompt -> {
+                    throw new RuntimeException(
+                            "OpenAiHttpException: {\"error\":{\"message\":\"Access denied. Please check your network settings.\"}}");
+                }),
+                provider("groq-worker1", prompt -> "Câu hỏi: Nút next trỏ tới đâu?\nA. Null\nB. Nút kế\nC. Head\nĐáp án: B\nGiải thích: next trỏ tới nút kế.")
+        );
+
+        LlmProviderChain.Result result = chain.generate("quiz");
+
+        assertEquals("groq-worker1", result.provider());
+        assertTrue(result.text().contains("Đáp án: B"));
+    }
+
+    @Test
+    void continuesAfterARetiredModelInsteadOfAbortingTheChain() throws Exception {
+        LlmProviderChain chain = chain(
+                provider("nvidia", prompt -> {
+                    throw new RuntimeException("HTTP 410 Gone: model has reached its end of life");
+                }),
+                provider("ollama", prompt -> "local-answer")
+        );
+
+        LlmProviderChain.Result result = chain.generate("Bài 3: Files");
+
+        assertEquals("ollama", result.provider());
+        assertEquals("local-answer", result.text());
+    }
+
+    @Test
     void groqOutputTokenLimitFallsBackToLocalInsteadOfAbortingChain() throws Exception {
         String groqOtpm = """
                 RuntimeException: dev.ai4j.openai4j.OpenAiHttpException: \

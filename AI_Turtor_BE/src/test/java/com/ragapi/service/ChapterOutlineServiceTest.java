@@ -78,6 +78,34 @@ class ChapterOutlineServiceTest {
         assertTrue(preview.getExcerpt().contains("Operating system section content."));
         assertFalse(preview.getExcerpt().contains("Chapter 2 Next"));
         verify(pdfStorageService, never()).loadByFileId(anyString());
+        assertTrue(outline.getMentorExcerpt().contains("Operating system section content."));
+    }
+
+    @Test
+    void storedMentorExcerptDoesNotReadTheBookAgain() {
+        CourseChapterOutline outline = CourseChapterOutline.builder()
+                .courseId("OSG203")
+                .chapterKey("what-is-an-operating-system")
+                .title("1.1 WHAT IS AN OPERATING SYSTEM?")
+                .detectedFrom("PDF_BOOKMARK")
+                .sourceMaterialIds(List.of("M1"))
+                .chunkCount(9)
+                .approxChars(4500L)
+                .mentorExcerpt("Stored operating system section.")
+                .build();
+        CourseMaterial material = new CourseMaterial();
+        material.setId("M1");
+        material.setTitle("Modern Operating Systems 4th Edition");
+        material.setIndexingStatus("INDEXED");
+        when(outlineRepository.findByCourseIdAndChapterKey("OSG203", "what-is-an-operating-system"))
+                .thenReturn(Optional.of(outline));
+        when(materialRepository.findOneByIdWithoutContent("M1")).thenReturn(Optional.of(material));
+        when(materialRepository.countByCourseIdAndIndexingStatus("OSG203", "INDEXED")).thenReturn(1L);
+
+        ChapterPreviewView preview = service.previewChapter("OSG203", "what-is-an-operating-system", true);
+
+        assertEquals("Stored operating system section.", preview.getExcerpt());
+        verify(materialRepository, never()).findById(anyString());
     }
 
     @Test

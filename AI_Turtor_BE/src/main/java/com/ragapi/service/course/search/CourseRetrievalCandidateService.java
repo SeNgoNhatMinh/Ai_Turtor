@@ -72,18 +72,14 @@ public class CourseRetrievalCandidateService {
                     () -> keywordCandidates(query, courseId, classId), retrievalExecutor)
                     .completeOnTimeout(List.of(), Math.max(100, branchTimeoutMs), TimeUnit.MILLISECONDS)
                     .exceptionally(error -> failedBranch("keyword", error));
-            CompletableFuture<List<RetrievedCourseChunk>> lexicalFuture = CompletableFuture.supplyAsync(
-                    () -> lexicalCandidates(query, courseId, classId), retrievalExecutor)
-                    .completeOnTimeout(List.of(), Math.max(100, branchTimeoutMs), TimeUnit.MILLISECONDS)
-                    .exceptionally(error -> failedBranch("lexical", error));
-            CompletableFuture.allOf(vectorFuture, keywordFuture, lexicalFuture).join();
+            CompletableFuture.allOf(vectorFuture, keywordFuture).join();
             vectorChunks = vectorFuture.join();
             keywordChunks = keywordFuture.join();
-            lexicalChunks = lexicalFuture.join();
+            lexicalChunks = lexicalUnlessElasticsearchHit(query, courseId, classId, vectorChunks, keywordChunks);
         } else {
             vectorChunks = vectorCandidates(query, courseId, classId, queryEmbedding);
             keywordChunks = keywordCandidates(query, courseId, classId);
-            lexicalChunks = lexicalCandidates(query, courseId, classId);
+            lexicalChunks = lexicalUnlessElasticsearchHit(query, courseId, classId, vectorChunks, keywordChunks);
         }
         List<RetrievedCourseChunk> pinned = priorityChunks == null ? List.of() : priorityChunks;
         List<RetrievedCourseChunk> merged = TextbookChunkAlignment.mergeDeduplicated(
@@ -160,6 +156,23 @@ public class CourseRetrievalCandidateService {
         } finally {
             RagStageTimer.record("T7_KEYWORD_RETRIEVAL", started);
         }
+    }
+
+    private List<RetrievedCourseChunk> lexicalUnlessElasticsearchHit(
+            CourseRetrievalQuery query,
+            String courseId,
+            String classId,
+            List<RetrievedCourseChunk> vectorChunks,
+            List<RetrievedCourseChunk> keywordChunks
+    ) {
+        int vectorCount = vectorChunks == null ? 0 : vectorChunks.size();
+        int keywordCount = keywordChunks == null ? 0 : keywordChunks.size();
+        if (vectorCount > 0 || keywordCount > 0) {
+            log.info("Skipping Mongo lexical scan; Elasticsearch returned vector={} keyword={}",
+                    vectorCount, keywordCount);
+            return List.of();
+        }
+        return lexicalCandidates(query, courseId, classId);
     }
 
     private List<RetrievedCourseChunk> lexicalCandidates(

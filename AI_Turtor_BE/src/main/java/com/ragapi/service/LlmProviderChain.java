@@ -1,5 +1,6 @@
 package com.ragapi.service;
 
+import com.ragapi.util.PromptTokenBudget;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Clock;
@@ -155,6 +156,8 @@ final class LlmProviderChain {
     ) throws Exception {
         Exception lastFailure = null;
         long generationStartedNanos = System.nanoTime();
+        String activePrompt = prompt;
+        boolean[] retriedOversized = new boolean[attemptOrder.size()];
         if (providersToSkip >= attemptOrder.size()) {
             throw new IllegalStateException("No alternate LLM provider is configured for quality fallback");
         }
@@ -171,7 +174,7 @@ final class LlmProviderChain {
             long startedNanos = System.nanoTime();
             try {
                 cancelCheck.run();
-                String text = provider.generator().generate(prompt);
+                String text = provider.generator().generate(activePrompt);
                 cancelCheck.run();
                 long elapsedMs = elapsedMillis(startedNanos);
                 Instant completedAt = clock.instant();
@@ -196,6 +199,19 @@ final class LlmProviderChain {
             } catch (ChatGenerationGate.GenerationCancelledException cancelled) {
                 throw cancelled;
             } catch (Exception error) {
+                String errorText = summarize(error);
+                if (!retriedOversized[index] && PromptTokenBudget.inputExceedsReportedLimit(errorText)) {
+                    String shorter = PromptTokenBudget.shrinkToReportedLimit(activePrompt, errorText);
+                    if (shorter.length() < activePrompt.length()) {
+                        log.warn(
+                                "LLM prompt exceeded the provider token limit; retrying a shorter prompt: provider={}, chars {} -> {}",
+                                provider.name(), activePrompt.length(), shorter.length());
+                        activePrompt = shorter;
+                        retriedOversized[index] = true;
+                        index--;
+                        continue;
+                    }
+                }
                 long elapsedMs = elapsedMillis(startedNanos);
                 Instant completedAt = clock.instant();
                 FailureKind failureKind = classifyFailure(error);
@@ -310,7 +326,8 @@ final class LlmProviderChain {
             return FailureKind.FATAL_REQUEST;
         }
         if (containsAny(text, "403", "forbidden", "404", "model not found", "no endpoints found", "no endpoint",
-                "invalid model", "unsupported model", "timeout", "timed out", "500", "502", "503", "504",
+                "invalid model", "unsupported model", "410", "end of life", "access denied", "network settings",
+                "timeout", "timed out", "500", "502", "503", "504",
                 "upstream", "overloaded", "unavailable", "connect", "connection", "reset",
                 "choices() is null", "choices is null", "nullpointerexception", "invalid provider output")) {
             return FailureKind.TRANSIENT;

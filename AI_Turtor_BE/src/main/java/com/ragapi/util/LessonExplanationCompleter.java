@@ -30,6 +30,7 @@ public final class LessonExplanationCompleter {
         }
         return """
                 Teach this one lesson in Vietnamese. Output ONLY the explanation.
+                Speak as a friendly tutor: call yourself "tôi" and the student "em".
                 Start with heading ## Giải thích.
                 Write at least 4 short paragraphs grounded in COURSE MATERIAL CONTEXT.
                 If the lesson title names several parts, separated by commas or by "and"/"và",

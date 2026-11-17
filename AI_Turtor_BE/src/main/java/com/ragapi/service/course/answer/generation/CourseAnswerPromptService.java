@@ -2,6 +2,7 @@ package com.ragapi.service.course.answer.generation;
 
 import com.ragapi.service.course.answer.policy.CourseAnswerRequestPolicyService;
 import com.ragapi.util.NumberedTitlePrompt;
+import com.ragapi.util.TutorAddress;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -50,6 +51,7 @@ public class CourseAnswerPromptService {
                 - If the student uses Vietnamese without accents, still answer in normal Vietnamese with accents.
                 - Keep important technical terms in English with a short Vietnamese explanation when useful, for example: bytecode, class file, runtime data areas.
                 - Do not translate source names, material IDs, class names, method names, APIs, or code identifiers.
+                %s
                 %s
                 TEACHING STYLE:
                 %s
@@ -118,6 +120,7 @@ public class CourseAnswerPromptService {
                 %s
                 """.formatted(
                 compactLocal ? sections.compactRagRulesBlock(synthesizeBlock) : sections.fullRagRulesBlock(synthesizeBlock),
+                TutorAddress.RULE,
                 sections.teachingStyleBlock(learningPath, lessonTeach, lessonDeepPath, understandingRemediation, workReview),
                 SupportLevelPrompt.personalizationRules(),
                 pedagogicalContext == null || pedagogicalContext.isBlank()

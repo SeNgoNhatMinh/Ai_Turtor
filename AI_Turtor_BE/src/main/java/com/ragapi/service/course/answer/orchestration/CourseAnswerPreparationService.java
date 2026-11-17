@@ -93,8 +93,8 @@ public class CourseAnswerPreparationService {
         if (runPromptGuard && promptGuardService.isPromptAttack(safeQuestion)) {
             log.warn("Prompt Guard blocked a likely prompt-injection attempt (courseId={})", safeCourseId);
             CourseRagAnswer blockedAnswer = CourseRagAnswer.builder()
-                    .answer("Câu hỏi có dấu hiệu cố gắng ghi đè hướng dẫn hoặc vượt qua cơ chế an toàn nên mình chưa thể xử lý. "
-                            + "Bạn hãy gửi câu hỏi học tập cụ thể trong phạm vi môn học nhé.")
+                    .answer("Câu hỏi có dấu hiệu cố gắng ghi đè hướng dẫn hoặc vượt qua cơ chế an toàn nên tôi chưa thể xử lý. "
+                            + "Em hãy gửi câu hỏi học tập cụ thể trong phạm vi môn học nhé.")
                     .confidence(0.0)
                     .sources(List.of())
                     .sourceEvidence(List.of())
@@ -148,7 +148,7 @@ public class CourseAnswerPreparationService {
                 request.draftTeachingNote(),
                 request.baselineDraftAnswer()
         );
-        Map<String, CourseMaterial> materialsById = contextRetrievalService.loadMaterials(chunks);
+        Map<String, CourseMaterial> materialsById = contextRetrievalService.loadMetadata(chunks);
         String groundingType = evidenceService.resolveGroundingType(chunks, materialsById);
         List<String> sourceLabels = evidenceService.buildSourceLabels(chunks, materialsById);
         CourseGroundingAssessment grounding = groundingService.assess(

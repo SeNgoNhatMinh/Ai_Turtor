@@ -65,7 +65,7 @@ public class CourseAnswerResultService {
             log.warn("RAG answer blocked because the student asks beyond available course material scope (question={})",
                     prepared.question());
             return Optional.of(blocked(
-                    "Tài liệu hiện có chỉ đủ để giải thích ở mức ví dụ/khái niệm, chưa đủ dữ liệu để đưa ra dự án thực tế hoặc yêu cầu chi tiết như bạn hỏi. Mình sẽ chuyển câu hỏi này cho giáo viên/mentor phụ trách để tránh AI tự suy đoán ngoài tài liệu.",
+                    "Tài liệu hiện có chỉ đủ để giải thích ở mức ví dụ/khái niệm, chưa đủ dữ liệu để đưa ra dự án thực tế hoặc yêu cầu chi tiết như em hỏi. Tôi sẽ chuyển câu hỏi này cho giáo viên phụ trách để tránh suy đoán ngoài tài liệu.",
                     Math.min(prepared.confidence(), 0.4),
                     prepared.sourceLabels(),
                     "Question asks beyond available course material scope"

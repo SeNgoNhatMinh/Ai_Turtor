@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -114,7 +115,8 @@ public class CourseLessonPreviewService {
         if (materialId == null || materialId.isBlank()) {
             return ranked == null ? List.of() : ranked;
         }
-        CourseMaterial material = materialRepository.findById(materialId).orElse(null);
+        Optional<CourseMaterial> found = materialRepository.findMetadataById(materialId);
+        CourseMaterial material = found == null ? null : found.orElse(null);
         if (material == null || material.getCourseId() == null
                 || !material.getCourseId().equalsIgnoreCase(preview.getCourseId())) {
             return ranked == null ? List.of() : ranked;

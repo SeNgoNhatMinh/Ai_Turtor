@@ -374,34 +374,42 @@ public class CourseAnswerGenerationStageService {
                   Apply the style to THIS question.
                   Do not reopen an older topic named in the style. Do not write an A/B/C quiz here.
                 """);
-        Map<String, Supplier<String>> workers = new LinkedHashMap<>();
-        workers.put("worker-1", () -> generationService.generateWorker1GroundedAnswer(
+        // Worker 1 goes first so the lesson request can use the token budget
+        // before the quiz and deep-study calls spend it.
+        Map<String, Supplier<String>> lessonWorker = new LinkedHashMap<>();
+        lessonWorker.put("worker-1", () -> generationService.generateWorker1GroundedAnswer(
                 worker1Prompt, question, request.teachingMode(), context, request.learnerMemoryContext(), false));
+        Map<String, AiWorkerResult<String>> lessonResults =
+                workerOrchestrator.executeParallel(lessonWorker, Duration.ofSeconds(60));
+        String answer = successfulOutput(lessonResults.get("worker-1"));
+        recordWorkerOutput(traceId, "worker-1", "Worker 1 · Answer Generator", "GENERATE_ANSWER",
+                answer, lessonResults.get("worker-1"));
         if (workReview) {
-            Map<String, AiWorkerResult<String>> reviewResults =
-                    workerOrchestrator.executeParallel(workers, Duration.ofSeconds(60));
-            String reviewAnswer = successfulOutput(reviewResults.get("worker-1"));
-            recordWorkerOutput(traceId, "worker-1", "Worker 1 · Answer Generator", "GENERATE_ANSWER",
-                    reviewAnswer, reviewResults.get("worker-1"));
-            if (!hasText(reviewAnswer)) {
+            if (!hasText(answer)) {
                 log.warn("Worker 1 failed to generate the work review");
-                reviewAnswer = StudentFacingMessages.GENERATION_UNAVAILABLE;
+                answer = StudentFacingMessages.GENERATION_UNAVAILABLE;
             }
-            return new WorkerOutputs(reviewAnswer, "", "");
+            return new WorkerOutputs(answer, "", "");
         }
-        workers.put("worker-2", () -> generationService.generateWorkerUtilityAnswer(quizPrompt));
-        workers.put("worker-3", () -> generationService.generateWorkerUtilityAnswer(deepStudyPrompt));
-        Map<String, AiWorkerResult<String>> results = workerOrchestrator.executeParallel(workers, Duration.ofSeconds(60));
-        String answer = successfulOutput(results.get("worker-1"));
-        String quiz = successfulOutput(results.get("worker-2"));
-        String deepStudy = successfulOutput(results.get("worker-3"));
-        recordWorkerOutput(traceId, "worker-1", "Worker 1 · Answer Generator", "GENERATE_ANSWER", answer, results.get("worker-1"));
-        recordWorkerOutput(traceId, "worker-2", "Worker 2 · Quiz Generator", "GENERATE_QUIZ", quiz, results.get("worker-2"));
-        recordWorkerOutput(traceId, "worker-3", "Worker 3 · Deep Study Titles", "GENERATE_DEEP_STUDY", deepStudy, results.get("worker-3"));
         if (!hasText(answer)) {
             log.warn("Worker 1 failed to generate the main answer");
             answer = StudentFacingMessages.GENERATION_UNAVAILABLE;
         }
+        Map<String, Supplier<String>> followUpWorkers = new LinkedHashMap<>();
+        followUpWorkers.put("worker-2", () -> produceUntilUsable(
+                "worker-2",
+                () -> generationService.generateWorkerUtilityAnswer(quizPrompt),
+                CourseAnswerGenerationStageService::isUsableQuiz));
+        followUpWorkers.put("worker-3", () -> produceUntilUsable(
+                "worker-3",
+                () -> generationService.generateWorkerUtilityAnswer(deepStudyPrompt),
+                text -> hasText(normalizeDeepStudyTitles(text))));
+        Map<String, AiWorkerResult<String>> results =
+                workerOrchestrator.executeParallel(followUpWorkers, Duration.ofSeconds(60));
+        String quiz = successfulOutput(results.get("worker-2"));
+        String deepStudy = successfulOutput(results.get("worker-3"));
+        recordWorkerOutput(traceId, "worker-2", "Worker 2 · Quiz Generator", "GENERATE_QUIZ", quiz, results.get("worker-2"));
+        recordWorkerOutput(traceId, "worker-3", "Worker 3 · Deep Study Titles", "GENERATE_DEEP_STUDY", deepStudy, results.get("worker-3"));
         if (!hasText(quiz)) {
             log.warn("Worker 2 did not produce a quiz; main answer will still be returned");
         }
@@ -420,6 +428,48 @@ public class CourseAnswerGenerationStageService {
     }
     private String successfulOutput(AiWorkerResult<String> result) {
         return result != null && result.status() == AiWorkerResult.Status.SUCCESS ? result.value() : null;
+    }
+
+    private static final int REQUIRED_FOLLOW_UP_ATTEMPTS = 3;
+
+    /**
+     * Worker 2 must return a real multiple-choice quiz and Worker 3 must return
+     * clickable titles. A provider error or a prose reply is tried again.
+     */
+    private String produceUntilUsable(String workerId, Supplier<String> generate, java.util.function.Predicate<String> usable) {
+        for (int attempt = 1; attempt <= REQUIRED_FOLLOW_UP_ATTEMPTS; attempt++) {
+            String produced;
+            try {
+                produced = generate.get();
+            } catch (RuntimeException error) {
+                log.warn("{} attempt {} failed: {}", workerId, attempt, error.getMessage());
+                continue;
+            }
+            if (usable.test(produced)) {
+                if (attempt > 1) {
+                    log.info("{} produced the required output on attempt {}", workerId, attempt);
+                }
+                return produced;
+            }
+            log.warn("{} attempt {} did not produce the required output", workerId, attempt);
+        }
+        log.warn("{} did not produce the required output after {} attempts", workerId, REQUIRED_FOLLOW_UP_ATTEMPTS);
+        return "";
+    }
+
+    static boolean isUsableQuiz(String quiz) {
+        String text = normalizeWorkerQuizMarkdown(quiz);
+        if (!hasText(text)) {
+            return false;
+        }
+        int options = 0;
+        for (String letter : List.of("A", "B", "C")) {
+            if (Pattern.compile("(?m)^" + letter + "\\.\\s+\\S").matcher(text).find()) {
+                options++;
+            }
+        }
+        boolean answerKey = Pattern.compile("(?im)^Đáp án(?: đúng)?\\s*:\\s*[A-D]\\b").matcher(text).find();
+        return options >= 3 && answerKey;
     }
 
     private String limitWorkerContext(String context) {
@@ -531,7 +581,7 @@ public class CourseAnswerGenerationStageService {
         return false;
     }
 
-    private boolean hasText(String value) {
+    private static boolean hasText(String value) {
         return value != null && !value.isBlank();
     }
 

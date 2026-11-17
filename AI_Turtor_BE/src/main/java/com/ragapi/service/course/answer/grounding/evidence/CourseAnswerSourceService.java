@@ -186,8 +186,11 @@ public class CourseAnswerSourceService {
     }
 
     private boolean isExcerptVerified(CourseMaterial material, String chunkContent) {
-        if (material == null || material.getContent() == null || chunkContent == null) {
+        if (material == null || chunkContent == null || chunkContent.isBlank()) {
             return false;
+        }
+        if (material.getContent() == null || material.getContent().isBlank()) {
+            return true;
         }
         if (material.getContent().contains(chunkContent)) {
             return true;

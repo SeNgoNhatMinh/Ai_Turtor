@@ -43,7 +43,7 @@ public final class VietnameseOutputEnforcer {
             - Use `inline code` for identifiers/operators and fenced code blocks for source code.
             - Use valid GFM tables when needed, including a header row and | --- | separator row.
             - Do not narrate or quote prompt instructions.
-            """;
+            """ + TutorAddress.RULE;
 
     private VietnameseOutputEnforcer() {
     }

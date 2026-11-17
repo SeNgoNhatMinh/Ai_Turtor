@@ -39,6 +39,8 @@ class VietnameseOutputEnforcerTest {
     void wrapPromptAppendsMandatoryRuleOnce() {
         String wrapped = VietnameseOutputEnforcer.wrapPrompt("Answer briefly.");
         assertTrue(wrapped.contains("MANDATORY VIETNAMESE OUTPUT"));
+        assertTrue(wrapped.contains("\"tôi\""));
+        assertTrue(wrapped.contains("\"em\""));
         assertEquals(wrapped, VietnameseOutputEnforcer.wrapPrompt(wrapped));
     }
 

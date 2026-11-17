@@ -47,8 +47,12 @@ public class CourseContextRetrievalService {
                 query.focus(),
                 query.expandedQuestion(),
                 List.copyOf(chunks),
-                mergeService.loadMaterials(chunks)
+                Map.of()
         );
+    }
+
+    public Map<String, CourseMaterial> loadMetadata(List<RetrievedCourseChunk> chunks) {
+        return mergeService.loadMetadata(chunks);
     }
 
     public Map<String, CourseMaterial> loadMaterials(List<RetrievedCourseChunk> chunks) {

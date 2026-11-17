@@ -8,26 +8,26 @@ import java.util.Locale;
 public final class StudentFacingMessages {
 
     public static final String GENERATION_BUSY =
-            "Mình chưa soạn xong ý này từ tài liệu. Bạn bấm Thử lại giúp mình, hoặc hỏi gọn hơn một ý nhé.";
+            "Tôi chưa soạn xong ý này từ tài liệu. Em bấm Thử lại giúp tôi, hoặc hỏi gọn hơn một ý nhé.";
 
     public static final String GENERATION_UNAVAILABLE =
-            "Mình chưa giảng được phần này lúc này. Bạn thử lại giúp mình, hoặc gửi mentor nếu cần gấp nhé.";
+            "Tôi chưa giảng được phần này lúc này. Em thử lại giúp tôi, hoặc gửi mentor nếu cần gấp nhé.";
 
     public static final String RAG_EMPTY =
-            "Mình chưa tổng hợp được câu trả lời từ tài liệu môn học cho câu hỏi này. Bạn thử diễn đạt lại câu hỏi, hoặc hỏi mentor nếu vẫn chưa rõ nhé.";
+            "Tôi chưa tổng hợp được câu trả lời từ tài liệu môn học cho câu hỏi này. Em thử diễn đạt lại câu hỏi, hoặc hỏi mentor nếu vẫn chưa rõ nhé.";
 
     public static final String CODE_MENTOR_BUSY =
-            "Mình chưa phân tích xong phần này. Bạn thử gửi lại đoạn code hoặc lỗi cụ thể hơn, hoặc thử lại sau vài giây nhé.";
+            "Tôi chưa phân tích xong phần này. Em thử gửi lại đoạn code hoặc lỗi cụ thể hơn, hoặc thử lại sau vài giây nhé.";
 
     public static String noMatchingStudyUnit() {
-        return "Tài liệu môn chưa có chương khớp với phần bạn muốn học. "
-                + "Hãy hỏi đúng tên khái niệm trong sách, hoặc chọn một chương từ mục lục môn.";
+        return "Tài liệu môn chưa có chương khớp với phần em muốn học. "
+                + "Em hãy hỏi đúng tên khái niệm trong sách, hoặc chọn một chương từ mục lục môn.";
     }
 
     public static String dailySessionComplete(String courseId) {
         String course = courseId == null || courseId.isBlank() ? "môn này" : "môn " + courseId.trim();
         return "Phiên học hôm nay của " + course
-                + " đã hết. Cảm ơn bạn đã học cùng mình. Bạn có thể hỏi môn khác, hoặc quay lại vào ngày mai.";
+                + " đã hết. Cảm ơn em đã học cùng tôi. Em có thể hỏi môn khác, hoặc quay lại vào ngày mai.";
     }
 
     private StudentFacingMessages() {

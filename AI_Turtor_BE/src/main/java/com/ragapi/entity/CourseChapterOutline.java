@@ -34,6 +34,8 @@ public class CourseChapterOutline {
     private Integer pageEnd;
     private Integer chunkCount;
     private Long approxChars;
+    /** Lesson text already cut to the mentor limit, so a click does not rescan the book. */
+    private String mentorExcerpt;
     private String confirmedBy;
     private LocalDateTime confirmedAt;
     private LocalDateTime updatedAt;

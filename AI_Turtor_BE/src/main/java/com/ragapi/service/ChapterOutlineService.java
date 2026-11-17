@@ -292,6 +292,9 @@ public class ChapterOutlineService {
         final CourseChapterOutline outline = found;
 
         int indexedCount = (int) materialRepository.countByCourseIdAndIndexingStatus(safeCourseId, "INDEXED");
+        if (expanded && outline.getMentorExcerpt() != null && !outline.getMentorExcerpt().isBlank()) {
+            return previewFromStoredExcerpt(outline, indexedCount);
+        }
 
         List<ChapterSourceMaterialView> sources = new ArrayList<>();
         StringBuilder excerpt = new StringBuilder();
@@ -342,6 +345,14 @@ public class ChapterOutlineService {
             pageEnd = pdfPages[1];
         }
 
+        if (expanded && !excerptText.isBlank()) {
+            String stored = excerptText.length() > MENTOR_EXCERPT_LIMIT
+                    ? excerptText.substring(0, MENTOR_EXCERPT_LIMIT).trim()
+                    : excerptText;
+            outline.setMentorExcerpt(stored);
+            outlineRepository.save(outline);
+        }
+
         return ChapterPreviewView.builder()
                 .courseId(safeCourseId)
                 .chapterKey(outline.getChapterKey())
@@ -354,6 +365,54 @@ public class ChapterOutlineService {
                 .excerpt(excerptText)
                 .excerptTruncated(excerptTruncated)
                 .excerptTotalChars(rawExcerpt.length())
+                .hasMaterialContent(fromMaterial && !excerptText.isBlank())
+                .pageStart(pageStart)
+                .pageEnd(pageEnd)
+                .primarySourceMaterialId(primarySourceMaterialId)
+                .sourcePageUrl(sourcePageUrl)
+                .imageUrls(imageUrls)
+                .sourceMaterials(sources)
+                .build();
+    }
+
+    private ChapterPreviewView previewFromStoredExcerpt(CourseChapterOutline outline, int indexedCount) {
+        List<String> materialIds = outline.getSourceMaterialIds() == null ? List.of() : outline.getSourceMaterialIds();
+        List<ChapterSourceMaterialView> sources = new ArrayList<>();
+        for (String materialId : materialIds) {
+            materialRepository.findOneByIdWithoutContent(materialId).ifPresent(material -> sources.add(
+                    ChapterSourceMaterialView.builder()
+                            .id(material.getId())
+                            .title(material.getTitle())
+                            .sourceType(material.getSourceType())
+                            .indexingStatus(material.getIndexingStatus())
+                            .build()));
+        }
+        String excerptText = outline.getMentorExcerpt().trim();
+        boolean fromMaterial = isIndexedMaterialSource(outline.getDetectedFrom());
+        String primarySourceMaterialId = resolvePrimarySourceMaterialId(materialIds, sources);
+        String sourcePageUrl = null;
+        List<String> imageUrls = List.of();
+        if (DETECTED_FROM_HTML_SECTION.equalsIgnoreCase(outline.getDetectedFrom())
+                || sources.stream().anyMatch(source -> source.getSourceType() != null
+                && source.getSourceType().toUpperCase().contains("HTML"))) {
+            HtmlSectionMediaService.SectionMedia media = htmlSectionMediaService.resolveFromStoredSection(excerptText);
+            sourcePageUrl = media.sourcePageUrl();
+            imageUrls = media.imageUrls();
+        }
+        int pageStart = outline.getPageStart() == null ? 0 : outline.getPageStart();
+        int pageEnd = outline.getPageEnd() == null ? 0 : outline.getPageEnd();
+        return ChapterPreviewView.builder()
+                .courseId(outline.getCourseId())
+                .chapterKey(outline.getChapterKey())
+                .title(outline.getTitle())
+                .status(outline.getStatus())
+                .detectedFrom(outline.getDetectedFrom())
+                .materialHealth(materialHealth(outline, indexedCount))
+                .chunkCount(outline.getChunkCount() == null ? 0 : outline.getChunkCount())
+                .approxChars(outline.getApproxChars() == null ? 0L : outline.getApproxChars())
+                .excerpt(excerptText)
+                .excerptTruncated(false)
+                .excerptTotalChars(excerptText.length())
                 .hasMaterialContent(fromMaterial && !excerptText.isBlank())
                 .pageStart(pageStart)
                 .pageEnd(pageEnd)
@@ -493,6 +552,7 @@ public class ChapterOutlineService {
             existing.setPageEnd(chapter.pageEnd);
             existing.setChunkCount(chapter.chunkCount);
             existing.setApproxChars(chapter.approxChars);
+            existing.setMentorExcerpt(null);
             existing.setUpdatedAt(now);
             outlineRepository.save(existing);
         }

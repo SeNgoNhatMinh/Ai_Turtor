@@ -1,5 +1,6 @@
 package com.ragapi.service;
 
+import com.ragapi.util.PromptTokenBudget;
 import com.ragapi.util.StudentFacingMessages;
 import com.ragapi.util.TextSanitizer;
 import com.ragapi.util.VietnameseOutputEnforcer;
@@ -66,6 +67,12 @@ public class OpenRouterChatService {
 
     @Value("${llm.generation-deadline-seconds:180}")
     private int generationDeadlineSeconds;
+
+    @Value("${llm.max-input-tokens:5000}")
+    private int maxInputTokens;
+
+    @Value("${llm.max-output-tokens:2048}")
+    private int maxOutputTokens;
 
     /** Preferred models for Worker 1 (main answer), in order, before the rest of the chain. */
     @Value("${ai.worker.worker-1.models:openai/gpt-oss-120b,nvidia/nemotron-3-ultra-550b-a55b:free}")
@@ -197,7 +204,7 @@ public class OpenRouterChatService {
             if (chain == null) {
                 throw new IllegalStateException("LLM provider chain is not initialized");
             }
-            String safePrompt = privacySanitizer.sanitize(wrapped);
+            String safePrompt = fitPrompt(privacySanitizer.sanitize(wrapped));
             long startedNanos = System.nanoTime();
             LlmProviderChain.Result result = chain.generatePreferringModels(safePrompt, worker1Models());
             log.info("LLM generation succeeded: operation=worker-1-answer, provider={}, model={}, elapsedMs={}",
@@ -320,7 +327,7 @@ public class OpenRouterChatService {
             boolean qualityFallback
     ) throws Exception {
         if (generationGate != null) generationGate.checkpoint();
-        String safePrompt = privacySanitizer.sanitize(prompt);
+        String safePrompt = fitPrompt(privacySanitizer.sanitize(prompt));
         LlmProviderChain chain = providerChain;
         if (chain == null) {
             throw new IllegalStateException("LLM provider chain is not initialized");
@@ -388,12 +395,25 @@ public class OpenRouterChatService {
                     .baseUrl(slot.baseUrl())
                     .modelName(slot.model())
                     .timeout(Duration.ofSeconds(Math.max(5, timeoutSeconds)))
+                    .maxTokens(Math.max(128, maxOutputTokens))
                     .maxRetries(slot.maxRetries())
                     .build();
             providers.add(new LlmProviderChain.Provider(
                     slot.providerId(), slot.model(), prompt -> requireStudentReadyOutput(model.generate(prompt))));
         }
         return providers;
+    }
+
+    private String fitPrompt(String prompt) {
+        if (prompt == null || prompt.isBlank()) {
+            return prompt;
+        }
+        String fitted = PromptTokenBudget.fit(prompt, Math.max(256, maxInputTokens));
+        if (fitted.length() < prompt.length()) {
+            log.info("Fitted tutor prompt to the provider token budget: chars {} -> {}",
+                    prompt.length(), fitted.length());
+        }
+        return fitted;
     }
 
     private String requireStudentReadyOutput(String raw) {
