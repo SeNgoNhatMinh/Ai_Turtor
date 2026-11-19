@@ -70,7 +70,7 @@ describe('ChatMessageList TTS action', () => {
     expect(screen.getAllByRole('button', { name: 'Đọc câu trả lời của AI Tutor' })).toHaveLength(1);
   });
 
-  it('moves the Read and voice controls below the course-material heading', () => {
+  it('places the Read and voice controls at the top of the answer', () => {
     render(
       <ChatMessageList
         {...baseProps}
@@ -87,7 +87,7 @@ describe('ChatMessageList TTS action', () => {
 
     const heading = screen.getByRole('heading', { name: 'Theo tài liệu môn học' });
     const readButton = screen.getByRole('button', { name: 'Đọc câu trả lời của AI Tutor' });
-    expect(heading.nextElementSibling).toContainElement(readButton);
+    expect(readButton.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText('Long')).toBeVisible();
     expect(screen.getAllByRole('button', { name: 'Đọc câu trả lời của AI Tutor' })).toHaveLength(1);
   });

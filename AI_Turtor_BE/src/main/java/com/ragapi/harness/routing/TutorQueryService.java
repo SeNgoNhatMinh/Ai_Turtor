@@ -23,6 +23,7 @@ import com.ragapi.harness.behavior.plan.StudentLearningContextService;
 import com.ragapi.harness.behavior.plan.TeachingOrchestrator;
 import com.ragapi.harness.behavior.plan.TeachingPlan;
 import com.ragapi.harness.codementor.CodeMentorService;
+import com.ragapi.harness.curriculum.CourseChapterExcerptCache;
 import com.ragapi.harness.curriculum.CourseCurriculumOverviewService;
 import com.ragapi.harness.directive.PedagogicalDirectiveService;
 import com.ragapi.harness.gateway.CourseAnswerGateway;
@@ -81,6 +82,7 @@ public class TutorQueryService {
     final ImprovePlanService improvePlanService;
     final LearningPathGroundingService learningPathGroundingService;
     final CourseCurriculumOverviewService curriculumOverviewService;
+    final CourseChapterExcerptCache chapterExcerptCache;
     final HarnessLogService harnessLogService;
     final ChatGenerationGate generationGate;
 

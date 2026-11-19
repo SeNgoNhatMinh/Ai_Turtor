@@ -136,6 +136,10 @@
   opacity: 0.55;
 }
 
+.chat-ai-tts-top {
+  margin: 0 0 12px;
+}
+
 .chat-ai-action-row {
   display: flex;
   align-items: center;

@@ -48,6 +48,16 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 @Slf4j
 class TutorQueryTurn {
 
+    static boolean embedsTeachingBehavior(
+            boolean refuseWorker,
+            boolean learningPathOnly,
+            boolean guidedLesson,
+            boolean chapterInMemory
+    ) {
+        return !refuseWorker && !learningPathOnly && !guidedLesson && !chapterInMemory;
+    }
+
+
     final TutorQueryService queries;
     boolean quotaCharged;
     String generationTraceId = "";
@@ -658,7 +668,13 @@ class TutorQueryTurn {
             boolean learningPathOnly = "LEARNING_PATH".equalsIgnoreCase(teachingMode)
                     || StudentChatIntentDetector.isTopiclessStudyRequest(state.question);
             TeachingPlan teachingPlan = null;
-            if (!refuseWorker && !learningPathOnly && !state.guidedLesson) {
+            boolean chapterInMemory = queries.chapterExcerptCache != null
+                    && queries.chapterExcerptCache.match(state.courseId, state.question).isPresent();
+            if (chapterInMemory && embedsTeachingBehavior(refuseWorker, learningPathOnly, state.guidedLesson, false)) {
+                log.info("Skipping teaching-behavior embedding; indexed chapter is already in memory (courseId={})",
+                        state.courseId);
+            }
+            if (embedsTeachingBehavior(refuseWorker, learningPathOnly, state.guidedLesson, chapterInMemory)) {
                 String domain = state.intent.getDomain() != null && !state.intent.getDomain().isBlank()
                         ? state.intent.getDomain()
                         : request.getHarnessDomain();
