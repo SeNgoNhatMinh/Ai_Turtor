@@ -89,12 +89,6 @@ class ProfileScreen extends ConsumerWidget {
               ? profile.fullName
               : (session?.fullName ?? '—');
           final studentCode = _studentCode(profile.userId, profile.email);
-          final semester = homeAsync.maybeWhen(
-            data: (home) => home.courses.isNotEmpty
-                ? (home.courses.first.semester ?? 'Spring 2026')
-                : 'Spring 2026',
-            orElse: () => 'Spring 2026',
-          );
           final questions = homeAsync.maybeWhen(
             data: (home) => home.questionsAsked,
             orElse: () => 0,
@@ -126,7 +120,7 @@ class ProfileScreen extends ConsumerWidget {
                 SliverToBoxAdapter(
                   child: PortalCompactHeader.profile(
                     title: displayName,
-                    subtitle: '$studentCode · $semester',
+                    subtitle: studentCode,
                     profileAvatar: const _ProfileAvatar(),
                   ),
                 ),

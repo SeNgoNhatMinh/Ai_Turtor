@@ -7,6 +7,8 @@ import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/utils/study_suggestion_prompt.dart';
 
+const _suggestionPageSize = 5;
+
 final _curriculumStarterHeading = RegExp(
   r'^(?:\d+(?:\.\d+)*[.)]?\s*)?gợi ý học tập\s*$',
   caseSensitive: false,
@@ -23,7 +25,6 @@ List<StudyPathSuggestion> parseCurriculumStudySuggestions(String markdown) {
             !_curriculumStarterNoise.hasMatch(item.title) &&
             !item.title.endsWith(':'),
       )
-      .take(5)
       .toList();
 }
 
@@ -53,7 +54,7 @@ String stripCurriculumStudySuggestionSection(String markdown) {
   return kept.join('\n').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
 }
 
-class CurriculumStudySuggestions extends StatelessWidget {
+class CurriculumStudySuggestions extends StatefulWidget {
   const CurriculumStudySuggestions({
     super.key,
     required this.suggestions,
@@ -66,9 +67,68 @@ class CurriculumStudySuggestions extends StatelessWidget {
   final bool enabled;
 
   @override
+  State<CurriculumStudySuggestions> createState() =>
+      _CurriculumStudySuggestionsState();
+}
+
+class _CurriculumStudySuggestionsState
+    extends State<CurriculumStudySuggestions> {
+  final _searchController = TextEditingController();
+  var _query = '';
+  var _visibleCount = _suggestionPageSize;
+
+  @override
+  void didUpdateWidget(CurriculumStudySuggestions oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_suggestionSignature(oldWidget.suggestions) ==
+        _suggestionSignature(widget.suggestions)) {
+      return;
+    }
+    _searchController.clear();
+    _query = '';
+    _visibleCount = _suggestionPageSize;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _updateQuery(String value) {
+    setState(() {
+      _query = value.trim().toLowerCase();
+      _visibleCount = _suggestionPageSize;
+    });
+  }
+
+  void _clearQuery() {
+    _searchController.clear();
+    _updateQuery('');
+  }
+
+  static String _suggestionSignature(List<StudyPathSuggestion> suggestions) {
+    return suggestions.map((item) => item.suggestionText).join('\u0000');
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (suggestions.isEmpty) return const SizedBox.shrink();
+    if (widget.suggestions.isEmpty) return const SizedBox.shrink();
     final colors = context.fpt;
+    final filteredSuggestions = _query.isEmpty
+        ? widget.suggestions
+        : widget.suggestions
+              .where(
+                (item) =>
+                    item.title.toLowerCase().contains(_query) ||
+                    item.suggestionText.toLowerCase().contains(_query),
+              )
+              .toList();
+    final visibleSuggestions = filteredSuggestions.take(_visibleCount).toList();
+    final remainingCount =
+        filteredSuggestions.length - visibleSuggestions.length;
+    final hasMore = remainingCount > 0;
+    final canCollapse = _visibleCount > _suggestionPageSize;
 
     return Container(
       padding: const EdgeInsets.all(Insets.md),
@@ -96,14 +156,109 @@ class CurriculumStudySuggestions extends StatelessWidget {
             ),
           ),
           const Gap(Insets.md),
-          for (var index = 0; index < suggestions.length; index++) ...[
-            _CurriculumSuggestionRow(
-              key: ValueKey(suggestions[index].suggestionText),
-              suggestion: suggestions[index],
-              enabled: enabled,
-              onTap: () => onSelected(suggestions[index].suggestionText),
+          TextField(
+            controller: _searchController,
+            onChanged: _updateQuery,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Tìm bài học…',
+              prefixIcon: Icon(
+                LucideIcons.search,
+                size: 18,
+                color: colors.textSecondary,
+              ),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: _clearQuery,
+                      tooltip: 'Xóa tìm kiếm',
+                      icon: Icon(
+                        LucideIcons.x,
+                        size: 18,
+                        color: colors.textSecondary,
+                      ),
+                    ),
+              filled: true,
+              fillColor: colors.card,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: Insets.md,
+                vertical: Insets.sm,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(Radii.md),
+                borderSide: BorderSide(color: colors.borderHairline),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(Radii.md),
+                borderSide: const BorderSide(
+                  color: AppColors.focusRing,
+                  width: 1.5,
+                ),
+              ),
             ),
-            if (index != suggestions.length - 1) const Gap(Insets.sm),
+          ),
+          const Gap(Insets.md),
+          if (visibleSuggestions.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: Insets.md),
+              child: Text(
+                'Không tìm thấy bài học phù hợp.',
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: colors.textSecondary),
+              ),
+            )
+          else
+            for (var index = 0; index < visibleSuggestions.length; index++) ...[
+              _CurriculumSuggestionRow(
+                key: ValueKey(visibleSuggestions[index].suggestionText),
+                suggestion: visibleSuggestions[index],
+                enabled: widget.enabled,
+                onTap: () =>
+                    widget.onSelected(visibleSuggestions[index].suggestionText),
+              ),
+              if (index != visibleSuggestions.length - 1) const Gap(Insets.sm),
+            ],
+          if (hasMore || canCollapse) ...[
+            const Gap(Insets.md),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: Insets.sm,
+              runSpacing: Insets.xs,
+              children: [
+                if (hasMore)
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _visibleCount += _suggestionPageSize;
+                      });
+                    },
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                      foregroundColor: colors.textPrimary,
+                    ),
+                    child: Text(
+                      'Hiển thị thêm '
+                      '(${remainingCount.clamp(0, _suggestionPageSize)})',
+                    ),
+                  ),
+                if (canCollapse)
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _visibleCount = _suggestionPageSize;
+                      });
+                    },
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                      foregroundColor: colors.textSecondary,
+                    ),
+                    icon: const Icon(LucideIcons.chevronUp, size: 17),
+                    label: const Text('Ẩn bớt'),
+                  ),
+              ],
+            ),
           ],
         ],
       ),
