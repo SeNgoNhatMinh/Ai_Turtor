@@ -28,7 +28,6 @@ class CourseMaterialIndexJobServiceTest {
 
     private CourseMaterialIndexJobRepository repository;
     private MongoTemplate mongoTemplate;
-    private CourseMaterialIndexJobRecoveryService recoveryService;
     private CourseMaterialIndexJobMetrics metrics;
     private CourseMaterialIndexJobService service;
 
@@ -36,10 +35,12 @@ class CourseMaterialIndexJobServiceTest {
     void setUp() {
         repository = mock(CourseMaterialIndexJobRepository.class);
         mongoTemplate = mock(MongoTemplate.class);
-        recoveryService = mock(CourseMaterialIndexJobRecoveryService.class);
         metrics = mock(CourseMaterialIndexJobMetrics.class);
-        service = new CourseMaterialIndexJobService(repository, mongoTemplate, recoveryService, metrics);
+        service = new CourseMaterialIndexJobService(repository, mongoTemplate, metrics);
         ReflectionTestUtils.setField(service, "configuredMaxRetries", 3);
+        ReflectionTestUtils.setField(service, "lockTimeoutSeconds", 900);
+        when(mongoTemplate.updateMulti(any(), any(), eq(CourseMaterialIndexJob.class)))
+                .thenReturn(UpdateResult.acknowledged(0, 0L, null));
     }
 
     @Test

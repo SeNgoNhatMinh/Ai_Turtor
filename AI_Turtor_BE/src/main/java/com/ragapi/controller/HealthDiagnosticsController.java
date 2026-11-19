@@ -1,7 +1,7 @@
 package com.ragapi.controller;
 
 import com.ragapi.dto.LlmProviderConfigView;
-import com.ragapi.service.LlmProviderAdminService;
+import com.ragapi.service.llm.LlmProviderAdminService;
 import com.ragapi.util.LLMDiagnostics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

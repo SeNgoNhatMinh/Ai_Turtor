@@ -4,7 +4,7 @@ import com.ragapi.config.ChatWebSocketHandler;
 import com.ragapi.dto.ChatClosureRequest;
 import com.ragapi.dto.ChatMarkAsReadRequest;
 import com.ragapi.dto.ChatMessageRequest;
-import com.ragapi.service.ChatService;
+import com.ragapi.service.chat.ChatService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

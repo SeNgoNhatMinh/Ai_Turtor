@@ -28,11 +28,13 @@ public class CourseMaterialIndexJobService {
 
     private final CourseMaterialIndexJobRepository repository;
     private final MongoTemplate mongoTemplate;
-    private final CourseMaterialIndexJobRecoveryService recoveryService;
     private final CourseMaterialIndexJobMetrics metrics;
 
     @Value("${rag.indexing.worker.max-retries:3}")
     private int configuredMaxRetries;
+
+    @Value("${rag.indexing.worker.lock-timeout-seconds:900}")
+    private long lockTimeoutSeconds;
 
     public CourseMaterialIndexJob enqueue(CourseMaterial material) {
         Objects.requireNonNull(material, "material is required");
@@ -88,7 +90,7 @@ public class CourseMaterialIndexJobService {
 
     public Optional<CourseMaterialIndexJob> claimNext(String workerId) {
         LocalDateTime now = LocalDateTime.now();
-        recoveryService.recoverStaleJobs(now);
+        recoverStaleJobs(now);
 
         Criteria ready = new Criteria().andOperator(
                 Criteria.where("status").in(List.of(
@@ -314,5 +316,34 @@ public class CourseMaterialIndexJobService {
             return failure == null ? "Indexing failed" : failure.getClass().getSimpleName();
         }
         return message.length() <= 1000 ? message : message.substring(0, 1000);
+    }
+
+    private long recoverStaleJobs(LocalDateTime now) {
+        LocalDateTime staleBefore = now.minusSeconds(Math.max(30, lockTimeoutSeconds));
+        Query stale = Query.query(new Criteria().andOperator(
+                Criteria.where("status").is(CourseMaterialIndexJob.PROCESSING),
+                new Criteria().orOperator(
+                        Criteria.where("heartbeatAt").lte(staleBefore),
+                        new Criteria().andOperator(
+                                Criteria.where("heartbeatAt").is(null),
+                                Criteria.where("lockedAt").lte(staleBefore)
+                        )
+                )
+        ));
+        Update recover = new Update()
+                .set("status", CourseMaterialIndexJob.RETRY)
+                .set("nextAttemptAt", now)
+                .set("updatedAt", now)
+                .set("lastError", "Recovered after worker lease timeout")
+                .unset("lockedAt")
+                .unset("heartbeatAt")
+                .unset("workerId");
+        long recovered = mongoTemplate.updateMulti(stale, recover, CourseMaterialIndexJob.class)
+                .getModifiedCount();
+        if (recovered > 0) {
+            metrics.recovered(recovered);
+            log.warn("Recovered {} stale course material indexing jobs", recovered);
+        }
+        return recovered;
     }
 }

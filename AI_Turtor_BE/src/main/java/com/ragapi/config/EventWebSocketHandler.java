@@ -2,7 +2,7 @@ package com.ragapi.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ragapi.service.RealtimeEventService;
+import com.ragapi.service.notification.RealtimeEventService;
 import com.ragapi.service.presence.TeacherPresenceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

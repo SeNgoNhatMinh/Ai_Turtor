@@ -51,6 +51,10 @@ public class TeacherPresenceService {
         return value == null || value.isBlank();
     }
 
+    public boolean isOnline(String teacherId) {
+        return teacherId != null && !teacherId.isBlank() && gateway.isOnline(teacherId.trim());
+    }
+
     public record PresenceTransition(String teacherId, boolean online, boolean changed) {
         static PresenceTransition unchanged(String teacherId, boolean online) {
             return new PresenceTransition(teacherId, online, false);

@@ -1,10 +1,10 @@
 package com.ragapi.controller;
 
 import com.ragapi.dto.cotraining.*;
-import com.ragapi.service.ChapterOutlineService;
-import com.ragapi.service.ExpertCoTrainingService;
-import com.ragapi.service.harness.HarnessCaseService;
-import com.ragapi.service.harness.HarnessReplayRunner;
+import com.ragapi.harness.curriculum.ChapterOutlineService;
+import com.ragapi.harness.cotraining.ExpertCoTrainingService;
+import com.ragapi.harness.replay.HarnessCaseService;
+import com.ragapi.harness.replay.HarnessReplayRunner;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

@@ -118,7 +118,7 @@ ai:
       models: ${AI_WORKER_1_MODELS:openai/gpt-oss-120b,nvidia/nemotron-3-ultra-550b-a55b:free}
   # Syllabus learning guide: extracted by LLM once when a syllabus is saved
   # (course detail edit or any material upload), validated and stored in
-  # course_learning_guides. Course reads never call an LLM.
+  # harness_curricula. Course reads never call an LLM.
   learning-guide:
     extraction-enabled: ${AI_LEARNING_GUIDE_EXTRACTION_ENABLED:true}
 

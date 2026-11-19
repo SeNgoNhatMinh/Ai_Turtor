@@ -1,6 +1,6 @@
 package com.ragapi.config;
 
-import com.ragapi.service.JwtService;
+import com.ragapi.service.auth.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

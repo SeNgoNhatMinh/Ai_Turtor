@@ -1,7 +1,7 @@
 package com.ragapi.controller;
 
 import com.ragapi.entity.UserNotification;
-import com.ragapi.service.UserNotificationService;
+import com.ragapi.service.notification.UserNotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

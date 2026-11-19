@@ -1,7 +1,8 @@
 package com.ragapi.controller;
+import static com.ragapi.util.ValidationUtils.validateFile;
 
 import com.ragapi.dto.CodeMentorRequest;
-import com.ragapi.service.CodeMentorService;
+import com.ragapi.harness.codementor.CodeMentorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -24,7 +25,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 
-import static com.ragapi.util.ValidationUtils.validateFile;
 
 @Slf4j
 @RestController

@@ -2,8 +2,8 @@ package com.ragapi.controller;
 
 import com.ragapi.dto.LlmProviderConfigView;
 import com.ragapi.dto.UpdateLlmProviderRequest;
-import com.ragapi.service.LlmProviderAdminService;
-import com.ragapi.service.OpenRouterChatService;
+import com.ragapi.service.llm.LlmProviderAdminService;
+import com.ragapi.service.llm.OpenRouterChatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;

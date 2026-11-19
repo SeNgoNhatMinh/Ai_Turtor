@@ -53,7 +53,7 @@ const adminIds = database.users
   .toArray()
   .map((item) => item._id);
 
-const orphanTicketIds = database.question_escalations
+const orphanTicketIds = database.harness_handoffs
   .find({}, { _id: 1, userId: 1 })
   .toArray()
   .filter((item) => item.userId && !userIds.has(String(item.userId)))
@@ -61,7 +61,7 @@ const orphanTicketIds = database.question_escalations
 print(`tickets with missing user: ${orphanTicketIds.length}`);
 if (orphanTicketIds.length > 0) printjson(orphanTicketIds.slice(0, 20));
 if (APPLY_CHANGES && orphanTicketIds.length > 0) {
-  database.question_escalations.updateMany(
+  database.harness_handoffs.updateMany(
     { _id: { $in: orphanTicketIds } },
     { $set: { integrityStatus: "ORPHANED_USER_REFERENCE", integrityCheckedAt: now, updatedAt: now } }
   );
@@ -91,19 +91,19 @@ function detachMissingConversation(collection) {
   }
 }
 
-detachMissingConversation("question_escalations");
-detachMissingConversation("ai_answer_reviews");
+detachMissingConversation("harness_handoffs");
+detachMissingConversation("harness_answer_reviews");
 detachMissingConversation("harness_logs");
 
 if (adminIds.length > 0) {
   report(
     "admin-owned active chats requiring manual closure",
-    "question_escalations",
+    "harness_handoffs",
     { userId: { $in: adminIds }, status: "IN_CHAT", hiddenFromAdminAt: { $exists: false } }
   );
   updateMany(
     "admin-owned student tickets to quarantine",
-    "question_escalations",
+    "harness_handoffs",
     {
       userId: { $in: adminIds },
       status: { $ne: "IN_CHAT" },
@@ -128,7 +128,7 @@ if (adminIds.length > 0) {
   );
 }
 
-const missingMaterialCandidates = database.knowledge_candidates
+const missingMaterialCandidates = database.harness_knowledge
   .find({ status: "INDEXED", $or: [{ materialId: null }, { materialId: { $exists: false } }] })
   .toArray();
 print(`INDEXED candidates without materialId: ${missingMaterialCandidates.length}`);
@@ -139,12 +139,12 @@ for (const candidate of missingMaterialCandidates) {
   }, { _id: 1 }).toArray();
   print(`candidate ${candidate._id}: ${materials.length} indexed material match(es)`);
   if (APPLY_CHANGES && materials.length === 1) {
-    database.knowledge_candidates.updateOne(
+    database.harness_knowledge.updateOne(
       { _id: candidate._id, status: "INDEXED", $or: [{ materialId: null }, { materialId: { $exists: false } }] },
       { $set: { materialId: materials[0]._id, updatedAt: now, integrityCheckedAt: now } }
     );
   } else if (APPLY_CHANGES && materials.length !== 1) {
-    database.knowledge_candidates.updateOne(
+    database.harness_knowledge.updateOne(
       { _id: candidate._id },
       { $set: { integrityStatus: "MATERIAL_LINK_REQUIRES_REVIEW", integrityCheckedAt: now, updatedAt: now } }
     );

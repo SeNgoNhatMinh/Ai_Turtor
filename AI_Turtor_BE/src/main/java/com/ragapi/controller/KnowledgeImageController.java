@@ -1,7 +1,7 @@
 package com.ragapi.controller;
 
-import com.ragapi.entity.KnowledgeImageAttachment;
-import com.ragapi.service.KnowledgeImageStorageService;
+import com.ragapi.harness.entity.KnowledgeImageAttachment;
+import com.ragapi.service.student.KnowledgeImageStorageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

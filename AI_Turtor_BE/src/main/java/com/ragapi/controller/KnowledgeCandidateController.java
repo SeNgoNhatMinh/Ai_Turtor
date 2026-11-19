@@ -1,8 +1,8 @@
 package com.ragapi.controller;
 
 import com.ragapi.dto.KnowledgeCandidateReviewRequest;
-import com.ragapi.service.HumanLearningService;
-import com.ragapi.service.harness.HarnessReplayRunner;
+import com.ragapi.harness.learning.HumanLearningService;
+import com.ragapi.harness.replay.HarnessReplayRunner;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;

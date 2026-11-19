@@ -2,10 +2,10 @@ package com.ragapi.service.course.indexing;
 
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.service.course.gateway.CourseMaterialStoreGateway;
-import com.ragapi.service.PdfExtractionService;
-import com.ragapi.service.PdfPageRenderService;
-import com.ragapi.service.PdfStorageService;
-import com.ragapi.service.RealtimeEventService;
+import com.ragapi.service.pdf.PdfExtractionService;
+import com.ragapi.service.pdf.PdfPageRenderService;
+import com.ragapi.service.pdf.PdfStorageService;
+import com.ragapi.service.notification.RealtimeEventService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

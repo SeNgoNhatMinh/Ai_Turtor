@@ -1,6 +1,6 @@
 package com.ragapi.service.course.indexing;
 
-import com.ragapi.service.CourseMaterialAccessPolicy;
+import com.ragapi.service.course.CourseMaterialAccessPolicy;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

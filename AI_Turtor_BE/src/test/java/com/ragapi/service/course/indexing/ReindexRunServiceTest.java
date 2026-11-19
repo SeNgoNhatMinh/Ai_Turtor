@@ -1,6 +1,6 @@
 package com.ragapi.service.course.indexing;
 
-import com.ragapi.service.CourseMaterialAccessPolicy;
+import com.ragapi.service.course.CourseMaterialAccessPolicy;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

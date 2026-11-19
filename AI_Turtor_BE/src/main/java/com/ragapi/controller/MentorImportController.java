@@ -3,7 +3,7 @@ package com.ragapi.controller;
 import com.ragapi.dto.MentorImportResponse;
 import com.ragapi.entity.Mentor;
 import com.ragapi.repository.MentorRepository;
-import com.ragapi.service.MentorImportService;
+import com.ragapi.service.mentor.MentorImportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;

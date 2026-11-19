@@ -1,6 +1,6 @@
 package com.ragapi.config;
 
-import com.ragapi.service.EmbeddingService;
+import com.ragapi.service.llm.EmbeddingService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

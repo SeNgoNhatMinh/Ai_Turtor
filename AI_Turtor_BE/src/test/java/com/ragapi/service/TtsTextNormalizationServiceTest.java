@@ -1,4 +1,5 @@
 package com.ragapi.service;
+import com.ragapi.service.tts.TtsService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,11 +11,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TtsTextNormalizationServiceTest {
 
-    private TtsTextNormalizationService service;
+    private TtsService service;
 
     @BeforeEach
     void setUp() {
-        service = new TtsTextNormalizationService();
+        service = new TtsService(null, null, null);
         ReflectionTestUtils.setField(service, "maxTextLength", 6000);
         ReflectionTestUtils.setField(service, "maxChunkLength", 1900);
     }

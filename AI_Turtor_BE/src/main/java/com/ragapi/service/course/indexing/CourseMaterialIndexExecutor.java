@@ -2,13 +2,14 @@ package com.ragapi.service.course.indexing;
 
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.service.course.gateway.CourseMaterialStoreGateway;
-import com.ragapi.service.ChapterOutlineService;
-import com.ragapi.service.CourseMaterialChunkingService;
-import com.ragapi.service.CourseMaterialBilingualIndexService;
-import com.ragapi.service.PdfExtractionService;
-import com.ragapi.service.PdfStorageService;
-import com.ragapi.service.RealtimeEventService;
-import com.ragapi.service.VisualVectorService;
+import com.ragapi.harness.curriculum.ChapterOutlineService;
+import com.ragapi.harness.curriculum.CourseIndexedChunkLoader;
+import com.ragapi.service.course.CourseMaterialChunkingService;
+import com.ragapi.service.course.CourseMaterialBilingualIndexService;
+import com.ragapi.service.pdf.PdfExtractionService;
+import com.ragapi.service.pdf.PdfStorageService;
+import com.ragapi.service.notification.RealtimeEventService;
+import com.ragapi.service.llm.VisualVectorService;
 import com.ragapi.service.course.gateway.CourseMaterialIndexGateway;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,7 @@ public class CourseMaterialIndexExecutor {
     private final ChapterOutlineService chapterOutlineService;
     private final VisualVectorService visualVectorService;
     private final CourseMaterialBilingualIndexService bilingualIndexService;
+    private final CourseIndexedChunkLoader indexedChunkLoader;
 
     public void markProcessing(CourseMaterial material) {
         material.setIndexingStatus(CourseMaterialIndexStatus.PROCESSING);
@@ -66,6 +68,7 @@ public class CourseMaterialIndexExecutor {
             log.info("Course material {} indexed successfully with {} chunks", material.getId(), indexedChunks);
             publishMaterialEvent(material, "MATERIAL_INDEXED", CourseMaterialIndexStatus.INDEXED);
             refreshChapterOutlines(material.getCourseId());
+            indexedChunkLoader.reloadCourse(material.getCourseId());
             return new IndexResult(indexedChunks, indexedVisualPages);
         } catch (ReindexCancelledException cancelled) {
             throw cancelled;

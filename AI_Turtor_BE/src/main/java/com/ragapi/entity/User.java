@@ -1,4 +1,5 @@
 package com.ragapi.entity;
+import com.ragapi.harness.aiworker.AiWorkerResult.Status;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;

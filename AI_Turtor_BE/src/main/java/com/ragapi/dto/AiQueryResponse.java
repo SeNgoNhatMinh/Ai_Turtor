@@ -1,7 +1,7 @@
 package com.ragapi.dto;
 
 import com.ragapi.util.TextSanitizer;
-import com.ragapi.util.UnderstandingCheckExtractor;
+import com.ragapi.harness.util.UnderstandingCheckExtractor;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;

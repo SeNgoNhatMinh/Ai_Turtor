@@ -1,7 +1,7 @@
 package com.ragapi.infrastructure.llm;
 
-import com.ragapi.service.OpenRouterChatService;
-import com.ragapi.service.course.gateway.CourseAnswerModelGateway;
+import com.ragapi.service.llm.OpenRouterChatService;
+import com.ragapi.harness.gateway.CourseAnswerModelGateway;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

@@ -1,6 +1,6 @@
 package com.ragapi.service.course.gateway;
 
-import com.ragapi.service.CourseMaterialChunkingService;
+import com.ragapi.service.course.CourseMaterialChunkingService;
 
 import java.io.IOException;
 import java.util.List;

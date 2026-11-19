@@ -1,8 +1,11 @@
 package com.ragapi.infrastructure.elasticsearch;
+import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.requireMaxLength;
+import static com.ragapi.util.ValidationUtils.requireText;
 
-import com.ragapi.service.course.gateway.CourseKnowledgeSearchGateway;
-import com.ragapi.service.course.model.RetrievedCourseChunk;
-import com.ragapi.service.EmbeddingService;
+import com.ragapi.harness.gateway.CourseKnowledgeSearchGateway;
+import com.ragapi.harness.model.RetrievedCourseChunk;
+import com.ragapi.service.llm.EmbeddingService;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
@@ -17,9 +20,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.*;
 
-import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
-import static com.ragapi.util.ValidationUtils.requireMaxLength;
-import static com.ragapi.util.ValidationUtils.requireText;
 
 @Slf4j
 @Service
@@ -363,6 +363,63 @@ public class ElasticsearchCourseSearchAdapter implements CourseKnowledgeSearchGa
             return titles;
         } catch (Exception exception) {
             log.warn("Could not list indexed chapter titles for courseId={}: {}", courseId, exception.getMessage());
+            return List.of();
+        }
+    }
+
+    /** Chapter text already stored at index time. Does not create a query embedding. */
+    public List<RetrievedCourseChunk> listStoredChunks(String courseId) {
+        if (courseId == null || courseId.isBlank()) {
+            return List.of();
+        }
+        try {
+            if (!indexExists()) {
+                return List.of();
+            }
+            List<RetrievedCourseChunk> stored = new ArrayList<>();
+            int from = 0;
+            int pageSize = 500;
+            while (from < 4_000) {
+                int offset = from;
+                SearchResponse<Map> response = elasticsearchClient.search(request -> request
+                                .index(index)
+                                .from(offset)
+                                .size(pageSize)
+                                .source(source -> source.filter(filter -> filter.includes(
+                                        "content", "chapterTitle", "chapterId", "materialId",
+                                        "chunkIndex", "courseId", "nodeType", "language", "sourceType")))
+                                .query(query -> query.bool(bool -> bool
+                                        .filter(filter -> filter.term(term -> term
+                                                .field("courseId.keyword")
+                                                .value(courseId.trim()))))),
+                        Map.class);
+                List<? extends co.elastic.clients.elasticsearch.core.search.Hit<Map>> hits =
+                        response.hits().hits();
+                if (hits == null || hits.isEmpty()) {
+                    break;
+                }
+                for (var hit : hits) {
+                    if (hit.source() == null) {
+                        continue;
+                    }
+                    String sourceType = Objects.toString(hit.source().get("sourceType"), "");
+                    if ("GOLD_QA".equalsIgnoreCase(sourceType)
+                            || "KNOWLEDGE_CANDIDATE".equalsIgnoreCase(sourceType)) {
+                        continue;
+                    }
+                    RetrievedCourseChunk chunk = toSearchChunk(hit.source(), 1.0);
+                    if (chunk != null) {
+                        stored.add(chunk);
+                    }
+                }
+                if (hits.size() < pageSize) {
+                    break;
+                }
+                from += pageSize;
+            }
+            return stored;
+        } catch (Exception exception) {
+            log.warn("Could not read stored chapter chunks for courseId={}: {}", courseId, exception.getMessage());
             return List.of();
         }
     }

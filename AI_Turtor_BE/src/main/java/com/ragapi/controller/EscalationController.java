@@ -1,4 +1,9 @@
 package com.ragapi.controller;
+import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.optionalMaxLength;
+import static com.ragapi.util.ValidationUtils.requireMaxLength;
+import static com.ragapi.util.ValidationUtils.requireText;
 
 import com.ragapi.dto.CreateQuestionEscalationRequest;
 import com.ragapi.dto.MentorAnswerRequest;
@@ -6,10 +11,10 @@ import com.ragapi.dto.MentorEscalationCancelRequest;
 import com.ragapi.dto.MentorEscalationOfferResponse;
 import com.ragapi.dto.MentorSelectionRequest;
 import com.ragapi.dto.MentorSelectionResponse;
-import com.ragapi.entity.QuestionEscalation;
-import com.ragapi.service.ChatService;
-import com.ragapi.service.HumanLearningService;
-import com.ragapi.service.MentorEscalationService;
+import com.ragapi.harness.entity.QuestionEscalation;
+import com.ragapi.service.chat.ChatService;
+import com.ragapi.harness.learning.HumanLearningService;
+import com.ragapi.harness.handoff.MentorEscalationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
@@ -28,11 +33,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
-import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
-import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
-import static com.ragapi.util.ValidationUtils.optionalMaxLength;
-import static com.ragapi.util.ValidationUtils.requireMaxLength;
-import static com.ragapi.util.ValidationUtils.requireText;
 
 @Slf4j
 @RestController

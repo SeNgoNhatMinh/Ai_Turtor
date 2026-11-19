@@ -1,0 +1,398 @@
+package com.ragapi.harness.util;
+
+import com.ragapi.harness.model.RetrievedCourseChunk;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class TextbookChunkAlignmentTest {
+
+    @Test
+    void ranksFunctionCallEvidenceAheadOfGenericIdiomContent() {
+        RetrievedCourseChunk generic = chunk(
+                "Pick an idiom and stick with it when working with mutable lists.",
+                0.95,
+                "generic"
+        );
+        RetrievedCourseChunk append = chunk(
+                "The append method adds an element to a list: t.append('d').",
+                0.60,
+                "append"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank(
+                "Thực hành các idiom như t.append(x)",
+                List.of(generic, append)
+        );
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("append");
+    }
+
+    @Test
+    void ranksActualListAppendComparisonAheadOfRegexAndMethodCatalog() {
+        RetrievedCourseChunk regex = chunk(
+                "The plus and asterisk characters are pushy. When we append [a-zA-Z] to a search string, they match one or more characters.",
+                11.93,
+                "regex"
+        );
+        RetrievedCourseChunk catalog = chunk(
+                "'__getitem__', '__setitem__', 'append', 'extend', 'pop', 'sort'",
+                8.54,
+                "catalog"
+        );
+        RetrievedCourseChunk lesson = chunk(
+                "The append method modifies a list, but the + operator creates a new list: t1.append(3); t3 = t1 + [3].",
+                9.54,
+                "lesson"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank(
+                "So sánh toán tử danh sách + vs append để biết khi nào tạo đối tượng mới",
+                List.of(regex, catalog, lesson)
+        );
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("lesson");
+    }
+
+    @Test
+    void ranksJspDefinitionAheadOfTagHandlerPage() {
+        RetrievedCourseChunk tagHandler = chunk(
+                "Creating a More Useful Date Formatting Tag Handler for JSP custom tags.",
+                0.92,
+                "tag"
+        );
+        RetrievedCourseChunk intro = chunk(
+                "JSP (JavaServer Pages) is a technology that lets you mix HTML with Java.",
+                0.61,
+                "intro"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank("jsp là gì ?", List.of(tagHandler, intro));
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("intro");
+    }
+
+    @Test
+    void ranksJspxDefinitionAheadOfGenericJspLifecycleContent() {
+        RetrievedCourseChunk lifecycle = chunk(
+                "A JSP page is translated into a servlet class and processed by the web container.",
+                0.94,
+                "lifecycle"
+        );
+        RetrievedCourseChunk jspx = chunk(
+                "JSP Documents, which end in the .jspx extension, are XML documents that support the same features as standard JSPs using XML syntax.",
+                0.62,
+                "jspx"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank(
+                "JSP Documents (JSPX) là gì?",
+                List.of(lifecycle, jspx)
+        );
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("jspx");
+    }
+
+    @Test
+    void definitionCoverageRequiresTheQuestionTerm() {
+        RetrievedCourseChunk unrelated = chunk("Loops and arrays in Java programming.", 0.88, "loops");
+        assertThat(TextbookChunkAlignment.topChunksCoverQuestion("jsp là gì", List.of(unrelated), 3)).isFalse();
+        RetrievedCourseChunk jsp = chunk("A JSP page is compiled into a servlet.", 0.4, "jsp");
+        assertThat(TextbookChunkAlignment.topChunksCoverQuestion("jsp là gì", List.of(jsp), 3)).isTrue();
+    }
+
+    @Test
+    void tagHandlerPageDoesNotCountAsDefinitionCoverage() {
+        RetrievedCourseChunk tagHandler = chunk(
+                "Creating a More Useful Date Formatting Tag Handler for JSP custom tags.",
+                0.92,
+                "tag"
+        );
+        assertThat(TextbookChunkAlignment.topChunksCoverQuestion("jsp là gì", List.of(tagHandler), 3)).isFalse();
+    }
+
+    @Test
+    void ranksServletDefinitionAheadOfFormSubmissionPage() {
+        RetrievedCourseChunk formPage = chunk(
+                "Using Parameters and Accepting Form Submissions. The servlet reads request parameters from an HTML form.",
+                0.94,
+                "form"
+        );
+        RetrievedCourseChunk intro = chunk(
+                "A servlet is a Java EE component. Servlets typically extend HttpServlet and implement init, service and destroy.",
+                0.57,
+                "intro"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank("Servlet là gì ?", List.of(formPage, intro));
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("intro");
+    }
+
+    @Test
+    void formSubmissionPageDoesNotCountAsServletDefinitionCoverage() {
+        RetrievedCourseChunk formPage = chunk(
+                "Using Parameters and Accepting Form Submissions. The servlet reads request parameters from an HTML form.",
+                0.94,
+                "form"
+        );
+        assertThat(TextbookChunkAlignment.topChunksCoverQuestion("Servlet là gì", List.of(formPage), 3)).isFalse();
+    }
+
+    @Test
+    void jspCompilationAsideDoesNotCountAsServletDefinitionCoverage() {
+        RetrievedCourseChunk jspCompile = chunk(
+                "When a JSP file is compiled, the compiler creates a Java class that implements Servlet.",
+                0.88,
+                "jsp-compile"
+        );
+        assertThat(TextbookChunkAlignment.topChunksCoverQuestion("Servlet là gì", List.of(jspCompile), 3)).isFalse();
+    }
+
+    @Test
+    void exampleFollowUpFocusRanksServletSpecAheadOfJspxExamplePage() {
+        RetrievedCourseChunk jspx = chunk(
+                "JSP Document (JSPX) example table comparing <%@ page %> with <jsp:directive.page />.",
+                0.96,
+                "jspx"
+        );
+        RetrievedCourseChunk spec = chunk(
+                "Servlet Specification is part of the Java EE specification and defines servlet lifecycle.",
+                0.61,
+                "spec"
+        );
+        String focus = "Servlet Specification giúp mình hiểu khái niệm của phần này với? có ví dụ ko?";
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank(focus, List.of(jspx, spec));
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("spec");
+    }
+
+    @Test
+    void exactLifecycleMethodsBeatSubstringMatchesFromSpringConfiguration() {
+        RetrievedCourseChunk spring = chunk(
+                "InitializingBean and PreDestroy offer lifecycle control. A Servlet init parameter configures services.",
+                0.96,
+                "spring"
+        );
+        RetrievedCourseChunk servlet = chunk(
+                "The container calls init() once, service() for requests, and destroy() before removing the Servlet.",
+                0.62,
+                "servlet"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank(
+                "Explain the Servlet lifecycle, especially init, service, and destroy, using only course material.",
+                List.of(spring, servlet)
+        );
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("servlet");
+    }
+
+    @Test
+    void optionalSourceRequiresMultipleDistinctiveTopicTerms() {
+        String question = "Explain servlet lifecycle init service destroy";
+        RetrievedCourseChunk unrelatedJspx = chunk(
+                "JSPX is an XML document used by a Java web application.", 0.99, "jspx-note");
+        RetrievedCourseChunk lifecycleNote = chunk(
+                "A servlet lifecycle calls init, service, and destroy.", 0.70, "servlet-note");
+
+        assertThat(TextbookChunkAlignment.hasDistinctiveOverlap(question, unrelatedJspx, 2)).isFalse();
+        assertThat(TextbookChunkAlignment.hasDistinctiveOverlap(question, lifecycleNote, 2)).isTrue();
+    }
+
+    @Test
+    void diversifyByCoveragePromotesMissingLifecycleMethodSection() {
+        RetrievedCourseChunk initDestroy = chunk(
+                "Servlet init() prepares resources and destroy() releases resources.", 0.91, "init-destroy");
+        RetrievedCourseChunk config = chunk(
+                "Servlet deployment descriptors and init-param configuration.", 0.89, "config");
+        RetrievedCourseChunk service = chunk(
+                "The Servlet service() method services incoming requests before doGet or doPost handles HTTP.",
+                0.60,
+                "service"
+        );
+
+        List<RetrievedCourseChunk> diversified = TextbookChunkAlignment.diversifyByCoverage(
+                "When loaded, explain Servlet init service destroy order.",
+                List.of(initDestroy, config, service),
+                3
+        );
+
+        assertThat(diversified.subList(0, 2))
+                .extracting(RetrievedCourseChunk::materialId)
+                .contains("init-destroy", "service");
+    }
+
+    @Test
+    void bm25ScaleDoesNotLetNavigationBeatLifecycleEvidence() {
+        RetrievedCourseChunk contents = new RetrievedCourseChunk(
+                "Contents Chapter 3 Writing Your First Servlet Creating a Servlet Class Using init and destroy service method 41 42 43",
+                22.0,
+                "contents",
+                "PRJ301",
+                null,
+                "t1",
+                "COURSE_SHARED",
+                "PDF",
+                "doc",
+                "chapter-contents",
+                "Contents",
+                "contents-section",
+                "Contents",
+                "chunk-contents",
+                1,
+                "SECTION"
+        );
+        RetrievedCourseChunk lifecycle = chunk(
+                "The container calls init() once, then service() handles each request, and destroy() releases resources.",
+                0.62,
+                "lifecycle"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.merge(
+                "Explain Servlet init service destroy order.",
+                List.of(contents, lifecycle)
+        );
+
+        assertThat(ranked).extracting(RetrievedCourseChunk::materialId).containsExactly("lifecycle");
+    }
+
+    @Test
+    void jdbcSectionOutranksJpaSummaryThatOnlyMentionsTheTerm() {
+        RetrievedCourseChunk summary = new RetrievedCourseChunk(
+                "Summary. Hibernate and the Java Persistence API map entities. JDBC is only the lower-level API underneath.",
+                0.96,
+                "summary",
+                "PRJ301",
+                null,
+                "t1",
+                "COURSE_SHARED",
+                "PDF",
+                "book",
+                "chapter-19",
+                "Chapter 19: Introducing Java Persistence API and Hibernate ORM",
+                "summary",
+                "Summary",
+                "chunk-summary",
+                1,
+                "SECTION"
+        );
+        RetrievedCourseChunk jdbc = new RetrievedCourseChunk(
+                "JDBC connects a Java application to a database using DriverManager, Connection, and PreparedStatement.",
+                0.42,
+                "jdbc",
+                "PRJ301",
+                null,
+                "t1",
+                "COURSE_SHARED",
+                "PDF",
+                "book",
+                "chapter-12",
+                "JDBC Database Access",
+                "jdbc-section",
+                "JDBC statements",
+                "chunk-jdbc",
+                2,
+                "SECTION"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank(
+                "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
+                List.of(summary, jdbc)
+        );
+        List<RetrievedCourseChunk> kept = TextbookChunkAlignment.merge(
+                "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
+                List.of(summary, jdbc)
+        );
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("jdbc");
+        assertThat(kept).extracting(RetrievedCourseChunk::materialId).containsExactly("jdbc");
+    }
+
+    @Test
+    void bookConventionsPageDoesNotOutrankAJdbcChapter() {
+        RetrievedCourseChunk conventions = new RetrievedCourseChunk(
+                "Conventions Used in This Book. Code font is used for class names. One example mentions JDBC.",
+                0.97,
+                "conventions",
+                "PRJ301",
+                null,
+                "t1",
+                "COURSE_SHARED",
+                "PDF",
+                "book",
+                "front",
+                "Conventions Used in This Book",
+                "conventions",
+                "Conventions Used in This Book",
+                "chunk-conventions",
+                1,
+                "SECTION"
+        );
+        RetrievedCourseChunk jdbc = new RetrievedCourseChunk(
+                "JDBC opens a connection, then JDBC sends a statement. JDBC reads rows with a ResultSet. "
+                        + "A JDBC driver registers itself before DriverManager.getConnection.",
+                0.40,
+                "jdbc",
+                "PRJ301",
+                null,
+                "t1",
+                "COURSE_SHARED",
+                "PDF",
+                "book",
+                "chapter-12",
+                "JDBC Database Access",
+                "jdbc-section",
+                "Opening a JDBC connection",
+                "chunk-jdbc",
+                2,
+                "SECTION"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank(
+                "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
+                List.of(conventions, jdbc)
+        );
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("jdbc");
+        assertThat(TextbookChunkAlignment.isLikelyNavigationChunk(conventions)).isTrue();
+    }
+
+    @Test
+    void bilingualDedupKeepsAllChunksFromPreferredRepresentation() {
+        RetrievedCourseChunk en = bilingualChunk("English source", 0.9, "chunk-en", "en");
+        RetrievedCourseChunk vi1 = bilingualChunk("Bản dịch phần một", 0.8, "chunk-vi-1", "vi");
+        RetrievedCourseChunk vi2 = bilingualChunk("Bản dịch phần hai", 0.7, "chunk-vi-2", "vi");
+
+        List<RetrievedCourseChunk> selected = TextbookChunkAlignment.mergeDeduplicated(
+                "vi", List.of(en, vi1, vi2));
+
+        assertThat(selected).extracting(RetrievedCourseChunk::chunkId)
+                .containsExactly("chunk-vi-1", "chunk-vi-2");
+    }
+
+    @Test
+    void bilingualDedupPrefersEnglishForEnglishQuestion() {
+        RetrievedCourseChunk en = bilingualChunk("English source", 0.7, "chunk-en", "en");
+        RetrievedCourseChunk vi = bilingualChunk("Bản dịch", 0.9, "chunk-vi", "vi");
+
+        List<RetrievedCourseChunk> selected = TextbookChunkAlignment.mergeDeduplicated(
+                "en", List.of(vi, en));
+
+        assertThat(selected).extracting(RetrievedCourseChunk::chunkId).containsExactly("chunk-en");
+    }
+
+    private RetrievedCourseChunk bilingualChunk(String content, double score, String chunkId, String language) {
+        return new RetrievedCourseChunk(
+                content, score, "material-1", "PRJ301", null, "t1", "COURSE_SHARED", "PDF",
+                "material-1", "chapter-1", "Chapter", "section-1", "Section", chunkId, 0,
+                "CHUNK", language, List.of());
+    }
+
+    private RetrievedCourseChunk chunk(String content, double score, String materialId) {
+        return new RetrievedCourseChunk(content, score, materialId, "PRJ301", null, "t1", "COURSE_SHARED", "PDF");
+    }
+}

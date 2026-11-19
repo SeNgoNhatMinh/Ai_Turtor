@@ -2,9 +2,9 @@ package com.ragapi.controller;
 
 import com.ragapi.dto.PinImproveSuggestionRequest;
 import com.ragapi.dto.UpdateStudentCourseMemoryRequest;
-import com.ragapi.entity.StudentCourseMemory;
-import com.ragapi.service.StudentCourseMemoryService;
-import com.ragapi.service.AccessGuardService;
+import com.ragapi.harness.entity.StudentCourseMemory;
+import com.ragapi.harness.memory.StudentCourseMemoryService;
+import com.ragapi.service.student.AccessGuardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

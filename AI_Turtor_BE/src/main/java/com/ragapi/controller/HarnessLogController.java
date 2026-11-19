@@ -1,7 +1,7 @@
 package com.ragapi.controller;
 
 import com.ragapi.dto.HarnessLogRequest;
-import com.ragapi.service.HarnessLogService;
+import com.ragapi.harness.trace.HarnessLogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

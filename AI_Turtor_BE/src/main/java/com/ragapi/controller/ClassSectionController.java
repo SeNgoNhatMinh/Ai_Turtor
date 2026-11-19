@@ -1,4 +1,9 @@
 package com.ragapi.controller;
+import static com.ragapi.util.ValidationUtils.requireEnum;
+import static com.ragapi.util.ValidationUtils.requireText;
+import static com.ragapi.util.ValidationUtils.optionalMaxLength;
+import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.TextSanitizer.normalizeAccentInsensitive;
 
 import com.ragapi.dto.EnrollStudentsRequest;
 import com.ragapi.dto.MentorImportResponse;
@@ -8,9 +13,9 @@ import com.ragapi.entity.ClassSection;
 import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseEnrollmentRepository;
-import com.ragapi.service.ClassRosterService;
-import com.ragapi.service.RealtimeEventService;
-import com.ragapi.service.StudentEnrollmentImportService;
+import com.ragapi.service.course.ClassRosterService;
+import com.ragapi.service.notification.RealtimeEventService;
+import com.ragapi.service.course.StudentEnrollmentImportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -44,11 +49,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static com.ragapi.util.ValidationUtils.requireEnum;
-import static com.ragapi.util.ValidationUtils.requireText;
-import static com.ragapi.util.ValidationUtils.optionalMaxLength;
-import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
-import static com.ragapi.util.TextSanitizer.normalizeAccentInsensitive;
 
 @RestController
 @RequestMapping("/api")

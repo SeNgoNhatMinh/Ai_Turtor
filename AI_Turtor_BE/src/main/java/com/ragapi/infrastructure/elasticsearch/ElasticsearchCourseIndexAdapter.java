@@ -1,9 +1,9 @@
 package com.ragapi.infrastructure.elasticsearch;
 
-import com.ragapi.service.CourseMaterialChunkingService;
-import com.ragapi.service.EmbeddingService;
+import com.ragapi.service.course.CourseMaterialChunkingService;
+import com.ragapi.service.llm.EmbeddingService;
 import com.ragapi.service.course.gateway.CourseMaterialIndexGateway;
-import com.ragapi.service.course.search.LocalRetrievalQueryProcessor;
+import com.ragapi.harness.retrieval.LocalRetrievalQueryProcessor;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import co.elastic.clients.elasticsearch.core.BulkRequest;

@@ -1,4 +1,8 @@
 package com.ragapi.controller;
+import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.optionalMaxLength;
+import static com.ragapi.util.ValidationUtils.requireMaxLength;
+import static com.ragapi.util.ValidationUtils.validateFile;
 
 import com.ragapi.dto.CourseMaterialListResponse;
 import com.ragapi.dto.HtmlTableOfContentsRequest;
@@ -6,15 +10,15 @@ import com.ragapi.dto.ImportCourseMaterialUrlRequest;
 import com.ragapi.dto.UpdateCourseMaterialMetadataRequest;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.repository.CourseMaterialRepository;
-import com.ragapi.service.AccessGuardService;
-import com.ragapi.service.CourseMaterialAccessPolicy;
-import com.ragapi.service.CourseCurriculumOverviewService;
-import com.ragapi.service.CourseMaterialQueryService;
-import com.ragapi.service.CourseMaterialHtmlImportService;
+import com.ragapi.service.student.AccessGuardService;
+import com.ragapi.service.course.CourseMaterialAccessPolicy;
+import com.ragapi.harness.curriculum.CourseCurriculumOverviewService;
+import com.ragapi.service.course.CourseMaterialQueryService;
+import com.ragapi.service.course.CourseMaterialHtmlImportService;
 import com.ragapi.service.course.indexing.CourseMaterialIndexingService;
 import com.ragapi.service.course.indexing.CourseMaterialIndexManagementService;
 import com.ragapi.service.course.indexing.CourseMaterialIndexJobService;
-import com.ragapi.service.PdfPageRenderService;
+import com.ragapi.service.pdf.PdfPageRenderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -49,10 +53,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
-import static com.ragapi.util.ValidationUtils.optionalMaxLength;
-import static com.ragapi.util.ValidationUtils.requireMaxLength;
-import static com.ragapi.util.ValidationUtils.validateFile;
 
 @Slf4j
 @RestController

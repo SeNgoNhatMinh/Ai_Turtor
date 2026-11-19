@@ -2,7 +2,7 @@ package com.ragapi.controller;
 
 import com.ragapi.dto.AiAnswerReviewRequest;
 import com.ragapi.dto.SeniorReviewResolutionRequest;
-import com.ragapi.service.AiAnswerReviewService;
+import com.ragapi.harness.review.AiAnswerReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

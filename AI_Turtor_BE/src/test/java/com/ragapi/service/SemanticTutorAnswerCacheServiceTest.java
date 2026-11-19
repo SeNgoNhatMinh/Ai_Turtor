@@ -1,9 +1,13 @@
 package com.ragapi.service;
+import com.ragapi.service.cache.SharedRedisCacheService;
+import com.ragapi.service.llm.EmbeddingService;
+import com.ragapi.service.pdf.PdfPageRenderService;
+import com.ragapi.harness.review.CanonicalTutorAnswerCacheService;
 
 import com.ragapi.dto.CourseRagAnswer;
 import com.ragapi.dto.RagSourceEvidence;
-import com.ragapi.entity.CanonicalTutorAnswer;
-import com.ragapi.repository.CanonicalTutorAnswerRepository;
+import com.ragapi.harness.entity.CanonicalTutorAnswer;
+import com.ragapi.harness.repository.CanonicalTutorAnswerRepository;
 import com.ragapi.util.EmbeddingSimilarityUtil;
 import dev.langchain4j.data.embedding.Embedding;
 import org.junit.jupiter.api.BeforeEach;

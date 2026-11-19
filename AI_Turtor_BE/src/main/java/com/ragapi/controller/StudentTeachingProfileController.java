@@ -1,16 +1,18 @@
 package com.ragapi.controller;
+import static com.ragapi.controller.TeachingBehaviorController.actor;
+import static com.ragapi.controller.TeachingBehaviorController.handle;
+import com.ragapi.harness.behavior.TeachingBehaviorRetrievalService.TeachingGuidance;
 
 import com.ragapi.dto.StudentTeachingProfileRequest;
 import com.ragapi.dto.TeachingBehaviorRequest;
-import com.ragapi.entity.TeachingBehavior;
-import com.ragapi.service.AccessGuardService;
-import com.ragapi.service.PedagogicalDirectiveService;
-import com.ragapi.service.behavior.BehaviorAccessDeniedException;
-import com.ragapi.service.behavior.BehaviorActor;
-import com.ragapi.service.behavior.StudentTeachingProfileService;
-import com.ragapi.service.behavior.TeachingBehaviorRetrievalService;
-import com.ragapi.service.behavior.TeachingBehaviorRetrievalService.TeachingGuidance;
-import com.ragapi.service.behavior.TeachingBehaviorService;
+import com.ragapi.harness.entity.TeachingBehavior;
+import com.ragapi.service.student.AccessGuardService;
+import com.ragapi.harness.directive.PedagogicalDirectiveService;
+import com.ragapi.harness.behavior.BehaviorAccessDeniedException;
+import com.ragapi.harness.behavior.BehaviorActor;
+import com.ragapi.harness.behavior.StudentTeachingProfileService;
+import com.ragapi.harness.behavior.TeachingBehaviorRetrievalService;
+import com.ragapi.harness.behavior.TeachingBehaviorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -20,8 +22,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import static com.ragapi.controller.TeachingBehaviorController.actor;
-import static com.ragapi.controller.TeachingBehaviorController.handle;
 
 /** A teacher's view of one student's teaching profile and personal RAG behavior set. */
 @RestController

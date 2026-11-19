@@ -1,4 +1,7 @@
 package com.ragapi.controller;
+import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.requireMaxLength;
+import static com.ragapi.util.ValidationUtils.requireText;
 
 import com.ragapi.dto.AiQueryResponse;
 import com.ragapi.dto.CourseRagAnswer;
@@ -12,12 +15,12 @@ import com.ragapi.dto.PublishQuizAssignmentRequest;
 import com.ragapi.dto.SubmitQuizRequest;
 import com.ragapi.dto.TeacherReviewQuizRequest;
 import com.ragapi.dto.UpdateQuizAssignmentRequest;
-import com.ragapi.service.AiConversationService;
-import com.ragapi.service.course.gateway.CourseAnswerGateway;
-import com.ragapi.service.ImproveSuggestionService;
-import com.ragapi.service.QuizService;
-import com.ragapi.service.StudentCourseMemoryService;
-import com.ragapi.entity.StudentCourseMemory;
+import com.ragapi.service.chat.AiConversationService;
+import com.ragapi.harness.gateway.CourseAnswerGateway;
+import com.ragapi.harness.improve.ImproveSuggestionService;
+import com.ragapi.harness.quiz.QuizService;
+import com.ragapi.harness.memory.StudentCourseMemoryService;
+import com.ragapi.harness.entity.StudentCourseMemory;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -37,9 +40,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
-import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
-import static com.ragapi.util.ValidationUtils.requireMaxLength;
-import static com.ragapi.util.ValidationUtils.requireText;
 
 @Slf4j
 @RestController

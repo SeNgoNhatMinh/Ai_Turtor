@@ -1,4 +1,5 @@
 package com.ragapi.util;
+import com.ragapi.harness.util.PromptLeakFilter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 

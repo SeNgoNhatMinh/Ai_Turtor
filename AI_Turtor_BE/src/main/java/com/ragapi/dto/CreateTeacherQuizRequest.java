@@ -1,6 +1,6 @@
 package com.ragapi.dto;
 
-import com.ragapi.entity.QuizSession;
+import com.ragapi.harness.entity.QuizSession;
 import lombok.Data;
 import java.util.List;
 

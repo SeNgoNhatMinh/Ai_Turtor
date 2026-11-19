@@ -1,6 +1,6 @@
 package com.ragapi.config;
 
-import com.ragapi.service.JwtService;
+import com.ragapi.service.auth.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;

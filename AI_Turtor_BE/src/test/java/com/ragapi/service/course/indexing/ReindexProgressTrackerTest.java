@@ -1,12 +1,12 @@
 package com.ragapi.service.course.indexing;
 
 import com.ragapi.entity.CourseMaterial;
-import com.ragapi.service.CourseMaterialAccessPolicy;
-import com.ragapi.service.ExpertCoTrainingService;
-import com.ragapi.service.HumanLearningService;
-import com.ragapi.service.PdfPageRenderService;
-import com.ragapi.service.PdfStorageService;
-import com.ragapi.service.VisualVectorService;
+import com.ragapi.service.course.CourseMaterialAccessPolicy;
+import com.ragapi.harness.cotraining.ExpertCoTrainingService;
+import com.ragapi.harness.learning.HumanLearningService;
+import com.ragapi.service.pdf.PdfPageRenderService;
+import com.ragapi.service.pdf.PdfStorageService;
+import com.ragapi.service.llm.VisualVectorService;
 import com.ragapi.service.course.gateway.CourseMaterialIndexGateway;
 import com.ragapi.service.course.gateway.CourseMaterialStoreGateway;
 import org.junit.jupiter.api.BeforeEach;

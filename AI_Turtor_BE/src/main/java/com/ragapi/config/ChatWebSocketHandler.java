@@ -3,7 +3,7 @@ package com.ragapi.config;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ragapi.dto.ChatMessageRequest;
-import com.ragapi.service.ChatService;
+import com.ragapi.service.chat.ChatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

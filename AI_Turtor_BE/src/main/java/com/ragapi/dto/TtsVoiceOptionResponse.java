@@ -1,6 +1,6 @@
 package com.ragapi.dto;
 
-import com.ragapi.service.TtsProvider;
+import com.ragapi.service.tts.TtsProvider;
 
 public record TtsVoiceOptionResponse(
         String id,

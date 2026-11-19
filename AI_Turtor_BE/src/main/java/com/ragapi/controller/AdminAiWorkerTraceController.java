@@ -1,6 +1,6 @@
 package com.ragapi.controller;
 
-import com.ragapi.service.aiworker.AiWorkerTraceService;
+import com.ragapi.harness.aiworker.AiWorkerTraceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

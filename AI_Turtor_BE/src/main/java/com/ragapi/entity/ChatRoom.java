@@ -1,4 +1,6 @@
 package com.ragapi.entity;
+import com.ragapi.harness.aiworker.AiWorkerResult.Status;
+import com.ragapi.harness.entity.QuestionEscalation;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;

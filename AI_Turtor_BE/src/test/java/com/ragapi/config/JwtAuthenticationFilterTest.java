@@ -1,6 +1,6 @@
 package com.ragapi.config;
 
-import com.ragapi.service.JwtService;
+import com.ragapi.service.auth.JwtService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;

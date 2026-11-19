@@ -1,8 +1,8 @@
 package com.ragapi.controller;
 
-import com.ragapi.service.AccessGuardService;
-import com.ragapi.service.LearningDashboardService;
-import com.ragapi.service.StudentOverviewStatsService;
+import com.ragapi.service.student.AccessGuardService;
+import com.ragapi.harness.learning.LearningDashboardService;
+import com.ragapi.service.student.StudentOverviewStatsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;

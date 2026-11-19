@@ -1,9 +1,9 @@
 package com.ragapi.controller;
 
 import com.ragapi.dto.TtsReadRequest;
-import com.ragapi.service.TtsAudioResult;
-import com.ragapi.service.TtsService;
-import com.ragapi.service.TtsUnavailableException;
+import com.ragapi.service.tts.TtsAudioResult;
+import com.ragapi.service.tts.TtsService;
+import com.ragapi.service.tts.TtsUnavailableException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

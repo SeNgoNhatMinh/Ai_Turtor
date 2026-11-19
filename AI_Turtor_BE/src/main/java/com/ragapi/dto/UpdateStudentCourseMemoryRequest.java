@@ -1,6 +1,6 @@
 package com.ragapi.dto;
 
-import com.ragapi.entity.StudentWeakTopic;
+import com.ragapi.harness.entity.StudentWeakTopic;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

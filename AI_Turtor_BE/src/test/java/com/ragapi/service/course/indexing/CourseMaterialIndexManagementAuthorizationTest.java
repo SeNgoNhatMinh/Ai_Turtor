@@ -1,6 +1,11 @@
 package com.ragapi.service.course.indexing;
+import com.ragapi.service.course.CourseMaterialAccessPolicy;
+import com.ragapi.service.llm.VisualVectorService;
+import com.ragapi.service.pdf.PdfPageRenderService;
+import com.ragapi.service.pdf.PdfStorageService;
+import com.ragapi.harness.cotraining.ExpertCoTrainingService;
+import com.ragapi.harness.learning.HumanLearningService;
 
-import com.ragapi.service.*;
 import com.ragapi.service.course.gateway.CourseMaterialIndexGateway;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.service.course.gateway.CourseMaterialStoreGateway;

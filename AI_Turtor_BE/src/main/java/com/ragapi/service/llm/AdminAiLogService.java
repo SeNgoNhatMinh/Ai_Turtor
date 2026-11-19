@@ -1,0 +1,138 @@
+package com.ragapi.service.llm;
+import com.ragapi.service.llm.LlmProviderChain.Provider;
+
+import com.ragapi.entity.AiConversation;
+import com.ragapi.entity.AiMessage;
+import com.ragapi.entity.User;
+import com.ragapi.repository.AiConversationRepository;
+import com.ragapi.repository.AiMessageRepository;
+import com.ragapi.repository.UserRepository;
+import com.ragapi.harness.util.LessonExplanationCompleter;
+import com.ragapi.harness.util.LessonUnderstandingCheckCompleter;
+import com.ragapi.harness.util.StudentFacingMessages;
+import com.ragapi.util.TextSanitizer;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class AdminAiLogService {
+    private final AiConversationRepository conversationRepository;
+    private final AiMessageRepository messageRepository;
+    private final UserRepository userRepository;
+
+    public List<Map<String, Object>> list(String studentId, String courseId, String query,
+                                           LocalDateTime from, LocalDateTime to) {
+        Map<String, User> usersById = userRepository.findAll().stream()
+                .collect(Collectors.toMap(User::getId, Function.identity(), (a, b) -> a));
+        Map<String, AiConversation> conversations = conversationRepository.findAll().stream()
+                .collect(Collectors.toMap(AiConversation::getId, Function.identity(), (a, b) -> a));
+        Map<String, List<AiMessage>> grouped = messageRepository.findAll().stream()
+                .sorted(Comparator.comparing(AiMessage::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                .collect(Collectors.groupingBy(AiMessage::getConversationId));
+        List<Map<String, Object>> logs = new ArrayList<>();
+        grouped.forEach((conversationId, messages) -> {
+            AiConversation conversation = conversations.get(conversationId);
+            if (conversation == null || !matchesStudent(conversation.getUserId(), studentId, usersById)
+                    || !matches(conversation.getCourseId(), courseId)) return;
+            for (int i = 0; i < messages.size(); i++) {
+                AiMessage question = messages.get(i);
+                if (!"STUDENT".equalsIgnoreCase(question.getRole())) continue;
+                AiMessage answer = i + 1 < messages.size() && "ASSISTANT".equalsIgnoreCase(messages.get(i + 1).getRole())
+                        ? messages.get(i + 1) : null;
+                User student = usersById.get(conversation.getUserId());
+                String studentCode = student == null ? "" : student.getStudentCode();
+                String studentName = student == null ? "" : student.getFullName();
+                if (!within(question.getCreatedAt(), from, to)
+                        || !contains(query, question.getContent(), answer == null ? null : answer.getContent(),
+                        studentCode, studentName, student == null ? null : student.getEmail())) continue;
+                int inputTokens = estimateTokens(question.getContent());
+                int outputTokens = estimateTokens(answer == null ? null : answer.getContent());
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("conversationId", conversationId);
+                row.put("studentId", conversation.getUserId());
+                row.put("studentCode", studentCode == null ? "" : studentCode);
+                row.put("studentName", studentName == null ? "" : studentName);
+                row.put("courseId", conversation.getCourseId());
+                row.put("classId", conversation.getClassId());
+                row.put("question", question.getContent());
+                row.put("answer", answer == null ? "" : answer.getContent());
+                row.put("status", resolveStatus(question, answer));
+                row.put("inputTokensEstimated", inputTokens);
+                row.put("outputTokensEstimated", outputTokens);
+                row.put("totalTokensEstimated", inputTokens + outputTokens);
+                row.put("actualCost", null);
+                row.put("costNote", "Provider usage/cost is not returned by the current LLM client; token values are estimates.");
+                row.put("createdAt", question.getCreatedAt());
+                logs.add(row);
+            }
+        });
+        return logs.stream().sorted((a, b) -> compareDates((LocalDateTime) b.get("createdAt"),
+                (LocalDateTime) a.get("createdAt"))).toList();
+    }
+
+    public Map<String, Object> summary(List<Map<String, Object>> logs) {
+        long tokens = logs.stream().mapToLong(row -> ((Number) row.get("totalTokensEstimated")).longValue()).sum();
+        return Map.of("requestCount", logs.size(), "estimatedTokenCount", tokens,
+                "completedCount", logs.stream().filter(row -> "COMPLETED".equals(row.get("status"))).count(),
+                "inProgressCount", logs.stream().filter(row -> "IN_PROGRESS".equals(row.get("status"))).count(),
+                "failedCount", logs.stream().filter(row -> List.of("FAILED", "INCOMPLETE")
+                        .contains(row.get("status"))).count());
+    }
+
+    private String resolveStatus(AiMessage question, AiMessage answer) {
+        if (answer == null) {
+            return "IN_PROGRESS";
+        }
+        if (StudentFacingMessages.isUnavailableMessage(answer.getContent())) {
+            return "FAILED";
+        }
+        if (isLessonStart(question == null ? null : question.getContent())
+                && (LessonExplanationCompleter.missingLessonBody(answer.getContent())
+                || !LessonUnderstandingCheckCompleter.hasUsableCheck(answer.getContent()))) {
+            return "INCOMPLETE";
+        }
+        return "COMPLETED";
+    }
+
+    private boolean isLessonStart(String question) {
+        if (question == null || question.isBlank()) return false;
+        String normalized = TextSanitizer.normalizeAccentInsensitive(question)
+                .toLowerCase(Locale.ROOT)
+                .trim();
+        return normalized.startsWith("bat dau bai ");
+    }
+
+    private int estimateTokens(String text) { return text == null ? 0 : (int) Math.ceil(text.length() / 4.0); }
+    private boolean matches(String actual, String expected) { return expected == null || expected.isBlank() || expected.equals(actual); }
+    private boolean matchesStudent(String userId, String expected, Map<String, User> usersById) {
+        if (expected == null || expected.isBlank()) return true;
+        if (expected.equals(userId)) return true;
+        User user = usersById.get(userId);
+        if (user == null) return false;
+        return contains(expected, user.getStudentCode(), user.getFullName(), user.getEmail());
+    }
+    private boolean within(LocalDateTime value, LocalDateTime from, LocalDateTime to) {
+        return value != null && (from == null || !value.isBefore(from)) && (to == null || !value.isAfter(to));
+    }
+    private boolean contains(String query, String... values) {
+        if (query == null || query.isBlank()) return true;
+        String q = query.toLowerCase();
+        for (String value : values) if (value != null && value.toLowerCase().contains(q)) return true;
+        return false;
+    }
+    private int compareDates(LocalDateTime a, LocalDateTime b) {
+        if (a == null) return b == null ? 0 : -1;
+        return b == null ? 1 : a.compareTo(b);
+    }
+}

@@ -5,10 +5,9 @@ import com.ragapi.entity.ClassSection;
 import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseEnrollmentRepository;
-import com.ragapi.service.TtsProvider;
-import com.ragapi.service.TtsService;
-import com.ragapi.service.TtsTextNormalizationService;
-import com.ragapi.service.TtsUnavailableException;
+import com.ragapi.service.tts.TtsProvider;
+import com.ragapi.service.tts.TtsService;
+import com.ragapi.service.tts.TtsUnavailableException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -45,11 +44,10 @@ class TtsControllerTest {
         when(provider.synthesize(anyString(), eq("vi-VN-voice-1"), anyString()))
                 .thenThrow(new TtsUnavailableException(
                         "Không thể tạo giọng đọc lúc này. Vui lòng thử lại sau."));
-        TtsTextNormalizationService normalizer = new TtsTextNormalizationService();
-        ReflectionTestUtils.setField(normalizer, "maxTextLength", 6000);
-        ReflectionTestUtils.setField(normalizer, "maxChunkLength", 1900);
-        TtsController controller = new TtsController(
-                new TtsService(normalizer, provider, enrollments, sections));
+        TtsService ttsService = new TtsService(provider, enrollments, sections);
+        ReflectionTestUtils.setField(ttsService, "maxTextLength", 6000);
+        ReflectionTestUtils.setField(ttsService, "maxChunkLength", 1900);
+        TtsController controller = new TtsController(ttsService);
 
         var response = controller.synthesize(request, authentication("ROLE_STUDENT"));
 

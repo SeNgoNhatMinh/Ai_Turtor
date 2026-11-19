@@ -1,0 +1,93 @@
+package com.ragapi.harness.gateway;
+
+import com.ragapi.dto.CourseRagAnswer;
+import com.ragapi.dto.RagQueryIntent;
+import com.ragapi.harness.behavior.plan.TeachingPlan;
+
+import java.io.IOException;
+
+public interface CourseAnswerGateway {
+
+    CourseRagAnswer askWithConfidence(String question, String courseId, String classId) throws IOException;
+
+    CourseRagAnswer askWithConfidence(
+            String question,
+            String courseId,
+            String classId,
+            String teachingMode,
+            String retrievalHint
+    ) throws IOException;
+
+    CourseRagAnswer answerTutorInteraction(
+            String question,
+            String courseId,
+            String interactionType,
+            String pedagogicalContext,
+            String learnerContext,
+            String recentHistoryContext
+    );
+
+    CourseRagAnswer askWithPersonalizedTutorContext(
+            String question,
+            String courseId,
+            String classId,
+            String pedagogicalContext,
+            String learnerMemoryContext,
+            String teachingMode,
+            String retrievalHint
+    ) throws IOException;
+
+    CourseRagAnswer askWithPersonalizedTutorContext(
+            String question,
+            String courseId,
+            String classId,
+            String pedagogicalContext,
+            String learnerMemoryContext,
+            String teachingMode,
+            String retrievalHint,
+            TeachingPlan teachingPlan
+    ) throws IOException;
+
+    CourseRagAnswer retrieveLearningPath(
+            String question,
+            String courseId,
+            String classId,
+            String pedagogicalContext,
+            String learnerMemoryContext,
+            String retrievalHint
+    ) throws IOException;
+
+    CourseRagAnswer askWithImprovePlanContext(
+            String question,
+            String courseId,
+            String classId,
+            String pedagogicalContext,
+            String learnerMemoryContext,
+            RagQueryIntent ragQueryIntent
+    ) throws IOException;
+
+    CourseRagAnswer askWithImprovePlanContext(
+            String question,
+            String courseId,
+            String classId,
+            String pedagogicalContext,
+            String learnerMemoryContext,
+            RagQueryIntent ragQueryIntent,
+            TeachingPlan teachingPlan
+    ) throws IOException;
+
+    CourseRagAnswer askWithConfidenceFromTextbook(
+            String question,
+            String courseId,
+            String classId
+    ) throws IOException;
+
+    CourseRagAnswer askWithConfidenceSynthesizingExam(
+            String question,
+            String courseId,
+            String classId,
+            String chapter,
+            String teachingNote,
+            String baselineAnswer
+    ) throws IOException;
+}

@@ -1,10 +1,10 @@
 package com.ragapi.controller;
 
 import com.ragapi.dto.cotraining.UpdateIndexedTeachingNoteRequest;
-import com.ragapi.entity.GoldQa;
-import com.ragapi.entity.KnowledgeCandidate;
-import com.ragapi.service.ExpertCoTrainingService;
-import com.ragapi.service.HumanLearningService;
+import com.ragapi.harness.entity.GoldQa;
+import com.ragapi.harness.entity.KnowledgeCandidate;
+import com.ragapi.harness.cotraining.ExpertCoTrainingService;
+import com.ragapi.harness.learning.HumanLearningService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

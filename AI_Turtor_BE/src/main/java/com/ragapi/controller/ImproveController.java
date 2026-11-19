@@ -2,8 +2,8 @@ package com.ragapi.controller;
 
 import com.ragapi.dto.SuggestionRequest;
 import com.ragapi.dto.SuggestionResponse;
-import com.ragapi.service.ImprovePlanService;
-import com.ragapi.service.ImproveSuggestionService;
+import com.ragapi.harness.improve.ImprovePlanService;
+import com.ragapi.harness.improve.ImproveSuggestionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

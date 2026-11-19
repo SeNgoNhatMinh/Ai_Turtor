@@ -1,4 +1,5 @@
 package com.ragapi.service.course.indexing;
+import com.ragapi.service.notification.RealtimeEventService;
 
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.service.course.gateway.CourseMaterialStoreGateway;
@@ -35,7 +36,7 @@ class CourseMaterialIndexingServiceTest {
                 storageService,
                 indexExecutor,
                 jobService,
-                mock(com.ragapi.service.RealtimeEventService.class)
+                mock(com.ragapi.service.notification.RealtimeEventService.class)
         );
     }
 

@@ -2,7 +2,7 @@ package com.ragapi.service.course.indexing;
 
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.service.course.gateway.CourseMaterialStoreGateway;
-import com.ragapi.service.RealtimeEventService;
+import com.ragapi.service.notification.RealtimeEventService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

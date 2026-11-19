@@ -1,9 +1,9 @@
 package com.ragapi.controller;
 
 import com.ragapi.dto.AdaptiveLearningReviewDecisionRequest;
-import com.ragapi.entity.AdaptiveLearningReview;
-import com.ragapi.service.AccessGuardService;
-import com.ragapi.service.AdaptiveLearningReviewService;
+import com.ragapi.harness.entity.AdaptiveLearningReview;
+import com.ragapi.service.student.AccessGuardService;
+import com.ragapi.harness.review.AdaptiveLearningReviewService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

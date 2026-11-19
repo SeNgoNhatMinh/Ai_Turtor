@@ -1,6 +1,8 @@
 package com.ragapi.controller;
+import static com.ragapi.controller.TeachingBehaviorController.actor;
+import static com.ragapi.controller.TeachingBehaviorController.handle;
 
-import com.ragapi.service.behavior.AppliedTeachingBehaviorService;
+import com.ragapi.harness.behavior.AppliedTeachingBehaviorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -15,8 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-import static com.ragapi.controller.TeachingBehaviorController.actor;
-import static com.ragapi.controller.TeachingBehaviorController.handle;
 
 /** Runtime assignments and the executions that show what RAG actually used. */
 @RestController
