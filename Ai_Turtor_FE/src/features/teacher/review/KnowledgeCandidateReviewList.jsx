@@ -1,4 +1,4 @@
-import { Alert, Button, Empty, Input, Tag } from 'antd';
+import { Alert, Button, Empty, Input, Progress, Steps, Tag } from 'antd';
 import { Check, X } from 'lucide-react';
 import { confirmAction, confirmDanger } from '../../../components/common/confirmDialog';
 import { formatKnowledgeCandidateStatus } from '../../../constants/knowledgeFlow';
@@ -10,6 +10,60 @@ const CANDIDATE_TYPE_LABELS = {
   MATERIAL_CORRECTION: 'Sửa nội dung tài liệu',
   FAQ_CLARIFICATION: 'Làm rõ câu hỏi thường gặp',
 };
+
+const RAG_INGEST_STAGES = [
+  ['SAVING', 'Lưu nội dung', 20],
+  ['CHUNKING', 'Cắt đoạn', 45],
+  ['EMBEDDING', 'Tạo embedding', 75],
+  ['INDEXING', 'Nạp RAG', 95],
+];
+
+const FAILED_INDEX_STATUSES = new Set(['FAILED', 'INDEXING_FAILED', 'ERROR']);
+
+function ingestJobFor(candidate, approvalJob) {
+  if (approvalJob) return approvalJob;
+  const indexingStatus = String(candidate?.indexingStatus || '').toUpperCase();
+  if (FAILED_INDEX_STATUSES.has(indexingStatus)) {
+    return {
+      stage: 'FAILED',
+      error: 'Lần nạp trước chưa vào RAG vì embedding NVIDIA không xong. Candidate vẫn ở đây, bấm phê duyệt lại.',
+    };
+  }
+  const status = String(candidate?.status || '').toUpperCase();
+  if (status === 'PENDING_SENIOR_REVIEW' || status === 'PENDING_REVIEW') {
+    return { stage: 'WAITING' };
+  }
+  return null;
+}
+
+function RagIngestProgress({ job }) {
+  if (!job) return null;
+  const waiting = job.stage === 'WAITING';
+  const failed = job.stage === 'FAILED' || Boolean(job.error);
+  const current = Math.max(0, RAG_INGEST_STAGES.findIndex(([key]) => key === job.stage));
+  const percent = waiting
+    ? 0
+    : failed
+      ? (RAG_INGEST_STAGES[Math.max(current, 2)]?.[2] || 75)
+      : (RAG_INGEST_STAGES[current]?.[2] || 20);
+  return (
+    <div className="candidate-rag-progress" aria-live="polite">
+      <Progress
+        percent={percent}
+        status={failed ? 'exception' : waiting ? 'normal' : 'active'}
+        aria-label={`Tiến độ nạp RAG ${percent} phần trăm`}
+      />
+      <Steps
+        size="small"
+        current={waiting ? 0 : failed ? Math.max(current, 2) : current}
+        status={failed ? 'error' : waiting ? 'wait' : 'process'}
+        items={RAG_INGEST_STAGES.map(([, title]) => ({ title }))}
+      />
+      {waiting && <p className="candidate-rag-progress__hint">Chưa nạp vào RAG. Bấm phê duyệt để bắt đầu.</p>}
+      {failed && job.error && <Alert type="error" showIcon title={job.error} />}
+    </div>
+  );
+}
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -25,6 +79,7 @@ function KnowledgeCandidateReviewList({
   handleApproveCandidate,
   handleRejectCandidate,
   pendingActionIds = [],
+  approvalJobs = {},
   currentReviewerId = '',
   history = false,
 }) {
@@ -39,6 +94,7 @@ function KnowledgeCandidateReviewList({
 
   return <div className="knowledge-candidate-list">{candidates.map((cand) => {
     const note = candidateNotes[cand.id] || '';
+    const approvalJob = ingestJobFor(cand, approvalJobs[cand.id]);
     const isPending = pendingActionIds.includes(cand.id);
     const candidateAuthorId = cand.teacherId || cand.createdBy || cand.authorId || '';
     const isOwnCandidate = Boolean(
@@ -72,7 +128,11 @@ function KnowledgeCandidateReviewList({
           : 'Candidate sẽ bị từ chối, không được đưa vào RAG. Lý do từ chối sẽ được lưu lại.',
         okText: approving ? 'Phê duyệt' : 'Từ chối',
         cancelText: 'Hủy',
-        onOk: () => submitDecision(decision),
+        onOk: () => {
+          if (!approving) return submitDecision(decision);
+          void submitDecision(decision);
+          return true;
+        },
       });
     };
 
@@ -131,6 +191,7 @@ function KnowledgeCandidateReviewList({
                 description="Phê duyệt sẽ thay thế đáp án đang nạp. AI sẽ chỉ dùng đáp án mới, không giữ hai đáp án cùng lúc."
               />
             )}
+            <RagIngestProgress job={approvalJob} />
             {isOwnCandidate && (
               <Alert
                 type="info"
@@ -163,7 +224,7 @@ function KnowledgeCandidateReviewList({
                 loading={isPending}
                 onClick={() => requestDecision('APPROVE')}
               >
-                Phê duyệt vào tri thức AI
+                {approvalJob?.error ? 'Phê duyệt lại' : 'Phê duyệt vào tri thức AI'}
               </Button>
               <Button
                 danger

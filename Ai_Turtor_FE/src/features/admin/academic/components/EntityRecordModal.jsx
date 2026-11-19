@@ -5,7 +5,6 @@ import { isCourseSharedMaterial } from '../adminAcademicUtils';
 const { Option } = Select;
 
 const ENTITY_LABELS = {
-  semester: 'học kỳ',
   course: 'môn học',
   class: 'lớp học phần',
   enrollment: 'ghi danh',
@@ -55,24 +54,6 @@ function EntityRecordModal({
       width={entityModal.type === 'material' || entityModal.type === 'course' ? 760 : undefined}
     >
       <Form form={form} layout="vertical" disabled={isViewMode}>
-        {entityModal.type === 'semester' && (
-          <>
-            <Form.Item name="semesterCode" label="Mã học kỳ">
-              <Input disabled />
-            </Form.Item>
-            <Form.Item name="name" label="Tên học kỳ" rules={[{ required: !isViewMode, message: 'Nhập tên học kỳ.' }, { max: 200, message: 'Tên học kỳ tối đa 200 ký tự.' }]}>
-              <Input maxLength={200} />
-            </Form.Item>
-            <Form.Item name="status" label="Trạng thái">
-              <Select>
-                <Option value="ACTIVE">Đang hoạt động</Option>
-                <Option value="INACTIVE">Ngừng hoạt động</Option>
-                <Option value="COMPLETED">Đã hoàn tất</Option>
-              </Select>
-            </Form.Item>
-          </>
-        )}
-
         {entityModal.type === 'course' && (
           <>
             <Form.Item name="courseId" label="Mã môn học">

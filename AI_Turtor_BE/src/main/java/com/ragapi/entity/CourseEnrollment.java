@@ -27,7 +27,6 @@ public class CourseEnrollment {
     private String studentEmail;
     private String studentPhone;
 
-    private String semesterId;
     private String courseId;
     private String courseName;
     private String classId;

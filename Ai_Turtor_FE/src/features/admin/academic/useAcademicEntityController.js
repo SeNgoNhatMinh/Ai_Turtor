@@ -9,7 +9,6 @@ import {
   getEnrollmentId,
   isCourseSharedMaterial,
   getRecordId,
-  getSemesterCode,
 } from './adminAcademicUtils';
 
 const EMPTY_MODAL = { open: false, type: '', mode: 'view', record: null };
@@ -19,7 +18,6 @@ export function useAcademicEntityController({
   form,
   selectedCourseId,
   materialCourseId,
-  loadSemesters,
   loadCourses,
   loadClassSections,
   loadStudentEnrollments,
@@ -33,13 +31,6 @@ export function useAcademicEntityController({
   const openEntityModal = (type, mode, record) => {
     const nextRecord = record || {};
     setEntityModal({ open: true, type, mode, record: nextRecord });
-    if (type === 'semester') {
-      form.setFieldsValue({
-        semesterCode: getSemesterCode(nextRecord),
-        name: nextRecord.name,
-        status: nextRecord.status || 'ACTIVE',
-      });
-    }
     if (type === 'course') {
       form.setFieldsValue({
         courseId: getCourseCode(nextRecord),
@@ -90,12 +81,6 @@ export function useAcademicEntityController({
     const record = entityModal.record || {};
     setEntitySaving(true);
     try {
-      if (entityModal.type === 'semester') {
-        const semesterCode = getSemesterCode(record);
-        await adminAcademicApi.updateSemester(semesterCode, { ...record, semesterCode, name: values.name, status: values.status });
-        triggerToast('Đã cập nhật học kỳ.');
-        await loadSemesters();
-      }
       if (entityModal.type === 'course') {
         const courseId = getCourseCode(record);
         await adminAcademicApi.updateCourse(courseId, {
@@ -206,7 +191,6 @@ export function useAcademicEntityController({
     if (key === 'view' || key === 'edit') return openEntityModal(type, key, record);
     if (type === 'course' && key === 'complete') return completeCourse(record);
     if (type === 'class' && key === 'complete') return completeClass(record);
-    if (type === 'semester' && key === 'delete') return deleteHandlers.semester(record);
     if (type === 'course' && key === 'delete') return deleteHandlers.course(record);
     if (type === 'class' && key === 'delete') return deleteHandlers.classSection(record);
     if (type === 'enrollment' && (key === 'delete' || key === 'remove')) {

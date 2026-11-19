@@ -10,7 +10,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EnrollStudentsRequest {
-    private String semesterId;
     private String courseName;
     private String className;
     private String status;

@@ -324,7 +324,7 @@ function AdminDashboard({
                 },
                 {
                   key: 'academic',
-                  title: 'Quản lý học kỳ, lớp và học liệu',
+                  title: 'Quản lý môn học, lớp và học liệu',
                   description: 'Cập nhật môn học, lớp học phần, ghi danh và tài liệu dùng chung.',
                   icon: BookOpenCheck,
                   onClick: () => onNavigate?.('/admin/academic/enrollments'),

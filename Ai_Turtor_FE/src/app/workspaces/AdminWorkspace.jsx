@@ -51,8 +51,7 @@ export default function AdminWorkspace({
     'admin-users-escalations': 'escalations',
   }[activeTab];
   const academicSection = {
-    'admin-academic': 'semesters',
-    'admin-academic-semesters': 'semesters',
+    'admin-academic': 'courses',
     'admin-academic-courses': 'courses',
     'admin-academic-classes': 'classes',
     'admin-academic-enrollments': 'enrollments',

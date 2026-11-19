@@ -151,7 +151,6 @@ async function mockBackend(page, unexpectedRequests) {
       '/api/tutor/escalations/knowledge-candidates': { candidates: [] },
       '/api/mentors/teacher-1/dashboard': {},
       '/api/teachers/teacher-1/classes': { classes: [] },
-      '/api/admin/semesters': { semesters: [] },
       '/api/academic/courses/PRO192/class-sections': {
         classSections: [{
           classId: 'SE1840',
@@ -671,8 +670,8 @@ test('admin routes load their independent feature pages', async ({ page }) => {
   await expect(page.locator('.page-header')).toHaveCSS('border-radius', '20px');
 
   await page.goto('/admin/academic');
-  await expect(page).toHaveURL(/\/admin\/academic\/semesters$/);
-  await expect(page.getByRole('heading', { name: 'Học kỳ & lớp học' })).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/academic\/courses$/);
+  await expect(page.getByRole('heading', { name: 'Môn học & lớp học' })).toBeVisible();
   await expect(page.locator('.page-header')).toHaveCSS('border-radius', '20px');
 
   await page.goto('/admin/ai-logs');
@@ -988,8 +987,9 @@ test('Senior review separates severe feedback, knowledge approval, and history c
   await scrollContainer.evaluate((node) => { node.scrollTop = 0; });
   await page.getByRole('button', { name: /Tri thức chờ duyệt/ }).click();
   await expect(page.getByRole('heading', { name: 'Phê duyệt tri thức cho RAG' })).toBeVisible();
-  await expect(page.getByText(/Candidate question 3/)).toBeVisible();
+  await expect(page.getByRole('button', { name: /Candidate question 3/ })).toBeVisible();
   await expect(page.getByText('2 sinh viên phản hồi về cùng câu trả lời AI')).toHaveCount(0);
+  await page.getByRole('button', { name: /Candidate question 1/ }).click();
 
   const characterCounterBounds = await page.locator('.candidate-card-item .ant-input-data-count').first().boundingBox();
   const candidateActionsBounds = await page.locator('.candidate-card-item .candidate-actions').first().boundingBox();
@@ -999,9 +999,9 @@ test('Senior review separates severe feedback, knowledge approval, and history c
     .toBeLessThanOrEqual(candidateActionsBounds.y);
 
   await page.getByRole('button', { name: /Lịch sử/ }).click();
-  await expect(page.getByRole('heading', { name: 'Lịch sử tri thức RAG' })).toBeVisible();
-  await expect(page.getByText('Indexed candidate question')).toBeVisible();
-  await expect(page.getByText('Rejected candidate question')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Phản hồi đã xử lý' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Indexed candidate question/ })).toBeVisible();
+  await page.getByRole('button', { name: /Rejected candidate question/ }).click();
   await expect(page.getByText('Nội dung chưa chính xác.')).toBeVisible();
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

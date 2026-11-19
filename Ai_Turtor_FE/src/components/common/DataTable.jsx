@@ -43,7 +43,6 @@ function getRowKey(record, index) {
     || record?.enrollmentId
     || record?.classId
     || record?.courseId
-    || record?.semesterCode
     || `row-${index}`;
 }
 

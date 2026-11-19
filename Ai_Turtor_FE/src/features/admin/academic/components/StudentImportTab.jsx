@@ -67,11 +67,6 @@ function StudentImportTab({
             </Form.Item>
             <Row gutter={12}>
               <Col xs={24} md={12}>
-                <Form.Item name="semesterId" label="Mã học kỳ">
-                  <Input placeholder="Không bắt buộc, ví dụ: SEM5" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
                 <Form.Item name="status" label="Trạng thái" initialValue="ACTIVE">
                   <Select>
                     <Option value="ACTIVE">Đang hoạt động</Option>

@@ -1,4 +1,4 @@
-import { API_BASE_URL, request } from './apiClient';
+import { API_BASE_URL, API_TIMEOUTS, request } from './apiClient';
 import { asArray } from './normalizers';
 import { encodePath } from '../config/env';
 import { normalizeReviewMode } from '../utils/validators';
@@ -126,6 +126,9 @@ export const teacherReviewApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      // Embedding can outlast the default 60s page timeout. Keep the request
+      // open until NVIDIA answers so a slow failure stays on this candidate.
+      timeoutMs: API_TIMEOUTS.ai,
     });
   },
 

@@ -156,8 +156,8 @@ const navigationItems = [
     workspace: 'senior',
     allowedAccountRoles: [ACCOUNT_ROLES.SENIOR_MENTOR],
     group: 'Kiểm duyệt chuyên môn',
-    label: 'Cache câu trả lời AI',
-    description: 'Duyệt, sửa hoặc tắt câu trả lời AI đã cache theo semantic similarity.',
+    label: 'Cache chương trong RAM',
+    description: 'Xem đoạn chương đã index được giữ trong RAM để trả lời đúng bài.',
     icon: Database,
   },
   {
@@ -213,14 +213,6 @@ const navigationItems = [
     label: 'Yêu cầu hỗ trợ',
     description: 'Các yêu cầu hỗ trợ đang chờ xử lý.',
     icon: AlertTriangle,
-  },
-  {
-    key: 'admin-academic-semesters',
-    workspace: 'admin',
-    group: 'Học vụ',
-    label: 'Học kỳ',
-    description: 'Tạo và cập nhật học kỳ.',
-    icon: Library,
   },
   {
     key: 'admin-academic-courses',
@@ -358,7 +350,7 @@ export function groupAdminNavigation(items) {
 export function resolveNavigationSelection(activeTab) {
   if (activeTab === 'admin-ai-logs') return 'admin-ai-logs-providers';
   if (activeTab === 'admin-users') return 'admin-users-students';
-  if (activeTab === 'admin-academic') return 'admin-academic-semesters';
+  if (activeTab === 'admin-academic') return 'admin-academic-courses';
   return activeTab || '';
 }
 

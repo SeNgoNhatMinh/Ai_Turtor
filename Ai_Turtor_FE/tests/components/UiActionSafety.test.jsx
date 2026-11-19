@@ -57,8 +57,8 @@ describe('UI action safety', () => {
         classId="SE1833"
         setClassId={setClassId}
         classesList={[
-          { classId: 'SE1833', classCode: 'SE1833', name: 'Class SE1833', semester: 'SUMMER2026' },
-          { classId: 'SE1840', classCode: 'SE1840', name: 'Class SE1840', semester: 'SUMMER2026' },
+          { classId: 'SE1833', classCode: 'SE1833', name: 'Class SE1833' },
+          { classId: 'SE1840', classCode: 'SE1840', name: 'Class SE1840' },
         ]}
         teacherStudents={[{ id: 'student-1', fullName: 'Student A', email: 'student@example.com' }]}
         loadTeacherDashboard={refresh}

@@ -7,14 +7,12 @@ const CurriculumGuideTab = lazy(() => import('./CurriculumGuideTab'));
 const CoursesTab = lazy(() => import('./CoursesTab'));
 const StudentEnrollmentsTab = lazy(() => import('./StudentEnrollmentsTab'));
 const StudentImportTab = lazy(() => import('./StudentImportTab'));
-const TermsTab = lazy(() => import('./TermsTab'));
 
 function TabFallback() {
   return <AsyncState loading compact loadingLabel="Đang tải dữ liệu học vụ..." loadingRows={5} />;
 }
 
 const SECTION_ITEM_KEY = {
-  semesters: 'semesters',
   courses: 'courses',
   classes: 'classes',
   enrollments: 'enrollments',
@@ -24,7 +22,7 @@ const SECTION_ITEM_KEY = {
 };
 
 export default function AdminAcademicTabs({
-  section = 'semesters',
+  section = 'courses',
   forms,
   academic,
   materials,
@@ -38,15 +36,6 @@ export default function AdminAcademicTabs({
   onOpenEntity,
 }) {
   const items = [
-    {
-      key: 'semesters',
-      label: 'Học kỳ',
-      children: (
-        <Suspense fallback={<TabFallback />}>
-          <TermsTab form={forms.semester} semesters={academic.semesters} onCreate={academic.handleCreateSemester} onReload={academic.loadSemesters} onAction={onAcademicAction} />
-        </Suspense>
-      ),
-    },
     {
       key: 'courses',
       label: 'Môn học',
@@ -170,7 +159,7 @@ export default function AdminAcademicTabs({
     },
   ];
 
-  const itemKey = SECTION_ITEM_KEY[section] || 'semesters';
+  const itemKey = SECTION_ITEM_KEY[section] || 'courses';
   const active = items.find((item) => item.key === itemKey) || items[0];
 
   return (

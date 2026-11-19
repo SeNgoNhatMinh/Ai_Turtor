@@ -49,7 +49,6 @@ public class StudentEnrollmentImportService {
             MultipartFile file,
             String courseId,
             String classId,
-            String semesterId,
             String courseName,
             String status,
             boolean dryRun
@@ -124,7 +123,6 @@ public class StudentEnrollmentImportService {
                     enrollment.setStudentName(firstNonBlank(probe.getStudentName(), student.studentName().trim()));
                     enrollment.setStudentEmail(trimToNull(probe.getStudentEmail()));
                     enrollment.setStudentPhone(trimToNull(probe.getStudentPhone()));
-                    enrollment.setSemesterId(trimToNull(semesterId));
                     enrollment.setCourseId(courseId.trim());
                     enrollment.setCourseName(trimToNull(courseName));
                     enrollment.setClassId(classId.trim());

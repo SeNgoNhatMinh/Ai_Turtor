@@ -59,7 +59,6 @@ export function useStudentImport({
     setStudentImportLoading(true);
     try {
       const result = await adminAcademicApi.importClassStudents(values.courseId, values.classId, formData, {
-        semesterId: values.semesterId,
         courseName: values.courseName || selectedCourse?.courseName,
         status: values.status || 'ACTIVE',
         dryRun,

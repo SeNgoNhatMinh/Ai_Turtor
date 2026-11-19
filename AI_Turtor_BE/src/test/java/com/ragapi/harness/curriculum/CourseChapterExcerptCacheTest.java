@@ -66,6 +66,7 @@ class CourseChapterExcerptCacheTest {
         ));
 
         assertTrue(cache.isLoaded("CSD203"));
+        assertEquals(1, cache.chapters("CSD203").size());
         assertEquals("loop body", cache.excerpt("CSD203", "algorithm-analysis").orElseThrow());
         verify(repository, times(0)).findByCourseIdOrderByTitleAsc("CSD203");
     }

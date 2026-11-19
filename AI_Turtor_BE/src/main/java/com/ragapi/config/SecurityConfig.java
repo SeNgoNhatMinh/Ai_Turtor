@@ -125,6 +125,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/tutor/answer-reviews/*/senior-resolve").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/tts/read", "/api/tts/synthesize").hasRole("STUDENT")
                         .requestMatchers("/api/tutor/answer-cache/**").hasAnyRole("SENIOR_MENTOR", "ADMIN")
+                        .requestMatchers("/api/tutor/chapter-memory/**").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers("/api/teacher/teaching-behaviors/**",
                                 "/api/teacher/applied-teaching-behaviors/**",
                                 "/api/teacher/teaching-behavior-executions",

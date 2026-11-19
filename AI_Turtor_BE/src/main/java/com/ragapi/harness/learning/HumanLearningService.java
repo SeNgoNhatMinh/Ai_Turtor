@@ -497,7 +497,20 @@ public class HumanLearningService {
                         .filter(candidate -> courseId.equals(candidate.getCourseId()))
                         .toList();
         knowledge().annotateExistingAcademicKnowledge(filtered);
+        annotateIndexingState(filtered);
         return filtered;
+    }
+
+    private void annotateIndexingState(List<KnowledgeCandidate> candidates) {
+        for (KnowledgeCandidate candidate : candidates) {
+            if (candidate.getId() == null || candidate.getId().isBlank()) {
+                continue;
+            }
+            courseMaterialRepository.findFirstByKnowledgeCandidateId(candidate.getId()).ifPresent(material -> {
+                candidate.setIndexingStatus(material.getIndexingStatus());
+                candidate.setIndexingError(material.getIndexingError());
+            });
+        }
     }
 
     public List<KnowledgeCandidate> listIndexedApprovedKnowledge(String courseId, String status) {

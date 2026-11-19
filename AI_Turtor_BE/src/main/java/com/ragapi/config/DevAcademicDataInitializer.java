@@ -37,19 +37,18 @@ public class DevAcademicDataInitializer implements CommandLineRunner {
             return;
         }
 
-        seedCourse("PRJ301", "Java Web Application Development", "SEM5");
+        seedCourse("PRJ301", "Java Web Application Development");
         seedMentor();
         seedClassSection();
         seedEnrollment();
         log.info("Dev academic seed checked for PRJ301/SE1840");
     }
 
-    private void seedCourse(String courseId, String courseName, String semesterId) {
+    private void seedCourse(String courseId, String courseName) {
         courseRepository.findByCourseId(courseId).orElseGet(() -> courseRepository.save(Course.builder()
                 .id(UUID.randomUUID().toString())
                 .courseId(courseId)
                 .courseName(courseName)
-                .semesterId(semesterId)
                 .description("Default dev course for frontend integration testing")
                 .credits(3)
                 .status("ACTIVE")
@@ -87,7 +86,6 @@ public class DevAcademicDataInitializer implements CommandLineRunner {
     private void seedClassSection() {
         classSectionRepository.findByCourseIdAndClassId("PRJ301", "SE1840").orElseGet(() -> classSectionRepository.save(ClassSection.builder()
                 .id(UUID.randomUUID().toString())
-                .semesterId("SEM5")
                 .courseId("PRJ301")
                 .courseName("Java Web Application Development")
                 .classId("SE1840")
@@ -109,7 +107,6 @@ public class DevAcademicDataInitializer implements CommandLineRunner {
                         .studentId("SE1840001")
                         .studentCode("SE1840001")
                         .studentName("Nguyen Van A")
-                        .semesterId("SEM5")
                         .courseId("PRJ301")
                         .courseName("Java Web Application Development")
                         .classId("SE1840")

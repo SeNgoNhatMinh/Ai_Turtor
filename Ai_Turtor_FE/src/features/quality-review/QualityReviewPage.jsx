@@ -8,14 +8,13 @@ import './QualityReviewPage.css';
 export default function QualityReviewPage({
   currentUser,
   reviewerId,
-  courseId,
   triggerToast,
   mode = 'senior',
 }) {
   const review = useTeacherReviewQueue({
     currentUser,
     teacherId: reviewerId,
-    courseId,
+    courseId: '',
     triggerToast,
     includeTeacherInbox: false,
   });
@@ -63,6 +62,7 @@ export default function QualityReviewPage({
         onApproveCandidate={review.handleApproveCandidate}
         onRejectCandidate={review.handleRejectCandidate}
         pendingCandidateIds={review.pendingCandidateActionIds || []}
+        approvalJobs={review.approvalJobs || {}}
         currentReviewerId={reviewerId}
         onRefreshCandidates={review.loadKnowledgeCandidates}
         onRefreshHistory={review.loadReviewHistory}

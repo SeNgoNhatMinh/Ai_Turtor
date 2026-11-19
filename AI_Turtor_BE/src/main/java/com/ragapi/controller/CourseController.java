@@ -3,11 +3,9 @@ package com.ragapi.controller;
 import com.ragapi.entity.ClassSection;
 import com.ragapi.entity.Course;
 import com.ragapi.entity.CourseEnrollment;
-import com.ragapi.entity.Semester;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseEnrollmentRepository;
 import com.ragapi.repository.CourseRepository;
-import com.ragapi.repository.SemesterRepository;
 import com.ragapi.harness.curriculum.CourseCurriculumOverviewService;
 import com.ragapi.service.course.CourseDeletionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,87 +35,15 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api")
 @AllArgsConstructor
-@Tag(name = "Courses", description = "Semester, course and academic lifecycle APIs")
+@Tag(name = "Courses", description = "Course and academic lifecycle APIs")
 public class CourseController {
 
-    private final SemesterRepository semesterRepository;
     private final CourseRepository courseRepository;
     private final ClassSectionRepository classSectionRepository;
     private final CourseEnrollmentRepository enrollmentRepository;
     private final CourseDeletionService courseDeletionService;
     private final CourseCurriculumOverviewService curriculumOverviewService;
 
-    @PostMapping({"/academic/semesters", "/admin/semesters"})
-    @Operation(summary = "Create or update a semester")
-    public ResponseEntity<?> saveSemester(@RequestBody Semester request) {
-        if (request == null || isBlank(request.getSemesterCode())) {
-            return ResponseEntity.badRequest().body(Map.of("error", "semesterCode is required"));
-        }
-
-        Semester semester = semesterRepository.findBySemesterCode(request.getSemesterCode().trim())
-                .orElseGet(() -> Semester.builder()
-                        .id(UUID.randomUUID().toString())
-                        .createdAt(LocalDateTime.now())
-                        .build());
-
-        semester.setSemesterCode(request.getSemesterCode().trim());
-        semester.setName(trimToNull(request.getName()));
-        semester.setStatus(defaultStatus(request.getStatus()));
-        semester.setStartedAt(request.getStartedAt());
-        semester.setEndedAt(request.getEndedAt());
-        semester.setUpdatedAt(LocalDateTime.now());
-
-        return ResponseEntity.ok(semesterRepository.save(semester));
-    }
-
-    @GetMapping({"/academic/semesters", "/admin/semesters"})
-    @Operation(summary = "List semesters")
-    public ResponseEntity<List<Semester>> listSemesters() {
-        return ResponseEntity.ok(semesterRepository.findAll());
-    }
-
-    @GetMapping({"/academic/semesters/{semesterCode}", "/admin/semesters/{semesterCode}"})
-    @Operation(summary = "Get semester detail")
-    public ResponseEntity<?> getSemester(@PathVariable String semesterCode) {
-        return semesterRepository.findBySemesterCode(semesterCode)
-                .<ResponseEntity<?>>map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                        "code", "SEMESTER_NOT_FOUND",
-                        "error", "SEMESTER_NOT_FOUND",
-                        "message", "Semester " + semesterCode + " does not exist"
-                )));
-    }
-
-    @PutMapping({"/academic/semesters/{semesterCode}", "/admin/semesters/{semesterCode}"})
-    @Operation(summary = "Update a semester")
-    public ResponseEntity<?> updateSemester(
-            @PathVariable String semesterCode,
-            @RequestBody Semester request
-    ) {
-        if (request == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Request body is required"));
-        }
-        request.setSemesterCode(semesterCode);
-        return saveSemester(request);
-    }
-
-    @DeleteMapping({"/academic/semesters/{semesterCode}", "/admin/semesters/{semesterCode}"})
-    @Operation(summary = "Delete a semester when no course is attached")
-    public ResponseEntity<?> deleteSemester(@PathVariable String semesterCode) {
-        Semester semester = semesterRepository.findBySemesterCode(semesterCode)
-                .orElseThrow(() -> new IllegalArgumentException("Semester not found"));
-        List<Course> courses = courseRepository.findBySemesterId(semesterCode);
-        if (!courses.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "code", "SEMESTER_HAS_COURSES",
-                    "error", "SEMESTER_HAS_COURSES",
-                    "message", "Cannot delete semester because courses are attached",
-                    "courseCount", courses.size()
-            ));
-        }
-        semesterRepository.delete(semester);
-        return ResponseEntity.ok(Map.of("status", "DELETED", "semesterCode", semesterCode));
-    }
     @PostMapping({"/academic/courses", "/admin/courses"})
     @Operation(summary = "Create or update a course")
     public ResponseEntity<?> saveCourse(@RequestBody Course request) {
@@ -131,7 +57,6 @@ public class CourseController {
                         .createdAt(LocalDateTime.now())
                         .build());
 
-        course.setSemesterId(trimToNull(request.getSemesterId()));
         course.setCourseId(request.getCourseId().trim());
         course.setCourseName(trimToNull(request.getCourseName()));
         String description = trimToNull(request.getDescription());
@@ -157,10 +82,7 @@ public class CourseController {
 
     @GetMapping({"/academic/courses", "/courses", "/admin/courses"})
     @Operation(summary = "List courses")
-    public ResponseEntity<List<Course>> listCourses(@RequestParam(value = "semesterId", required = false) String semesterId) {
-        if (semesterId != null && !semesterId.isBlank()) {
-            return ResponseEntity.ok(courseRepository.findBySemesterId(semesterId));
-        }
+    public ResponseEntity<List<Course>> listCourses() {
         return ResponseEntity.ok(courseRepository.findAll());
     }
 

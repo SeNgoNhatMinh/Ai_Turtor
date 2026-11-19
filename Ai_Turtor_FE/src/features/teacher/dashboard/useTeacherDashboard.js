@@ -27,7 +27,6 @@ const mapClassSection = (section, courseId) => {
     || resolvedClassId;
   return {
     ...section,
-    semester: section.semesterId || section.semesterCode || '—',
     course: resolvedCourseId,
     courseId: resolvedCourseId,
     classCode: resolvedClassCode,

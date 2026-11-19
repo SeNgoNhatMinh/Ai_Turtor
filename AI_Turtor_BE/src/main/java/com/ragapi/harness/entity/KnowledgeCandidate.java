@@ -69,4 +69,11 @@ public class KnowledgeCandidate {
      */
     @Transient
     private ExistingAcademicKnowledge existingAcademicKnowledge;
+
+    /** Latest linked material index state. Not persisted on the candidate. */
+    @Transient
+    private String indexingStatus;
+
+    @Transient
+    private String indexingError;
 }

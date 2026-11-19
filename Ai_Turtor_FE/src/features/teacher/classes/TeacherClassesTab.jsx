@@ -221,7 +221,6 @@ function TeacherClassesTab({
                     </span>
                   </span>
                   <span className="teacher-class-card__side">
-                    <em>Học kỳ {c.semester}</em>
                     <small><Users size={13} /> Xem sinh viên</small>
                   </span>
                 </button>
@@ -349,7 +348,6 @@ function TeacherClassesTab({
       >
         <div className="teacher-class-roster__meta">
           <span>{rosterClass?.courseId ? `Môn ${rosterClass.courseId}` : 'Môn học'}</span>
-          {rosterClass?.semester && rosterClass.semester !== '—' ? <span>Học kỳ {rosterClass.semester}</span> : null}
           <span>{rosterStudents.length} sinh viên</span>
         </div>
         <DataTable

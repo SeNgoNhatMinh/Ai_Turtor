@@ -65,7 +65,6 @@ export const appRoutes = [
   { role: 'admin', tab: 'admin-users-mentors', path: '/admin/users/mentors', navigationPath: true },
   { role: 'admin', tab: 'admin-users-escalations', path: '/admin/users/escalations', navigationPath: true },
   { role: 'admin', tab: 'admin-academic', path: '/admin/academic' },
-  { role: 'admin', tab: 'admin-academic-semesters', path: '/admin/academic/semesters', navigationPath: true },
   { role: 'admin', tab: 'admin-academic-courses', path: '/admin/academic/courses', navigationPath: true },
   { role: 'admin', tab: 'admin-academic-classes', path: '/admin/academic/classes', navigationPath: true },
   { role: 'admin', tab: 'admin-academic-enrollments', path: '/admin/academic/enrollments', navigationPath: true },
@@ -112,7 +111,8 @@ const legacyRouteStates = {
 
 const adminSectionRedirects = {
   '/admin/users': '/admin/users/students',
-  '/admin/academic': '/admin/academic/semesters',
+  '/admin/academic': '/admin/academic/courses',
+  '/admin/academic/semesters': '/admin/academic/courses',
 };
 
 export function getAdminSectionRedirect(pathname) {

@@ -13,14 +13,12 @@ import {
   getClassCode,
   getCourseCode,
   getEnrollmentId,
-  getSemesterCode,
 } from '../adminAcademicUtils';
 
 const EMPTY_LIST = [];
 
 export function useAcademicRecords({
   triggerToast,
-  formSemester,
   formCourse,
   formClass,
   formEnroll,
@@ -28,11 +26,6 @@ export function useAcademicRecords({
   const queryClient = useQueryClient();
   const [selectedCourseId, setSelectedCourseId] = useState('');
 
-  const semestersQuery = useQuery({
-    queryKey: queryKeys.adminSemesters(),
-    queryFn: ({ signal }) => adminAcademicApi.getSemesters({ signal }),
-    staleTime: 5 * 60_000,
-  });
   const coursesQuery = useQuery({
     queryKey: queryKeys.adminCourses(),
     queryFn: ({ signal }) => adminAcademicApi.getCourses({ signal }),
@@ -45,15 +38,10 @@ export function useAcademicRecords({
     staleTime: 30_000,
   });
   useEffect(() => {
-    const error = semestersQuery.error || coursesQuery.error || classSectionsQuery.error;
+    const error = coursesQuery.error || classSectionsQuery.error;
     if (!error) return;
     triggerToast(getUserFacingError(error, 'Không thể tải đầy đủ dữ liệu học vụ.'), 'error');
-  }, [classSectionsQuery.error, coursesQuery.error, semestersQuery.error, triggerToast]);
-
-  const loadSemesters = useCallback(() => queryClient.invalidateQueries({
-    queryKey: queryKeys.adminSemesters(),
-    exact: true,
-  }), [queryClient]);
+  }, [classSectionsQuery.error, coursesQuery.error, triggerToast]);
 
   const loadCourses = useCallback(() => queryClient.invalidateQueries({
     queryKey: queryKeys.adminCourses(),
@@ -78,17 +66,6 @@ export function useAcademicRecords({
   const loadStudentEnrollments = useCallback(() => queryClient.invalidateQueries({
     queryKey: ['admin', 'academic', 'enrollments'],
   }), [queryClient]);
-
-  const handleCreateSemester = async (values) => {
-    try {
-      await adminAcademicApi.createSemester({ semesterCode: values.semesterCode, name: values.name, status: 'ACTIVE' });
-      triggerToast('Đã tạo học kỳ mới.');
-      formSemester.resetFields();
-      await loadSemesters();
-    } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể tạo học kỳ.'), 'error');
-    }
-  };
 
   const handleCreateCourse = async (values) => {
     try {
@@ -141,24 +118,6 @@ export function useAcademicRecords({
     }
   };
 
-  const handleDeleteSemester = (record) => {
-    const semesterCode = getSemesterCode(record);
-    if (!semesterCode) return triggerToast('Học kỳ này thiếu mã định danh.');
-    confirmDanger({
-      title: 'Xóa học kỳ?',
-      content: `Học kỳ ${semesterCode} sẽ bị xóa khỏi hệ thống.`,
-      onOk: async () => {
-        try {
-          await adminAcademicApi.deleteSemester(semesterCode);
-          triggerToast('Đã xóa học kỳ.');
-          await loadSemesters();
-        } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể xóa học kỳ.'), 'error');
-        }
-      },
-    });
-  };
-
   const handleDeleteCourse = (record) => {
     const courseId = getCourseCode(record);
     if (!courseId) return triggerToast('Môn học này thiếu mã định danh.', 'error');
@@ -200,16 +159,14 @@ export function useAcademicRecords({
   };
 
   const invalidateAll = useCallback(() => {
-    loadSemesters();
     loadCourses();
     if (selectedCourseId) loadClassSections(selectedCourseId);
     loadStudentEnrollments();
-  }, [loadClassSections, loadCourses, loadSemesters, loadStudentEnrollments, selectedCourseId]);
+  }, [loadClassSections, loadCourses, loadStudentEnrollments, selectedCourseId]);
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.academicEntity, (event) => {
     const type = event.type || '';
-    if (type.startsWith('SEMESTER_')) loadSemesters();
-    else if (type.startsWith('COURSE_')) loadCourses();
+    if (type.startsWith('COURSE_')) loadCourses();
     else if (type.startsWith('CLASS_SECTION_')) {
       const eventCourseId = event.data?.courseId;
       if (eventCourseId && selectedCourseId) loadClassSections(selectedCourseId);
@@ -247,23 +204,19 @@ export function useAcademicRecords({
   };
 
   return {
-    semesters: semestersQuery.data || EMPTY_LIST,
     courses: coursesQuery.data || EMPTY_LIST,
     classSections: selectedCourseId ? classSectionsQuery.data || EMPTY_LIST : EMPTY_LIST,
     selectedCourseId,
     academicLoading: Boolean(selectedCourseId)
       && (classSectionsQuery.isPending || classSectionsQuery.isFetching),
-    referenceDataLoading: semestersQuery.isPending || coursesQuery.isPending,
-    loadSemesters,
+    referenceDataLoading: coursesQuery.isPending,
     loadCourses,
     loadClassSections,
     loadStudentEnrollments,
     handleCourseSelect,
-    handleCreateSemester,
     handleCreateCourse,
     handleCreateClass,
     handleCreateEnrollment,
-    handleDeleteSemester,
     handleDeleteCourse,
     handleDeleteClassSection,
     handleDeleteEnrollment,

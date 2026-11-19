@@ -87,7 +87,10 @@
 .knowledge-candidate-list {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
+    padding: 12px;
+    border-radius: 12px;
+    background: #e8eef6;
 }
 
 .candidate-card-item {
@@ -95,10 +98,15 @@
     gap: 14px;
     min-width: 0;
     padding: 16px;
-    border: 1px solid var(--color-card-border);
-    border-radius: 8px;
-    background: var(--color-card-bg);
+    border: 1px solid #d5deea;
+    border-radius: 10px;
+    background: #ffffff;
     color: var(--color-text-main);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.knowledge-candidate-list > .candidate-card-item:nth-child(even) {
+    background: #f4f7fb;
 }
 
 .candidate-card-item__header {
@@ -166,6 +174,21 @@
 
 .compare-qa .knowledge-image-gallery {
     margin-top: 10px;
+}
+
+.candidate-rag-progress__hint {
+    margin: 0;
+    color: var(--color-text-muted, #667085);
+    font-size: 13px;
+}
+
+.candidate-rag-progress {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--color-card-border);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-card-bg) 82%, var(--color-text-main) 4%);
 }
 
 .candidate-card-item__review {
@@ -272,10 +295,18 @@
     color: #f3f4f6;
 }
 
+.app-container.dark .knowledge-candidate-list {
+    background: #0b1220;
+}
+
 .app-container.dark .candidate-card-item,
 .app-container.dark .compare-box {
     border-color: #303030;
-    background: #101010;
+    background: #111827;
+}
+
+.app-container.dark .knowledge-candidate-list > .candidate-card-item:nth-child(even) {
+    background: #172033;
 }
 
 .app-container.dark .compare-qa.teacher-a {

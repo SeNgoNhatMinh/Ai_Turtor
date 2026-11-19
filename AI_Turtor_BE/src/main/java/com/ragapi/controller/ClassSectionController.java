@@ -247,7 +247,6 @@ public class ClassSectionController {
                     .studentName(trimToNull(student.getStudentName()))
                     .studentEmail(trimToNull(student.getStudentEmail()))
                     .studentPhone(trimToNull(student.getStudentPhone()))
-                    .semesterId(trimToNull(request.getSemesterId()))
                     .courseId(courseId)
                     .courseName(trimToNull(request.getCourseName()))
                     .classId(classId)
@@ -275,7 +274,6 @@ public class ClassSectionController {
             @PathVariable String classId,
             @Parameter(description = "Excel file (.xlsx or .xls)", required = true, schema = @Schema(type = "string", format = "binary"))
             @RequestPart("file") MultipartFile file,
-            @RequestParam(value = "semesterId", required = false) String semesterId,
             @RequestParam(value = "courseName", required = false) String courseName,
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "dryRun", defaultValue = "false") boolean dryRun
@@ -292,7 +290,6 @@ public class ClassSectionController {
                 file,
                 courseId,
                 classId,
-                semesterId,
                 courseName,
                 status,
                 dryRun
@@ -451,7 +448,6 @@ public class ClassSectionController {
                         .createdAt(LocalDateTime.now())
                         .build());
 
-        section.setSemesterId(trimToNull(request.getSemesterId()));
         section.setCourseId(request.getCourseId().trim());
         section.setCourseName(trimToNull(request.getCourseName()));
         section.setClassId(request.getClassId().trim());
@@ -485,7 +481,6 @@ public class ClassSectionController {
         enrollment.setStudentPhone(trimToNull(request.getStudentPhone()));
         classRosterService.copyProfileOnto(enrollment);
         classRosterService.rejectIfStaffAccount(enrollment);
-        enrollment.setSemesterId(trimToNull(request.getSemesterId()));
         enrollment.setCourseId(request.getCourseId().trim());
         enrollment.setCourseName(trimToNull(request.getCourseName()));
         enrollment.setClassId(request.getClassId().trim());
@@ -542,7 +537,6 @@ public class ClassSectionController {
         enrollment.setStudentPhone(trimToNull(request.getStudentPhone()));
         classRosterService.copyProfileOnto(enrollment);
         classRosterService.rejectIfStaffAccount(enrollment);
-        enrollment.setSemesterId(trimToNull(request.getSemesterId()));
         enrollment.setCourseId(request.getCourseId().trim());
         enrollment.setCourseName(trimToNull(request.getCourseName()));
         enrollment.setClassId(request.getClassId().trim());

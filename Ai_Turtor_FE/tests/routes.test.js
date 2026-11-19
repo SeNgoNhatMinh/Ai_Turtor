@@ -38,7 +38,8 @@ test('uses stable role home routes and rejects unknown routes', () => {
   assert.equal(getHomeRouteForRole('SENIOR_MENTOR'), '/senior/review');
   assert.equal(getHomeRouteForRole('ADMIN'), '/admin/dashboard');
   assert.equal(getAdminSectionRedirect('/admin/users'), '/admin/users/students');
-  assert.equal(getAdminSectionRedirect('/admin/academic/'), '/admin/academic/semesters');
+  assert.equal(getAdminSectionRedirect('/admin/academic/'), '/admin/academic/courses');
+  assert.equal(getAdminSectionRedirect('/admin/academic/semesters'), '/admin/academic/courses');
   assert.equal(getAdminSectionRedirect('/admin/users/students'), '');
   assert.equal(getRouteState('/admin/users/teachers')?.tab, 'admin-users-teachers');
   assert.equal(getRouteState('/admin/academic/enrollments')?.tab, 'admin-academic-enrollments');

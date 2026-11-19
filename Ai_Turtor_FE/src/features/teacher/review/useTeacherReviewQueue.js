@@ -14,6 +14,18 @@ import { sortSupportRequestsNewestFirst } from '../../../utils/supportRequestOrd
 
 const EMPTY_LIST = [];
 const PENDING_CANDIDATE_STATUS = 'PENDING_SENIOR_REVIEW';
+const INDEXED_CANDIDATE_STATUSES = new Set(['INDEXED', 'APPROVED', 'APPROVED_INTO_AI_KNOWLEDGE']);
+
+const approvalFailureMessage = (error) => {
+  const raw = String(error?.rawMessage || error?.message || '');
+  if (/timeout|timed out|hết thời gian|overloaded|503|embedding/i.test(raw)) {
+    return 'NVIDIA đang quá tải hoặc hết thời gian chờ, nên chưa nạp được vào RAG. Candidate vẫn ở đây, bấm phê duyệt lại.';
+  }
+  const message = getUserFacingError(error, '');
+  return message && message !== 'Đã xảy ra lỗi. Vui lòng thử lại.'
+    ? `${message} Candidate vẫn ở đây, bấm phê duyệt lại.`
+    : 'Chưa nạp được vào RAG. Candidate vẫn ở đây, bấm phê duyệt lại.';
+};
 
 const normalizeCandidateHistory = (items) => items
   .filter((candidate) => {
@@ -40,6 +52,8 @@ export function useTeacherReviewQueue({
   const [deletingEscalationIds, setDeletingEscalationIds] = useState([]);
   const deletingEscalationIdsRef = useRef(new Set());
   const [pendingCandidateActionIds, setPendingCandidateActionIds] = useState([]);
+  const pendingCandidateIdsRef = useRef(new Set());
+  const [approvalJobs, setApprovalJobs] = useState({});
   const [pendingSeniorReviewIds, setPendingSeniorReviewIds] = useState([]);
   const reviewerName = currentUser?.fullName || currentUser?.name || 'Senior Mentor';
   const reviewerRole = normalizeAccountRole(currentUser?.originalRole || currentUser?.role);
@@ -126,7 +140,13 @@ export function useTeacherReviewQueue({
   const seniorAnswerReviews = isSeniorReviewer ? queueReviews : EMPTY_LIST;
   const seniorAnswerReviewGroups = isSeniorReviewer ? queueGroups : EMPTY_LIST;
   const resolvedAnswerReviews = resolvedReviewsQuery.data || EMPTY_LIST;
-  const candidates = isSeniorReviewer ? candidatesQuery.data || EMPTY_LIST : EMPTY_LIST;
+  const serverCandidates = isSeniorReviewer ? candidatesQuery.data || EMPTY_LIST : EMPTY_LIST;
+  const candidates = useMemo(() => {
+    const retained = Object.values(approvalJobs)
+      .filter((job) => job.error && job.candidate && !serverCandidates.some((item) => item.id === job.candidate.id))
+      .map((job) => job.candidate);
+    return retained.length ? [...retained, ...serverCandidates] : serverCandidates;
+  }, [approvalJobs, serverCandidates]);
   const reviewedCandidates = isSeniorReviewer ? candidateHistoryQuery.data || EMPTY_LIST : EMPTY_LIST;
 
   useEffect(() => {
@@ -145,6 +165,28 @@ export function useTeacherReviewQueue({
     resolvedReviewsQuery.error,
     triggerToast,
   ]);
+
+  useEffect(() => {
+    const active = Object.values(approvalJobs).some((job) => job.stage === 'SAVING' || job.stage === 'CHUNKING');
+    if (!active) return undefined;
+    const timer = window.setInterval(() => {
+      setApprovalJobs((current) => {
+        let changed = false;
+        const next = {};
+        Object.entries(current).forEach(([id, job]) => {
+          const elapsed = Date.now() - (job.startedAt || 0);
+          let stage = job.stage;
+          if (!job.error && (stage === 'SAVING' || stage === 'CHUNKING')) {
+            stage = elapsed >= 1200 ? 'EMBEDDING' : 'CHUNKING';
+          }
+          if (stage !== job.stage) changed = true;
+          next[id] = stage === job.stage ? job : { ...job, stage };
+        });
+        return changed ? next : current;
+      });
+    }, 400);
+    return () => window.clearInterval(timer);
+  }, [approvalJobs]);
 
   const loadTeacherInbox = useCallback((filters) => {
     if (!includeTeacherInbox) return Promise.resolve();
@@ -348,21 +390,47 @@ export function useTeacherReviewQueue({
     // directly so an Elasticsearch/backend error cannot be hidden behind an
     // n8n workflow response that still says success.
     if (decision === 'APPROVE') {
-      await teacherReviewApi.approveCandidate(id, payload);
-    } else {
-      await teacherReviewApi.rejectCandidate(id, payload);
+      return teacherReviewApi.approveCandidate(id, payload);
     }
+    await teacherReviewApi.rejectCandidate(id, payload);
+    return null;
   };
 
   const handleCandidateDecision = async (id, decision, note) => {
-    if (pendingCandidateActionIds.includes(id)) return false;
+    if (pendingCandidateIdsRef.current.has(id)) return false;
+    pendingCandidateIdsRef.current.add(id);
+    const snapshot = (queryClient.getQueryData(candidatesQueryKey) || EMPTY_LIST)
+      .find((candidate) => candidate.id === id) || null;
     setPendingCandidateActionIds((current) => [...current, id]);
-    triggerToast(decision === 'APPROVE' ? 'Đang phê duyệt tri thức đề xuất...' : 'Đang từ chối tri thức đề xuất...');
+    if (decision === 'APPROVE') {
+      setApprovalJobs((current) => ({
+        ...current,
+        [id]: { stage: 'SAVING', error: '', startedAt: Date.now(), candidate: snapshot },
+      }));
+    }
+    triggerToast(decision === 'APPROVE' ? 'Đang nạp tri thức vào RAG...' : 'Đang từ chối tri thức đề xuất...');
     try {
-      await submitCandidateDecision(id, decision, note);
+      const saved = await submitCandidateDecision(id, decision, note);
+      const indexed = decision !== 'APPROVE'
+        || INDEXED_CANDIDATE_STATUSES.has(String(saved?.status || '').toUpperCase());
+      if (decision === 'APPROVE' && !indexed) {
+        const message = 'Máy chủ chưa xác nhận candidate đã vào RAG. Candidate vẫn ở đây, bấm phê duyệt lại.';
+        setApprovalJobs((current) => ({
+          ...current,
+          [id]: { ...(current[id] || {}), stage: 'FAILED', error: message, candidate: snapshot },
+        }));
+        triggerToast(message, 'error');
+        return false;
+      }
       triggerToast(decision === 'APPROVE'
-        ? 'Đã phê duyệt và đưa vào tri thức AI Tutor.'
+        ? 'Đã nạp tri thức vào RAG.'
         : 'Đã từ chối tri thức đề xuất.');
+      setApprovalJobs((current) => {
+        if (!current[id]) return current;
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
       queryClient.setQueryData(candidatesQueryKey, (current = EMPTY_LIST) => (
         current.filter((candidate) => candidate.id !== id)
       ));
@@ -372,18 +440,19 @@ export function useTeacherReviewQueue({
       ]);
       return true;
     } catch (error) {
-      triggerToast(getUserFacingError(
-        error,
-        decision === 'APPROVE'
-          ? 'Không thể phê duyệt tri thức đề xuất.'
-          : 'Không thể từ chối tri thức đề xuất.',
-      ), 'error');
-      await Promise.allSettled([
-        queryClient.invalidateQueries({ queryKey: candidatesQueryKey, exact: true }),
-        queryClient.invalidateQueries({ queryKey: candidateHistoryQueryKey, exact: true }),
-      ]);
+      const message = decision === 'APPROVE'
+        ? approvalFailureMessage(error)
+        : getUserFacingError(error, 'Không thể từ chối tri thức đề xuất.');
+      if (decision === 'APPROVE') {
+        setApprovalJobs((current) => ({
+          ...current,
+          [id]: { ...(current[id] || {}), stage: 'FAILED', error: message, candidate: current[id]?.candidate || snapshot },
+        }));
+      }
+      triggerToast(message, 'error');
       return false;
     } finally {
+      pendingCandidateIdsRef.current.delete(id);
       setPendingCandidateActionIds((current) => current.filter((candidateId) => candidateId !== id));
     }
   };
@@ -394,7 +463,8 @@ export function useTeacherReviewQueue({
     selectedEscalation,
     setSelectedEscalation,
     candidates,
-    isCandidatesLoading: isSeniorReviewer && (candidatesQuery.isPending || candidatesQuery.isFetching),
+    approvalJobs,
+    isCandidatesLoading: isSeniorReviewer && candidatesQuery.isPending && !candidatesQuery.data,
     reviewedCandidates,
     isCandidateHistoryLoading: isSeniorReviewer
       && (candidateHistoryQuery.isPending || candidateHistoryQuery.isFetching),

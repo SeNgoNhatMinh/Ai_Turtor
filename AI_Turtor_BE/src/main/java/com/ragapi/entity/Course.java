@@ -20,8 +20,6 @@ public class Course {
     @Id
     private String id;
 
-    @JsonAlias("semesterCode")
-    private String semesterId;
     @JsonAlias("courseCode")
     private String courseId;
     @JsonAlias({"name", "title"})

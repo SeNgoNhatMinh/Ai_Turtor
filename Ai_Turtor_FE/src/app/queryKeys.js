@@ -138,7 +138,6 @@ export const queryKeys = {
   adminAiLogs: (filters = {}) => ['admin', 'ai-logs', filters],
   adminLlmProviders: () => ['admin', 'llm-providers', 'configuration'],
   adminLlmProviderStats: () => ['admin', 'llm-providers', 'stats'],
-  adminSemesters: () => ['admin', 'academic', 'semesters'],
   adminCourses: () => ['admin', 'academic', 'courses'],
   adminClassSections: (courseId) => ['admin', 'academic', 'class-sections', courseId || 'none'],
   adminEnrollments: (courseId, classId) => [

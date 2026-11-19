@@ -44,7 +44,7 @@ function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
           <DataTable
             data={courses || []}
             searchable
-            searchKeys={['courseId', 'courseName', 'description', 'semesterId', 'status']}
+            searchKeys={['courseId', 'courseName', 'description', 'status']}
             searchPlaceholder="Tìm mã hoặc tên môn học"
             maxBodyHeight={560}
             emptyText="Chưa có môn học."

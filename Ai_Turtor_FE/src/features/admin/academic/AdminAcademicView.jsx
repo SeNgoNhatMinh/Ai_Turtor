@@ -16,10 +16,9 @@ import './AdminAcademic.css';
 
 const ImportWebsiteModal = lazy(() => import('../../../components/importWebsite/ImportWebsiteModal'));
 
-function AdminAcademic({ section = 'semesters', triggerToast, currentUser }) {
+function AdminAcademic({ section = 'courses', triggerToast, currentUser }) {
   const [studentSearch, setStudentSearch] = useState('');
   const debouncedStudentSearch = useDebouncedValue(studentSearch.trim(), 300);
-  const [formSemester] = Form.useForm();
   const [formCourse] = Form.useForm();
   const [formClass] = Form.useForm();
   const [formEnroll] = Form.useForm();
@@ -29,7 +28,6 @@ function AdminAcademic({ section = 'semesters', triggerToast, currentUser }) {
 
   const academic = useAcademicRecords({
     triggerToast,
-    formSemester,
     formCourse,
     formClass,
     formEnroll,
@@ -85,7 +83,6 @@ function AdminAcademic({ section = 'semesters', triggerToast, currentUser }) {
     form: formEntity,
     selectedCourseId: academic.selectedCourseId,
     materialCourseId: materials.materialCourseId,
-    loadSemesters: academic.loadSemesters,
     loadCourses: academic.loadCourses,
     loadClassSections: academic.loadClassSections,
     loadStudentEnrollments: academic.loadStudentEnrollments,
@@ -94,7 +91,6 @@ function AdminAcademic({ section = 'semesters', triggerToast, currentUser }) {
       formMaterial.setFieldValue('syllabusDescription', syllabusDescription);
     },
     deleteHandlers: {
-      semester: academic.handleDeleteSemester,
       course: academic.handleDeleteCourse,
       classSection: academic.handleDeleteClassSection,
       enrollment: academic.handleDeleteEnrollment,
@@ -112,7 +108,6 @@ function AdminAcademic({ section = 'semesters', triggerToast, currentUser }) {
       <AdminAcademicTabs
         section={section}
         forms={{
-          semester: formSemester,
           course: formCourse,
           classSection: formClass,
           enrollment: formEnroll,

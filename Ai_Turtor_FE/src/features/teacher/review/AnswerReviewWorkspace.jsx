@@ -8,8 +8,30 @@ import AnswerReviewQueueTile from './AnswerReviewQueueTile';
 import { queueItemKey } from './answerReviewQueueUtils';
 import GroupedAnswerReviewCard from './GroupedAnswerReviewCard';
 import KnowledgeCandidateReviewList from './KnowledgeCandidateReviewList';
+import ReviewSummaryTile from './ReviewSummaryTile';
+import { formatKnowledgeCandidateStatus } from '../../../constants/knowledgeFlow';
+import { htmlToPlainText } from '../../../utils/richText';
 import './ReviewWorkspace.css';
 import './AnswerReviewWorkspace.css';
+
+const FAILED_INDEX_STATUSES = new Set(['FAILED', 'INDEXING_FAILED', 'ERROR']);
+
+function historyItemKey(item) {
+  return `${item.kind}:${item.record?.id || ''}`;
+}
+
+function candidateTileTone(candidate, job) {
+  const indexing = String(candidate?.indexingStatus || '').toUpperCase();
+  if (job?.stage === 'FAILED' || FAILED_INDEX_STATUSES.has(indexing)) return 'red';
+  return 'attention';
+}
+
+function candidateMeta(candidate) {
+  return [
+    candidate?.courseId && `Môn ${candidate.courseId}`,
+    candidate?.teacherName || candidate?.createdByName || candidate?.authorName,
+  ].filter(Boolean).join(' · ');
+}
 
 export default function AnswerReviewWorkspace({
   mode = 'mentor',
@@ -31,14 +53,17 @@ export default function AnswerReviewWorkspace({
   onApproveCandidate,
   onRejectCandidate,
   pendingCandidateIds = [],
+  approvalJobs = {},
   currentReviewerId = '',
   onRefreshCandidates,
   onRefreshHistory,
 }) {
   const [view, setView] = useState('pending');
-  const [seniorSection, setSeniorSection] = useState('feedback');
+  const [seniorSection, setSeniorSection] = useState('candidates');
   const [seniorDrafts, setSeniorDrafts] = useState({});
   const [selectedQueueKey, setSelectedQueueKey] = useState(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState(null);
+  const [selectedHistoryKey, setSelectedHistoryKey] = useState(null);
   const isSenior = mode === 'senior' || mode === 'admin';
 
   const updateSeniorDraft = (reviewId, patch) => {
@@ -104,12 +129,11 @@ export default function AnswerReviewWorkspace({
     initialPageSize: 10,
     pageSizeOptions: [10, 20, 50],
   });
-  const visibleHistoryCandidates = collection.visibleItems
-    .filter((item) => item.kind === 'candidate')
-    .map((item) => item.record);
   const visibleHistoryReviews = collection.visibleItems
     .filter((item) => item.kind === 'review')
     .map((item) => item.record);
+  const selectedCandidate = candidates.find((candidate) => candidate.id === selectedCandidateId) || null;
+  const selectedHistory = historyItems.find((item) => historyItemKey(item) === selectedHistoryKey) || null;
   const searchPlaceholder = activeSection === 'candidates'
     ? 'Tìm câu hỏi, câu trả lời hoặc môn học'
     : isHistoryView
@@ -119,6 +143,8 @@ export default function AnswerReviewWorkspace({
   const selectSeniorSection = (section) => {
     setSeniorSection(section);
     setSelectedQueueKey(null);
+    setSelectedCandidateId(null);
+    setSelectedHistoryKey(null);
     collection.setQuery('');
   };
 
@@ -262,22 +288,55 @@ export default function AnswerReviewWorkspace({
                 <span className="review-stage__step">Bước 2</span>
                 <div>
                   <h3 id="knowledge-candidate-heading">Phê duyệt tri thức cho RAG</h3>
-                  <p>Chỉ nội dung đã đối chiếu và được phê duyệt ở đây mới trở thành tri thức của AI Tutor.</p>
+                  <p>Danh sách ô theo từng đề xuất. Bấm ô để xem nội dung, theo dõi nạp RAG và phê duyệt.</p>
                 </div>
               </div>
-              {candidatesLoading ? (
+              {candidatesLoading && candidates.length === 0 ? (
                 <div className="no-data-text">Đang tải tri thức chờ duyệt...</div>
-              ) : (
-                <KnowledgeCandidateReviewList
-                  candidates={collection.visibleItems}
-                  candidateNotes={candidateNotes}
-                  canReviewKnowledgeCandidates
-                  handleNoteChange={onCandidateNoteChange}
-                  handleApproveCandidate={onApproveCandidate}
-                  handleRejectCandidate={onRejectCandidate}
-                  pendingActionIds={pendingCandidateIds}
-                  currentReviewerId={currentReviewerId}
+              ) : collection.filteredCount === 0 ? (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={collection.query ? 'Không có tri thức khớp từ khóa.' : 'Không có tri thức nào đang chờ phê duyệt.'}
                 />
+              ) : selectedCandidate ? (
+                <div className="answer-review-detail">
+                  <Button
+                    type="text"
+                    icon={<ArrowLeft size={15} />}
+                    onClick={() => setSelectedCandidateId(null)}
+                  >
+                    Quay lại danh sách
+                  </Button>
+                  <KnowledgeCandidateReviewList
+                    candidates={[selectedCandidate]}
+                    candidateNotes={candidateNotes}
+                    canReviewKnowledgeCandidates
+                    handleNoteChange={onCandidateNoteChange}
+                    handleApproveCandidate={onApproveCandidate}
+                    handleRejectCandidate={onRejectCandidate}
+                    pendingActionIds={pendingCandidateIds}
+                    approvalJobs={approvalJobs}
+                    currentReviewerId={currentReviewerId}
+                  />
+                </div>
+              ) : (
+                <div className="answer-review-list">
+                  <div className="answer-review-tile-grid">
+                    {collection.visibleItems.map((candidate) => (
+                      <ReviewSummaryTile
+                        key={candidate.id}
+                        tone={candidateTileTone(candidate, approvalJobs[candidate.id])}
+                        title={htmlToPlainText(candidate.question) || 'Câu hỏi chưa có nội dung'}
+                        meta={candidateMeta(candidate)}
+                        tags={[
+                          { label: formatKnowledgeCandidateStatus(candidate.status), color: 'gold' },
+                          candidate.courseId ? { label: candidate.courseId } : null,
+                        ].filter(Boolean)}
+                        onOpen={() => setSelectedCandidateId(candidate.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
               )}
             </section>
           )}
@@ -288,40 +347,64 @@ export default function AnswerReviewWorkspace({
                 <span className="review-stage__step review-stage__step--neutral">Lịch sử</span>
                 <div>
                   <h3 id="senior-history-heading">Phản hồi đã xử lý</h3>
-                  <p>Dùng để đối chiếu quyết định trước đó; không thực hiện lại thao tác phê duyệt.</p>
+                  <p>Danh sách ô các quyết định đã xong. Bấm ô để xem lại, không phê duyệt lại từ đây.</p>
                 </div>
               </div>
               {historyLoading ? (
                 <div className="no-data-text">Đang tải lịch sử kiểm duyệt...</div>
-                  ) : collection.filteredCount === 0 ? (
+              ) : collection.filteredCount === 0 ? (
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                   description={collection.query ? 'Không có lịch sử khớp từ khóa.' : 'Chưa có hoạt động kiểm duyệt nào.'}
                 />
+              ) : selectedHistory ? (
+                <div className="answer-review-detail">
+                  <Button
+                    type="text"
+                    icon={<ArrowLeft size={15} />}
+                    onClick={() => setSelectedHistoryKey(null)}
+                  >
+                    Quay lại danh sách
+                  </Button>
+                  {selectedHistory.kind === 'candidate' ? (
+                    <KnowledgeCandidateReviewList
+                      candidates={[selectedHistory.record]}
+                      history
+                      currentReviewerId={currentReviewerId}
+                    />
+                  ) : (
+                    <AnswerReviewCard review={selectedHistory.record} queue="history" />
+                  )}
+                </div>
               ) : (
-                <div className="review-history-sections">
-                  {visibleHistoryCandidates.length > 0 && (
-                    <section className="review-history-group" aria-labelledby="candidate-history-heading">
-                      <div className="review-history-group__heading">
-                        <h4 id="candidate-history-heading">Lịch sử tri thức RAG</h4>
-                        <span>{visibleHistoryCandidates.length} trên trang này</span>
-                      </div>
-                      <KnowledgeCandidateReviewList
-                        candidates={visibleHistoryCandidates}
-                        history
-                        currentReviewerId={currentReviewerId}
-                      />
-                    </section>
-                  )}
-                  {visibleHistoryReviews.length > 0 && (
-                    <section className="review-history-group" aria-labelledby="feedback-history-heading">
-                      <div className="review-history-group__heading">
-                        <h4 id="feedback-history-heading">Phản hồi AI đã xử lý</h4>
-                        <span>{visibleHistoryReviews.length} trên trang này</span>
-                      </div>
-                      {renderReviewList(visibleHistoryReviews, true)}
-                    </section>
-                  )}
+                <div className="answer-review-list">
+                  <div className="answer-review-tile-grid">
+                    {collection.visibleItems.map((item) => {
+                      const record = item.record;
+                      const isCandidate = item.kind === 'candidate';
+                      const rejected = ['REJECTED', 'DECLINED'].includes(String(record.status || '').toUpperCase());
+                      return (
+                        <ReviewSummaryTile
+                          key={historyItemKey(item)}
+                          tone="watch"
+                          title={htmlToPlainText(record.question) || 'Mục đã xử lý'}
+                          meta={[
+                            record.courseId && `Môn ${record.courseId}`,
+                            isCandidate ? 'Tri thức RAG' : 'Phản hồi AI',
+                          ].filter(Boolean).join(' · ')}
+                          tags={[
+                            {
+                              label: isCandidate
+                                ? formatKnowledgeCandidateStatus(record.status)
+                                : 'Đã xử lý',
+                              color: rejected ? 'red' : 'green',
+                            },
+                          ]}
+                          onOpen={() => setSelectedHistoryKey(historyItemKey(item))}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </section>

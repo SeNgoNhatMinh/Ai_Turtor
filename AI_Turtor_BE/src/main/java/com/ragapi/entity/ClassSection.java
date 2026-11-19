@@ -22,8 +22,6 @@ public class ClassSection {
     @Id
     private String id;
 
-    @JsonAlias("semesterCode")
-    private String semesterId;
     @JsonAlias("courseCode")
     private String courseId;
     @JsonAlias("courseTitle")

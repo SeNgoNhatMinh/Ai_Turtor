@@ -106,4 +106,76 @@ describe('KnowledgeCandidateReviewList flow separation', () => {
     expect(screen.getByText('Chưa đúng nội dung giáo trình.')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Từ chối' })).not.toBeInTheDocument();
   });
+
+  it('closes the approve dialog immediately and leaves the page usable', async () => {
+    const approveCandidate = vi.fn(() => new Promise(() => {}));
+    render(
+      <KnowledgeCandidateReviewList
+        candidates={[{ ...candidate, teacherId: 'teacher-1' }]}
+        candidateNotes={{ 'candidate-1': 'Duyệt' }}
+        canReviewKnowledgeCandidates
+        currentReviewerId="senior-2"
+        handleNoteChange={vi.fn()}
+        handleApproveCandidate={approveCandidate}
+        handleRejectCandidate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Phê duyệt vào tri thức AI' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Phê duyệt' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Phê duyệt tri thức này?' })).not.toBeInTheDocument();
+    });
+    expect(approveCandidate).toHaveBeenCalledWith('candidate-1', 'Duyệt');
+    expect(document.body).not.toHaveStyle({ overflow: 'hidden' });
+  });
+
+  it('keeps a failed RAG ingest on the candidate and offers another approval', () => {
+    render(
+      <KnowledgeCandidateReviewList
+        candidates={[{ ...candidate, teacherId: 'teacher-1' }]}
+        candidateNotes={{ 'candidate-1': 'Duyệt lại' }}
+        canReviewKnowledgeCandidates
+        currentReviewerId="senior-2"
+        approvalJobs={{
+          'candidate-1': {
+            stage: 'FAILED',
+            error: 'NVIDIA đang quá tải hoặc hết thời gian chờ, nên chưa nạp được vào RAG. Candidate vẫn ở đây, bấm phê duyệt lại.',
+          },
+        }}
+        handleNoteChange={vi.fn()}
+        handleApproveCandidate={vi.fn()}
+        handleRejectCandidate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Tạo embedding')).toBeVisible();
+    expect(screen.getByText(/NVIDIA đang quá tải/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Phê duyệt lại' })).toBeEnabled();
+    expect(screen.getByText('Spring Boot là gì?')).toBeVisible();
+  });
+
+  it('shows the saved indexing failure on the candidate before a new approval starts', () => {
+    render(
+      <KnowledgeCandidateReviewList
+        candidates={[{
+          ...candidate,
+          teacherId: 'teacher-1',
+          question: 'jspInit() và jspDestroy() là gì',
+          indexingStatus: 'FAILED',
+        }]}
+        candidateNotes={{ 'candidate-1': 'Duyệt lại' }}
+        canReviewKnowledgeCandidates
+        currentReviewerId="senior-2"
+        handleNoteChange={vi.fn()}
+        handleApproveCandidate={vi.fn()}
+        handleRejectCandidate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('jspInit() và jspDestroy() là gì')).toBeVisible();
+    expect(screen.getByText(/Lần nạp trước chưa vào RAG/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Phê duyệt lại' })).toBeEnabled();
+  });
 });

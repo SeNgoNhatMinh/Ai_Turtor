@@ -58,8 +58,59 @@ describe('AnswerReviewWorkspace queue tiles', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /Phản hồi cần xử lý/ }));
     expect(screen.queryByRole('button', { name: 'Đề xuất tri thức đúng' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Vòng đời của Servlet/ }));
     expect(screen.getByRole('button', { name: 'Đề xuất tri thức đúng' })).toBeInTheDocument();
+  });
+
+  it('opens one knowledge candidate from a tile, then returns to the grid', () => {
+    render(
+      <AnswerReviewWorkspace
+        mode="senior"
+        candidates={[{
+          id: 'candidate-1',
+          teacherId: 'teacher-1',
+          courseId: 'PRJ301',
+          question: 'jspInit() là gì',
+          content: 'jspInit chạy một lần',
+          status: 'PENDING_SENIOR_REVIEW',
+        }]}
+        candidateNotes={{ 'candidate-1': 'Duyệt' }}
+        currentReviewerId="senior-2"
+        onApproveCandidate={vi.fn()}
+        onRejectCandidate={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Phê duyệt vào tri thức AI' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /jspInit\(\) là gì/ }));
+    expect(screen.getByRole('button', { name: 'Phê duyệt vào tri thức AI' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Quay lại danh sách' }));
+    expect(screen.queryByRole('button', { name: 'Phê duyệt vào tri thức AI' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /jspInit\(\) là gì/ })).toBeInTheDocument();
+  });
+
+  it('opens one history record from a tile', () => {
+    render(
+      <AnswerReviewWorkspace
+        mode="senior"
+        reviewedCandidates={[{
+          id: 'candidate-rejected',
+          courseId: 'PRJ301',
+          question: 'Rejected candidate question',
+          content: 'Rejected answer',
+          status: 'REJECTED',
+          reviewerName: 'Senior Reviewer',
+          rejectionReason: 'Nội dung chưa chính xác.',
+          reviewedAt: '2026-08-03T09:00:00Z',
+        }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Lịch sử/ }));
+    expect(screen.queryByText('Nội dung chưa chính xác.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Rejected candidate question/ }));
+    expect(screen.getByText('Nội dung chưa chính xác.')).toBeInTheDocument();
   });
 });

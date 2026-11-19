@@ -104,8 +104,8 @@ export const uiCopy = {
       subtitle: "Quản lý tài khoản, vai trò, hồ sơ giảng viên và dữ liệu import.",
     },
     academic: {
-      title: "Học kỳ & lớp học",
-      subtitle: "Quản lý học kỳ, môn học, lớp học phần, ghi danh và học liệu dùng chung.",
+      title: "Môn học & lớp học",
+      subtitle: "Quản lý môn học, lớp học phần, ghi danh và học liệu dùng chung.",
     },
   },
 };

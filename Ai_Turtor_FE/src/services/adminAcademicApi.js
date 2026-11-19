@@ -4,12 +4,6 @@ import { encodePath } from '../config/env';
 import { fetchServerQuery, invalidateServerQueries } from './queryCache';
 
 export const adminAcademicApi = {
-  async getSemesters(options = {}) {
-    return asArray(await request(`${API_BASE_URL}/admin/semesters`, {
-      signal: options.signal,
-    }), 'semesters', 'content');
-  },
-
   async getCourses(options = {}) {
     return asArray(await request(`${API_BASE_URL}/courses`, {
       signal: options.signal,
@@ -33,26 +27,6 @@ export const adminAcademicApi = {
       force: options.force,
       staleTime: 15_000,
     });
-  },
-
-  async createSemester(payload) {
-    return request(`${API_BASE_URL}/academic/semesters`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-  },
-
-  async updateSemester(semesterCode, payload) {
-    return request(`${API_BASE_URL}/admin/semesters/${encodePath(semesterCode)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-  },
-
-  async deleteSemester(semesterCode) {
-    return request(`${API_BASE_URL}/admin/semesters/${encodePath(semesterCode)}`, { method: 'DELETE' });
   },
 
   async createCourse(payload) {
@@ -202,7 +176,6 @@ export const adminAcademicApi = {
 
   async importClassStudents(courseId, classId, formData, options = {}) {
     const params = new URLSearchParams();
-    if (options.semesterId) params.append('semesterId', options.semesterId);
     if (options.courseName) params.append('courseName', options.courseName);
     if (options.status) params.append('status', options.status);
     if (options.dryRun != null) params.append('dryRun', String(options.dryRun));

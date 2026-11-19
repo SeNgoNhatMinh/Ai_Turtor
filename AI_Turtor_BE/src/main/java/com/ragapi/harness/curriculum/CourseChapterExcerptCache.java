@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class CourseChapterExcerptCache {
 
-    static final int EXCERPT_LIMIT = 12_000;
+    public static final int EXCERPT_LIMIT = 12_000;
 
     private final CourseChapterOutlineRepository outlineRepository;
     private final ConcurrentHashMap<String, Map<String, ChapterExcerpt>> courses = new ConcurrentHashMap<>();
@@ -96,6 +96,15 @@ public class CourseChapterExcerptCache {
     public boolean isLoaded(String courseId) {
         String key = normalize(courseId);
         return key != null && courses.containsKey(key);
+    }
+
+    public List<ChapterExcerpt> chapters(String courseId) {
+        String key = normalize(courseId);
+        if (key == null) {
+            return List.of();
+        }
+        Map<String, ChapterExcerpt> loaded = courses.get(key);
+        return loaded == null ? List.of() : List.copyOf(loaded.values());
     }
 
     public Optional<String> excerpt(String courseId, String chapterKey) {
