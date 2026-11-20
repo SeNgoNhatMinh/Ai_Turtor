@@ -120,7 +120,7 @@ public class LlmProviderAdminService {
     private String ollamaBaseUrl;
     @Value("${ollama.chat.model:}")
     private String ollamaChatModelName;
-    @Value("${ollama.chat.timeout-seconds:120}")
+    @Value("${ollama.chat.timeout-seconds:0}")
     private int ollamaChatTimeoutSeconds;
 
     public List<LlmProviderConfigView> listProviderConfigs() {

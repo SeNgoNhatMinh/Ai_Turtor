@@ -163,13 +163,15 @@ final class LlmProviderChain {
             throw new IllegalStateException("No alternate LLM provider is configured for quality fallback");
         }
         for (int index = Math.max(0, providersToSkip); index < attemptOrder.size(); index++) {
-            if (!generationDeadline.isZero()
-                    && Duration.ofNanos(System.nanoTime() - generationStartedNanos).compareTo(generationDeadline) >= 0) {
+            Provider provider = attemptOrder.get(index);
+            if (deadlineReached(generationStartedNanos) && !isLocalFallback(provider)) {
                 lastFailure = new java.util.concurrent.TimeoutException(
                         "LLM generation deadline exceeded after " + generationDeadline.toSeconds() + " seconds");
+                if (hasLocalFallbackAfter(attemptOrder, index)) {
+                    continue;
+                }
                 break;
             }
-            Provider provider = attemptOrder.get(index);
             ProviderMetrics providerMetrics = metrics.get(provider.name());
             providerMetrics.attempts.incrementAndGet();
             long startedNanos = System.nanoTime();
@@ -403,6 +405,24 @@ final class LlmProviderChain {
             long completedCount = completedAttempts.get();
             return completedCount == 0 ? 0 : totalLatencyMs.get() / completedCount;
         }
+    }
+
+    private boolean deadlineReached(long generationStartedNanos) {
+        return !generationDeadline.isZero()
+                && Duration.ofNanos(System.nanoTime() - generationStartedNanos).compareTo(generationDeadline) >= 0;
+    }
+
+    private static boolean isLocalFallback(Provider provider) {
+        return provider != null && "ollama".equalsIgnoreCase(provider.name());
+    }
+
+    private static boolean hasLocalFallbackAfter(List<Provider> attemptOrder, int index) {
+        for (int next = index + 1; next < attemptOrder.size(); next++) {
+            if (isLocalFallback(attemptOrder.get(next))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static long elapsedMillis(long startedNanos) {

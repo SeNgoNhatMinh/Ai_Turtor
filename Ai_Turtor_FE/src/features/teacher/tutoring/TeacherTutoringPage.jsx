@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { Button, Card, Drawer, Empty, Input, Select, Skeleton, Tag } from "antd";
+import { Button, Card, Drawer, Empty, Input, Select, Skeleton } from "antd";
 import { ArrowRight, GraduationCap, Lightbulb, MessageSquareText, Search, TriangleAlert, Users } from "lucide-react";
 import { queryKeys } from "../../../app/queryKeys";
 import PageHeader from "../../../components/common/PageHeader";
@@ -25,20 +25,6 @@ import TeacherTranscriptThread from "./TeacherTranscriptThread";
 import AdaptiveLearningReviewPanel from "../review/AdaptiveLearningReviewPanel";
 import StudentTeachingRagPanel from "../behaviors/StudentTeachingRagPanel";
 import "./TeacherTutoringPage.css";
-
-function TopicList({ label, items, tone = "default", wrap = false }) {
-  if (!items?.length) return null;
-  return (
-    <div className={`teacher-topic-list${tone === "weak" ? " is-weak" : ""}${wrap ? " is-wrap" : ""}`}>
-      {label ? <span>{label}</span> : null}
-      <ul>
-        {items.slice(0, wrap ? 12 : 6).map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
 const EMPTY_LIST = [];
 
@@ -295,19 +281,6 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
             </div>
             <span className="tt-student__email">{getPersonEmail(student) || "Chưa có email"}</span>
             <span className="tt-student__activity">{student.activityLabel}</span>
-            {(student.studiedTopics?.length > 0 || student.weakTopics?.length > 0) && (
-              <div className="tt-student__topics">
-                {student.studiedTopics?.slice(0, 4).map((topic) => (
-                  <span key={`ok-${topic}`} className="tt-chip">{topic}</span>
-                ))}
-                {student.studiedTopics?.length > 4 && (
-                  <span className="tt-chip tt-chip--more">+{student.studiedTopics.length - 4}</span>
-                )}
-                {student.weakTopics?.slice(0, 3).map((topic) => (
-                  <span key={`weak-${topic}`} className="tt-chip tt-chip--weak">{topic}</span>
-                ))}
-              </div>
-            )}
           </div>
         </div>
         <div className="tt-student__actions">
@@ -471,11 +444,6 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
                       </span>
                     </span>
                     <strong className="tt-class-card__name">{scope.className || scope.classId}</strong>
-                    <span className="tt-class-card__features">
-                      <span><Users size={12} /> Sinh viên</span>
-                      <span><MessageSquareText size={12} /> Đoạn chat</span>
-                      <span><Lightbulb size={12} /> Gợi ý hỗ trợ</span>
-                    </span>
                   </button>
                 </Card>
               ))}
@@ -506,7 +474,6 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
             title={(
               <span className="tt-card-title">
                 <Users size={16} /> Danh sách sinh viên
-                <Tag color="blue">{tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length}</Tag>
               </span>
             )}
             extra={(
@@ -626,22 +593,6 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
           );
           const supportSections = (
             <>
-              <section className="teacher-detail-section">
-                <h3>Chủ đề đã học</h3>
-                {selectedStudent.studiedTopics?.length ? (
-                  <TopicList items={selectedStudent.studiedTopics} wrap />
-                ) : (
-                  <p className="teacher-tutoring-empty">Chưa ghi nhận chủ đề ngắn từ buổi học.</p>
-                )}
-              </section>
-
-              {selectedStudent.weakTopics?.length > 0 && (
-                <section className="teacher-detail-section">
-                  <h3>Cần củng cố</h3>
-                  <TopicList items={selectedStudent.weakTopics} tone="weak" wrap />
-                </section>
-              )}
-
               <section className="teacher-detail-section">
                 <h3>Đánh giá tiến bộ của AI</h3>
                 <AdaptiveLearningReviewPanel

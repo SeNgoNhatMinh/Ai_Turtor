@@ -41,7 +41,7 @@ export const env = {
   n8nBaseUrl: trimTrailingSlash(import.meta.env.VITE_N8N_BASE_URL || 'http://localhost:5678'),
   n8nWebhookMode: import.meta.env.VITE_N8N_WEBHOOK_MODE || 'production',
   n8nTimeoutMs: parseNumber(import.meta.env.VITE_N8N_TIMEOUT_MS, 60000),
-  n8nChatTimeoutMs: parseNumber(import.meta.env.VITE_N8N_CHAT_TIMEOUT_MS, 180000),
+  n8nChatTimeoutMs: parseNumber(import.meta.env.VITE_N8N_CHAT_TIMEOUT_MS, 21_600_000),
   n8nQuizTimeoutMs: parseNumber(import.meta.env.VITE_N8N_QUIZ_TIMEOUT_MS, 240000),
   n8nQuizEnabled: parseBoolean(import.meta.env.VITE_N8N_QUIZ_ENABLED, false),
   n8nAssignmentGradingEnabled: parseBoolean(import.meta.env.VITE_N8N_ASSIGNMENT_GRADING_ENABLED, false),

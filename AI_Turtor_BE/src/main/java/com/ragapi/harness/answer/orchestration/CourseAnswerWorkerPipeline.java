@@ -29,6 +29,8 @@ import org.slf4j.MDC;
 class CourseAnswerWorkerPipeline {
 
     private static final int REQUIRED_FOLLOW_UP_ATTEMPTS = 3;
+    /** Cloud providers still fail over on their own short timeout. Local Ollama may use the rest of this wait. */
+    private static final Duration LOCAL_FALLBACK_WAIT = Duration.ofHours(6);
 
     private final CourseAnswerGenerationService generationService;
     private final AiWorkerTraceService traceService;
@@ -169,7 +171,7 @@ class CourseAnswerWorkerPipeline {
         lessonWorker.put("worker-1", () -> generationService.generateWorker1GroundedAnswer(
                 worker1Prompt, question, request.teachingMode(), context, request.learnerMemoryContext(), false));
         Map<String, AiWorkerResult<String>> lessonResults =
-                workerOrchestrator.executeParallel(lessonWorker, Duration.ofSeconds(60));
+                workerOrchestrator.executeParallel(lessonWorker, LOCAL_FALLBACK_WAIT);
         String answer = successfulOutput(lessonResults.get("worker-1"));
         recordWorkerOutput(traceId, "worker-1", "Worker 1 · Answer Generator", "GENERATE_ANSWER",
                 answer, lessonResults.get("worker-1"));
@@ -194,7 +196,7 @@ class CourseAnswerWorkerPipeline {
                 () -> generationService.generateWorkerUtilityAnswer(deepStudyPrompt),
                 text -> hasText(normalizeDeepStudyTitles(text))));
         Map<String, AiWorkerResult<String>> results =
-                workerOrchestrator.executeParallel(followUpWorkers, Duration.ofSeconds(60));
+                workerOrchestrator.executeParallel(followUpWorkers, LOCAL_FALLBACK_WAIT);
         String quiz = successfulOutput(results.get("worker-2"));
         String deepStudy = successfulOutput(results.get("worker-3"));
         recordWorkerOutput(traceId, "worker-2", "Worker 2 · Quiz Generator", "GENERATE_QUIZ", quiz, results.get("worker-2"));

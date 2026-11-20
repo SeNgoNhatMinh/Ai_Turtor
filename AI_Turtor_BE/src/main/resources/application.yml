@@ -142,7 +142,7 @@ llm:
   # limit. The input budget leaves room for a full lesson, not a stub.
   max-input-tokens: ${LLM_MAX_INPUT_TOKENS:5000}
   max-output-tokens: ${LLM_MAX_OUTPUT_TOKENS:2048}
-  # Must stay below the n8n Course RAG Query timeout (300 seconds).
+  # Stops further cloud providers. The local Ollama fallback is still called after this.
   generation-deadline-seconds: ${LLM_GENERATION_DEADLINE_SECONDS:180}
   groq:
     enabled: ${GROQ_ENABLED:true}
@@ -174,7 +174,8 @@ ollama:
   chat:
     enabled: ${OLLAMA_CHAT_ENABLED:false}
     model: ${OLLAMA_CHAT_MODEL:}
-    timeout-seconds: ${OLLAMA_CHAT_TIMEOUT_SECONDS:120}
+    # The chat client waits until Ollama answers. This value is not an HTTP cutoff.
+    timeout-seconds: ${OLLAMA_CHAT_TIMEOUT_SECONDS:0}
     temperature: ${OLLAMA_CHAT_TEMPERATURE:0.2}
     top-k: ${OLLAMA_CHAT_TOP_K:40}
     # Conservative fallback profile for 4 GB GPUs. Cloud providers remain first

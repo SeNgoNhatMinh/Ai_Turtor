@@ -371,6 +371,31 @@ class LlmProviderChainTest {
     }
 
     @Test
+    void stillCallsLocalOllamaAfterTheGenerationDeadline() throws Exception {
+        LlmProviderChain chain = new LlmProviderChain(
+                List.of(
+                        provider("slow", prompt -> {
+                            Thread.sleep(20);
+                            throw new RuntimeException("HTTP 503 Service is overloaded");
+                        }),
+                        provider("ollama", prompt -> "local-answer")
+                ),
+                Duration.ZERO,
+                Duration.ZERO,
+                Duration.ZERO,
+                Duration.ZERO,
+                true,
+                Duration.ofMillis(5),
+                FIXED_CLOCK
+        );
+
+        LlmProviderChain.Result result = chain.generate("question");
+
+        assertEquals("ollama", result.provider());
+        assertEquals("local-answer", result.text());
+    }
+
+    @Test
     void preferringModelsTriesPreferredModelFirstThenFallsBack() throws Exception {
         LlmProviderChain chain = new LlmProviderChain(List.of(
                 new LlmProviderChain.Provider("slow-first", "model-a", prompt -> {

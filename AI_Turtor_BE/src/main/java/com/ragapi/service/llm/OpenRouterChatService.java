@@ -375,7 +375,7 @@ public class OpenRouterChatService {
                 OllamaChatModel ollama = OllamaChatModel.builder()
                         .baseUrl(baseUrl)
                         .modelName(slot.model())
-                        .timeout(Duration.ofSeconds(Math.max(15, slot.timeoutSeconds())))
+                        .timeout(Duration.ZERO)
                         .temperature(ollamaTemperature)
                         .topK(Math.max(1, ollamaTopK))
                         .numPredict(Math.max(64, ollamaNumPredict))
@@ -384,8 +384,8 @@ public class OpenRouterChatService {
                         .build();
                 providers.add(new LlmProviderChain.Provider(
                         slot.providerId(), slot.model(), prompt -> requireStudentReadyOutput(ollama.generate(prompt))));
-                log.info("Ollama chat client ready: model={}, baseUrl={}, timeout={}s, numPredict={}, numCtx={}",
-                        slot.model(), baseUrl, slot.timeoutSeconds(), ollamaNumPredict, ollamaNumCtx);
+                log.info("Ollama chat client ready: model={}, baseUrl={}, timeout=none, numPredict={}, numCtx={}",
+                        slot.model(), baseUrl, ollamaNumPredict, ollamaNumCtx);
                 continue;
             }
             int timeoutSeconds = slot.timeoutSeconds();

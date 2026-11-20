@@ -144,7 +144,7 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
       expect(screen.getAllByText('Nguyen Van A · SE1840001').length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText('Tran Thi B · SE1840002').length).toBeGreaterThan(0);
-    expect(screen.getByText('jsp')).toBeVisible();
+    expect(screen.queryByText('jsp')).not.toBeInTheDocument();
     expect(screen.getByText('Chưa học với AI Tutor')).toBeVisible();
     expect(screen.getByText('Danh sách sinh viên')).toBeVisible();
     expect(screen.getAllByText('PRJ301 · SE1840').length).toBeGreaterThan(0);
@@ -188,14 +188,8 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
     await waitFor(() => {
       expect(screen.getAllByText('Nguyen Van A · SE1840001').length).toBeGreaterThan(1);
     });
-    expect(screen.getByText('Bài đã học')).toBeVisible();
-    expect(screen.getByText('Chủ đề đã học')).toBeVisible();
-    expect(screen.getByText('Câu hỏi gần đây')).toBeVisible();
-    expect(screen.getByText(/Thực hành đọc biến và stack trace/)).toBeVisible();
-    expect(screen.queryByText('Tóm tắt các câu hỏi gần đây')).not.toBeInTheDocument();
-    expect(screen.queryByText('AI Learning Improvement Plan')).not.toBeInTheDocument();
-    expect(screen.getAllByText('Nắm vững JSTL và Java trong JSP').length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Đang học/).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Chủ đề đã học')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cần củng cố')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Xem hội thoại' })).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Xem hội thoại' }));
