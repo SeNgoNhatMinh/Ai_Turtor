@@ -17,15 +17,57 @@ final _curriculumStarterNoise = RegExp(
   r'^(?:bạn có thể bắt đầu|mẹo\b)',
   caseSensitive: false,
 );
+final _numberedCurriculumPrefix = RegExp(
+  r'^(?:bài|bai)\s+\d+\s*[:：.\-–—]\s*',
+  caseSensitive: false,
+);
 
 List<StudyPathSuggestion> parseCurriculumStudySuggestions(String markdown) {
-  return parseBulletsUnderHeadings(markdown, _curriculumStarterHeading)
-      .where(
-        (item) =>
-            !_curriculumStarterNoise.hasMatch(item.title) &&
-            !item.title.endsWith(':'),
-      )
+  final result = <StudyPathSuggestion>[];
+  final seen = <String>{};
+  for (final raw in parseBulletsUnderHeadings(
+    markdown,
+    _curriculumStarterHeading,
+  )) {
+    final item = _collapseRepeatedCurriculumTitle(raw);
+    if (_curriculumStarterNoise.hasMatch(item.title) ||
+        item.title.endsWith(':')) {
+      continue;
+    }
+    final key = item.title.toLowerCase();
+    if (!seen.add(key)) continue;
+    result.add(item);
+  }
+  return result;
+}
+
+StudyPathSuggestion _collapseRepeatedCurriculumTitle(
+  StudyPathSuggestion suggestion,
+) {
+  final parts = suggestion.title
+      .split(RegExp(r'\s*\|\|\s*'))
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
       .toList();
+  if (parts.length < 2) return suggestion;
+
+  final firstKey = _curriculumTitleKey(parts.first);
+  final allRepeated =
+      firstKey.isNotEmpty &&
+      parts.skip(1).every((part) => _curriculumTitleKey(part) == firstKey);
+  if (!allRepeated) return suggestion;
+
+  final title = parts.first;
+  return StudyPathSuggestion(title: title, suggestionText: title);
+}
+
+String _curriculumTitleKey(String value) {
+  return value
+      .replaceFirst(_numberedCurriculumPrefix, '')
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[.!?]+$'), '')
+      .trim();
 }
 
 List<StudyPathSuggestion> curriculumStudySuggestionsForMessage({
