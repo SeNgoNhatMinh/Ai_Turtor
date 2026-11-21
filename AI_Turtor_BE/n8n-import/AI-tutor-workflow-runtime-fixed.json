@@ -80,7 +80,7 @@
         },
         "sendBody": true,
         "options": {
-          "timeout": 60000
+          "timeout": 21600000
         },
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  studentId: $node['Set - Trace Context'].json.studentId,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  message: $node['Set - Trace Context'].json.message,\n  question: $node['Set - Trace Context'].json.question,\n  codeSnippet: $node['Set - Trace Context'].json.codeSnippet,\n  conversationId: $node['Set - Trace Context'].json.conversationId,\n  tutorSessionId: $node['Set - Trace Context'].json.tutorSessionId,\n  sessionPhase: $node['Set - Trace Context'].json.sessionPhase,\n  deferAgent: true\n}) }}"
@@ -214,7 +214,7 @@
         },
         "sendBody": true,
         "options": {
-          "timeout": 420000
+          "timeout": 21600000
         },
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  studentId: $node['Set - Trace Context'].json.studentId,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  question: $node['Set - Trace Context'].json.question,\n  code: $node['Set - Trace Context'].json.codeSnippet,\n  conversationId: $node['Set - Trace Context'].json.conversationId\n}) }}"
@@ -2169,7 +2169,9 @@
             {}
           ]
         },
-        "options": {}
+        "options": {
+          "timeout": 21600000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -2587,7 +2589,9 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"classId\": \"{{$node['Set: Normalize Quiz Generate Input'].json.classId}}\",\n  \"topic\": \"{{$node['Set: Normalize Quiz Generate Input'].json.topic}}\",\n  \"suggestionText\": \"{{$node['Set: Normalize Quiz Generate Input'].json.suggestionText}}\",\n  \"questionCount\": \"{{$node['Set: Normalize Quiz Generate Input'].json.questionCount}}\"\n}",
-        "options": {}
+        "options": {
+          "timeout": 21600000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -2771,7 +2775,9 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"classId\": \"{{$node['Set: Normalize Quiz Generate Input'].json.classId}}\",\n  \"title\": \"{{$node['Set: Normalize Quiz Generate Input'].json.title}}\",\n  \"topic\": \"{{$node['Set: Normalize Quiz Generate Input'].json.topic}}\",\n  \"suggestionText\": \"{{$node['Set: Normalize Quiz Generate Input'].json.suggestionText}}\",\n  \"questionCount\": \"{{$node['Set: Normalize Quiz Generate Input'].json.questionCount}}\"\n}",
-        "options": {}
+        "options": {
+          "timeout": 21600000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -3118,7 +3124,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "timeout": 21600000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -3406,7 +3414,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ message: $json.message, courseId: $json.courseId, mode: $json.mode, subIntent: $json.subIntent, domain: $json.domain, reason: $json.reason, confidence: $json.confidence }) }}",
         "options": {
-          "timeout": 30000
+          "timeout": 21600000
         }
       },
       "type": "n8n-nodes-base.httpRequest",
