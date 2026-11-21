@@ -158,6 +158,8 @@ function AiAnswer({
   understandingSelectedKey = '',
   attemptId = '',
   courseMaterialHeadingAddon,
+  originalQuestion = '',
+  reviewerPracticeEvidence = null,
 }) {
   const practice = useMemo(
     () => (streaming ? null : extractGuidedPractice(markdown)),
@@ -178,8 +180,11 @@ function AiAnswer({
       normalizeStructuredUnderstandingQuiz(understandingCheck) ? 1 : 0,
     );
     if (!quizTotal) return false;
+    // The backend stores one attempt per quiz item up front; only items with a
+    // chosen option are answered.
     const answered = new Set(
       (Array.isArray(understandingAttempts) ? understandingAttempts : [])
+        .filter((attempt) => String(attempt?.selectedKey || '').trim())
         .map((attempt) => Number(attempt?.quizIndex ?? -1))
         .filter((index) => index >= 0),
     );
@@ -212,6 +217,7 @@ function AiAnswer({
         const index = Number(attempt?.quizIndex ?? -1);
         const quiz = reviewQuizzes[index];
         const selectedKey = String(attempt?.selectedKey || '').trim().toUpperCase();
+        if (!selectedKey) return null;
         const selected = (Array.isArray(quiz?.options) ? quiz.options : [])
           .find((option) => option.key === selectedKey);
         const correctKey = String(quiz?.correctKey || '').trim().toUpperCase();
@@ -227,7 +233,7 @@ function AiAnswer({
       })
       .filter(Boolean);
     const prompt = draftText
-      ? buildFinishedWorkReviewPrompt({ draftText, incorrectAnswers })
+      ? buildFinishedWorkReviewPrompt({ draftText, incorrectAnswers, originalQuestion })
       : composeFinishedQuizPrompt({ incorrectAnswers, draftText: '' });
     if (!prompt || !onSubmitGuidedPractice) return;
     reviewSent.current = true;
@@ -239,6 +245,7 @@ function AiAnswer({
     attemptId,
     markdown,
     onSubmitGuidedPractice,
+    originalQuestion,
     practice,
     practiceSaved,
     quizFinished,
@@ -284,6 +291,7 @@ function AiAnswer({
         waitsForQuiz={waitsForQuiz}
         quizFinished={quizFinished}
         onSaved={() => setPracticeSaved(true)}
+        reviewerEvidence={reviewer ? reviewerPracticeEvidence : null}
       />
       <AnswerWithQuizzes
         markdown={practice.after}

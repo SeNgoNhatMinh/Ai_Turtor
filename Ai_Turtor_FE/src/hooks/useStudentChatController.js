@@ -25,6 +25,9 @@ import {
 import { useDailyQuestionQuota } from '../features/student/chat/useDailyQuestionQuota';
 import { useTutorSessionController } from '../features/student/chat/useTutorSessionController';
 import { isGuidedLessonPrompt } from '../features/student/learning/studySuggestionPrompt';
+
+// Hidden grading turn built by buildFinishedWorkReviewPrompt; it quotes the lesson title.
+const isFinishedWorkReviewText = (text) => /^\s*Học sinh đã nộp cả bài tập có hướng dẫn và quiz\./i.test(String(text || ''));
 import { isSuccessfulStudySuggestionAnswer } from '../features/student/learning/studySuggestionProgress';
 import {
   beginActiveChatGeneration,
@@ -279,7 +282,7 @@ export function useStudentChatController({
         }
         : {};
       const guidedLesson = requestContext.interactionType === 'GUIDED_LESSON'
-        || isGuidedLessonPrompt(text);
+        || (!isFinishedWorkReviewText(text) && isGuidedLessonPrompt(text));
       const effectiveInteractionType = requestContext.interactionType
         || (guidedLesson ? 'GUIDED_LESSON' : '');
       const interactionPayload = effectiveInteractionType

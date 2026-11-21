@@ -1,5 +1,5 @@
 const SECTION_HEADING = /^(#{1,6})\s+(?:\d+\.\s*)?bài tập có hướng dẫn\s*$/i;
-const SECTION_END = /^(#{1,6})\s+(?:\d+\.\s*)?(?:tự thực hành|kiểm tra hiểu|understanding check|quiz tự luyện|học chuyên sâu|nguồn tài liệu|bài tiếp theo|gợi ý học tập)\b/i;
+const SECTION_END = /^(#{1,6})\s+(?:\d+\.\s*)?(?:lưu ý để học tốt hơn|kiến thức bổ sung|tự thực hành|kiểm tra hiểu|understanding check|quiz tự luyện|học chuyên sâu|nguồn tài liệu|bài tiếp theo|gợi ý học tập)\b/i;
 const FENCE = /```[^\n]*\n([\s\S]*?)```/;
 const BLANK = /_{3,}|【\s*】|\[\s*(?:\.{2,}|blank)\s*\]|\bTODO\b/i;
 

@@ -5,6 +5,7 @@ import ChatMessageList from './ChatMessageList';
 import { buildMaterialSourceMap } from '../../../../utils/sourceLabels';
 import { classIdMatches } from '../../../../utils/academicIds';
 import ChatComposer from './ChatComposer';
+import ScrollToBottomButton from './ScrollToBottomButton';
 import StudentOwnLlmDialog from './StudentOwnLlmDialog';
 import { clearStudentOwnLlm, readStudentOwnLlm, saveStudentOwnLlm } from '../studentOwnLlm';
 import { aiTutorApi } from '../../../../services/aiTutorApi';
@@ -263,6 +264,9 @@ function ChatWorkspace({
       />
 
       <ChatComposer
+        topAccessory={safeMessages.length > 0 ? (
+          <ScrollToBottomButton messagesEndRef={messagesEndRef} watch={safeMessages.length} />
+        ) : null}
         activeSessionMaxTurnsReached={platformLocked}
         canChat={canChatWithCurrentContext}
         chatContextMessage={chatContextMessage}

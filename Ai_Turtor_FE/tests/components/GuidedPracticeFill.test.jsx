@@ -60,6 +60,27 @@ describe('guided practice fill', () => {
       .toContain('void doGet(req req)');
   });
 
+  it('does not review when the saved quiz attempts have no chosen option yet', () => {
+    localStorage.removeItem('guided-practice-draft:assistant-pending');
+    const onSubmitGuidedPractice = vi.fn();
+    render(
+      <AiAnswer
+        attemptId="assistant-pending"
+        markdown={quizMarkdown}
+        // The backend creates one attempt per quiz item before the student answers.
+        understandingAttempts={[{ quizIndex: 0, selectedKey: null, correct: null }]}
+        onSubmitGuidedPractice={onSubmitGuidedPractice}
+      />,
+    );
+
+    const [method, request] = screen.getAllByRole('textbox');
+    fireEvent.change(method, { target: { value: 'doGet' } });
+    fireEvent.change(request, { target: { value: 'req' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu bài làm' }));
+
+    expect(onSubmitGuidedPractice).not.toHaveBeenCalled();
+  });
+
   it('reteaches the concept after both the practice and the quiz are finished', () => {
     const onSubmitGuidedPractice = vi.fn();
     const view = render(
@@ -81,7 +102,7 @@ describe('guided practice fill', () => {
 
     expect(screen.getByText(/Đúng rồi\.|Chưa đúng\./)).toBeVisible();
     expect(onSubmitGuidedPractice).toHaveBeenCalledWith(expect.stringContaining('Hãy sửa bài'));
-    expect(onSubmitGuidedPractice).toHaveBeenCalledWith(expect.stringContaining('giảng lại đúng concept'));
+    expect(onSubmitGuidedPractice).toHaveBeenCalledWith(expect.stringContaining('hiểu nhầm gì so với concept học sinh đã hỏi'));
     expect(onSubmitGuidedPractice).toHaveBeenCalledWith(expect.stringContaining('void doGet(req req)'));
 
     view.rerender(

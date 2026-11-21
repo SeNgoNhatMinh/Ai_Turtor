@@ -100,7 +100,6 @@ function StudentLiveAnswer({
   isWelcomeTurn,
   showStudySuggestions,
   learnedSuggestionKeys,
-  currentLearnedSuggestion,
   fallbackStudySuggestions,
   materialSourceMap,
   message,
@@ -108,7 +107,6 @@ function StudentLiveAnswer({
   messageKey,
   messagesEndRef,
   offerLessonContinuations,
-  onCreateQuizFromSuggestion,
   onDownloadSource,
   onLockUnderstandingAnswer,
   onMentorRequestCreated,
@@ -194,6 +192,7 @@ function StudentLiveAnswer({
           understandingAttempts={done ? message.understandingCheckAttempts : []}
           understandingSelectedKey={done ? message.understandingSelectedKey : ''}
           attemptId={message.assistantMessageId || message.messageId || message.id}
+          originalQuestion={message.question}
           streaming={reveal && !done}
           sourceMap={materialSourceMap}
           onStudyTipStudy={done ? (text) => onStudySuggestion?.({
@@ -237,28 +236,14 @@ function StudentLiveAnswer({
           sourceMode={message.mode}
           actionsLocked={lessonActionsLocked}
           activeSuggestionKey={activeLessonKey}
+          learnedSuggestionKeys={learnedSuggestionKeys}
           heading="Gợi ý học tập"
-          hint="Chọn một bài trong tài liệu để bắt đầu học."
+          hint="Chọn một bài trong tài liệu để bắt đầu học. Bài đã học được đánh dấu."
           pageSize={5}
           showMoreLabel="Hiển thị thêm"
           collapseLabel="Ẩn bớt"
           enableSearch
           searchPlaceholder="Tìm bài học…"
-        />
-      )}
-      {done && showStudySuggestions && !message.canceled && !isWelcomeTurn
-        && (currentLearnedSuggestion || nextStudySuggestions.length > 0) && (
-        <AnswerImproveSuggestions
-          suggestions={nextStudySuggestions}
-          onStudy={onStudySuggestion}
-          onCreateQuiz={onCreateQuizFromSuggestion}
-          sourceMode={message.mode}
-          actionsLocked={lessonActionsLocked}
-          activeSuggestionKey={activeLessonKey}
-          learnedSuggestionKeys={learnedSuggestionKeys}
-          currentLearnedSuggestion={currentLearnedSuggestion}
-          heading="Gợi ý học tập"
-          hint="Bài vừa học được đánh dấu; bạn có thể chọn bài hoặc chương tiếp theo."
         />
       )}
       {done && showStudySuggestions && !message.canceled && offerLessonContinuations && !isWelcomeTurn
@@ -349,7 +334,6 @@ function ChatMessageList({
   isMessagesLoading = false,
   messagesEndRef,
   onAnswerAction,
-  onCreateQuizFromSuggestion,
   onDownloadSource,
   onOpenMentorReview,
   onMentorRequestCreated,
@@ -432,12 +416,6 @@ function ChatMessageList({
             const isWelcomeTurn = Boolean(message.proactive) || !String(message.question || '').trim();
             const showMentorSupport = !isWelcomeTurn && Boolean(escalationId || openSupportCards[messageKey]);
             const pathSuggestions = lessonSuggestionsForMessage(message);
-            const messageSuggestionKey = String(message.studySuggestionKey || '').trim();
-            const currentLearnedSuggestion = isWelcomeTurn
-              ? null
-              : learnedSuggestions.find((suggestion) => (
-                getStudySuggestionKey(suggestion) === messageSuggestionKey
-              ));
             const offerLessonContinuations = shouldOfferLessonContinuations(message);
             const tutorTurnFailed = Boolean(message.aiServiceError || isAiServiceErrorText(message.answer));
             const responseMode = String(message.mode || '').toUpperCase();
@@ -513,7 +491,6 @@ function ChatMessageList({
                             showStudySuggestions={isWelcomeTurn
                               || (index === latestSuggestionTurnIndex && tutorAnswered)}
                             learnedSuggestionKeys={learnedSuggestionKeys}
-                            currentLearnedSuggestion={currentLearnedSuggestion}
                             fallbackStudySuggestions={fallbackStudySuggestions}
                             materialSourceMap={materialSourceMap}
                             message={message}
@@ -521,7 +498,6 @@ function ChatMessageList({
                             messageKey={messageKey}
                             messagesEndRef={messagesEndRef}
                             offerLessonContinuations={offerLessonContinuations}
-                            onCreateQuizFromSuggestion={onCreateQuizFromSuggestion}
                             onDownloadSource={onDownloadSource}
                             onLockUnderstandingAnswer={onLockUnderstandingAnswer}
                             onMentorRequestCreated={onMentorRequestCreated}

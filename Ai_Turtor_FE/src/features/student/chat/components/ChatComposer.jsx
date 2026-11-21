@@ -23,6 +23,7 @@ function ChatComposer({
   setChatInput,
   setChatMode,
   triggerToast,
+  topAccessory = null,
 }) {
   const textareaRef = useRef(null);
   const speechBaseTextRef = useRef('');
@@ -105,6 +106,7 @@ function ChatComposer({
 
   return (
     <div className="chat-workspace-input-area">
+      {topAccessory}
       <div className="chat-workspace-input-inner">
         {quotaExhausted && (
           <div className="student-own-llm-banner" role="status">

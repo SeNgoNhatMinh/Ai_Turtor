@@ -11,6 +11,8 @@ import {
   parseNextLessonSuggestionsFromAnswer,
   teacherStudentPathLabel,
 } from '../../student/learning/studySuggestionPrompt';
+import TeacherPracticeEvidence from './TeacherPracticeEvidence';
+import { practiceEvidenceByTurn } from './practiceEvidence';
 import {
   groupTranscriptTurns,
   transcriptMessageText,
@@ -55,6 +57,7 @@ function TeacherStudyPathReview({ question, answer }) {
 export default function TeacherTranscriptThread({ messages = [], student }) {
   const turns = groupTranscriptTurns(messages);
   const studentLabel = getPersonDisplayName(student, 'Sinh viên');
+  const evidence = practiceEvidenceByTurn(turns, transcriptMessageText);
 
   if (!turns.length) {
     return <p className="teacher-transcript__empty">Chưa có tin nhắn trong buổi học này.</p>;
@@ -66,9 +69,17 @@ export default function TeacherTranscriptThread({ messages = [], student }) {
         const question = transcriptMessageText(turn.student);
         const answer = transcriptMessageText(turn.tutor);
         const pathLabel = teacherStudentPathLabel(question);
+        const submitted = evidence.bySubmission.get(turn.id);
         return (
           <section key={turn.id} className="chat-message-turn">
-            {turn.student ? (
+            {submitted ? (
+              <div className="chat-gpt-message-row user">
+                <div className="student-message-group">
+                  <span className="teacher-transcript__speaker">{studentLabel} · Nộp bài</span>
+                  <TeacherPracticeEvidence submission={submitted.submission} values={submitted.values} />
+                </div>
+              </div>
+            ) : turn.student ? (
               <div className="chat-gpt-message-row user">
                 <div className="student-message-group">
                   <span className="teacher-transcript__speaker">
@@ -97,6 +108,7 @@ export default function TeacherTranscriptThread({ messages = [], student }) {
                       understandingAttempts={turn.tutor?.understandingCheckAttempts}
                       understandingSelectedKey={turn.tutor?.understandingSelectedKey}
                       attemptId={turn.tutor?.id}
+                      reviewerPracticeEvidence={evidence.byExercise.get(turn.id) || null}
                     />
                     <TeacherStudyPathReview question={question} answer={answer} />
                   </div>

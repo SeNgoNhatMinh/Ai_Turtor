@@ -19,6 +19,7 @@ export default function GuidedPracticeFill({
   waitsForQuiz = false,
   quizFinished = false,
   onSaved,
+  reviewerEvidence = null,
 }) {
   const blankCount = Number(practice?.blankCount || 0);
   const inputCount = Math.max(blankCount, 1);
@@ -75,7 +76,28 @@ export default function GuidedPracticeFill({
     else if (offset > 0) save();
   };
 
-  const renderInput = (index) => (
+  const evidenceValues = Array.isArray(reviewerEvidence?.values) ? reviewerEvidence.values : null;
+  const evidenceGrades = Array.isArray(reviewerEvidence?.grades) ? reviewerEvidence.grades : [];
+  const gradedCorrect = evidenceGrades.filter((grade) => grade.correct).length;
+
+  const renderReviewerValue = (index) => {
+    const value = evidenceValues ? String(evidenceValues[index] || '') : '';
+    const grade = evidenceGrades[index];
+    const status = !value ? 'is-empty' : (grade ? (grade.correct ? 'is-correct' : 'is-wrong') : '');
+    const label = grade ? (grade.correct ? 'đúng' : 'chưa đúng') : 'chưa chấm';
+    return (
+      <span
+        key={`blank-${index}`}
+        className={`guided-practice-fill__value ${status}`.trim()}
+        title={grade?.note || ''}
+        aria-label={`Chỗ trống ${index + 1}: ${value || 'chưa điền'} (${label})`}
+      >
+        {value || '____'}
+      </span>
+    );
+  };
+
+  const renderInput = (index) => (reviewer ? renderReviewerValue(index) : (
     <input
       key={`blank-${index}`}
       className="guided-practice-fill__input"
@@ -96,7 +118,7 @@ export default function GuidedPracticeFill({
         }
       }}
     />
-  );
+  ));
 
   const buttonLabel = locked || bothFinished
     ? 'Đã nộp'
@@ -106,13 +128,23 @@ export default function GuidedPracticeFill({
     <section className="guided-practice-fill" aria-label="Bài tập có hướng dẫn">
       <div className="guided-practice-fill__heading">
         <h3 className="ai-answer-heading">Bài tập có hướng dẫn</h3>
-        <span>{filledValues.filter(Boolean).length}/{inputCount} chỗ</span>
+        <span>
+          {reviewer
+            ? (evidenceValues
+              ? (evidenceGrades.length ? `${gradedCorrect}/${evidenceGrades.length} chỗ đúng` : `${inputCount} chỗ đã điền`)
+              : 'Chưa nộp')
+            : `${filledValues.filter(Boolean).length}/${inputCount} chỗ`}
+        </span>
       </div>
       {practice.prose ? <p className="guided-practice-fill__hint">{practice.prose}</p> : null}
       <p className="guided-practice-fill__hint">
-        {waitsForQuiz
-          ? 'Lưu bài làm chỉ giữ bản nháp. Làm xong cả bài tập và quiz thì AI giảng lại concept và chỉ ra chỗ sai.'
-          : 'Lưu bài làm tại đây. Phần này không tạo câu trả lời mới.'}
+        {reviewer
+          ? (evidenceValues
+            ? 'Bài làm sinh viên đã nộp, kèm kết quả AI chấm cho từng chỗ trống.'
+            : 'Sinh viên chưa nộp bài tập này (hoặc bài nộp không khớp đề). Xem lượt nộp bài bên dưới nếu có.')
+          : (waitsForQuiz
+            ? 'Lưu bài làm chỉ giữ bản nháp. Làm xong cả bài tập và quiz thì AI giảng lại concept và chỉ ra chỗ sai.'
+            : 'Lưu bài làm tại đây. Phần này không tạo câu trả lời mới.')}
       </p>
       <pre className="guided-practice-fill__code">
         <code>
@@ -129,6 +161,12 @@ export default function GuidedPracticeFill({
           )}
         </code>
       </pre>
+      {reviewer && evidenceValues && evidenceGrades.length > 0 && (
+        <div className="guided-practice-fill__legend" aria-hidden="true">
+          <span><span className="guided-practice-fill__value is-correct">abc</span>AI chấm đúng</span>
+          <span><span className="guided-practice-fill__value is-wrong">abc</span>AI chấm chưa đúng</span>
+        </div>
+      )}
       {!reviewer && (
         <div className="guided-practice-fill__actions">
           <button

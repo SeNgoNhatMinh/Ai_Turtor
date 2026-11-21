@@ -395,26 +395,57 @@ export function buildIncorrectAnswersRemediationPrompt(attempts) {
 export const FINISHED_WORK_REVIEW_LABEL = 'Ôn tập lại';
 
 export function isFinishedWorkReviewQuestion(text) {
-  return /^Học sinh đã nộp cả bài tập có hướng dẫn và quiz\./i.test(String(text || '').trim());
+  // Older replies were stored behind a mode label such as "Code Mentor: "; still hide them.
+  return /^(?:Code Mentor[^:]{0,30}:\s*)?Học sinh đã nộp cả bài tập có hướng dẫn và quiz\./i.test(String(text || '').trim());
 }
 
-export function buildFinishedWorkReviewPrompt({ draftText = '', incorrectAnswers = [] } = {}) {
+function finishedQuizMistakes(incorrectAnswers) {
+  return (Array.isArray(incorrectAnswers) ? incorrectAnswers : [])
+    .filter((attempt) => attempt?.quiz?.question && attempt?.selected?.key)
+    .sort((left, right) => Number(left.quizIndex || 0) - Number(right.quizIndex || 0))
+    .map((attempt) => {
+      const { quiz, selected, quizIndex } = attempt;
+      const correctKey = String(quiz.correctKey || '').trim().toUpperCase();
+      const correctOption = (Array.isArray(quiz.options) ? quiz.options : [])
+        .find((option) => option.key === correctKey);
+      return [
+        `- Câu ${Number(quizIndex || 0) + 1}: ${String(quiz.question).trim()}`,
+        `  Đã chọn: ${selected.key}. ${String(selected.text || '').trim()}`,
+        correctKey ? `  Đáp án đúng: ${correctKey}. ${String(correctOption?.text || '').trim()}` : '',
+      ].filter(Boolean).join('\n');
+    });
+}
+
+/**
+ * Hidden turn sent only after BOTH the guided practice and the quiz are finished.
+ * The review is anchored to the concept the student originally asked about: it grades,
+ * says where the mistake is, and re-explains only that misunderstanding — it must not
+ * re-teach the quiz topics from the course material.
+ */
+export function buildFinishedWorkReviewPrompt({ draftText = '', incorrectAnswers = [], originalQuestion = '' } = {}) {
   const draft = String(draftText || '').trim();
   if (!draft) return '';
-  const quizNotes = composeFinishedQuizPrompt({ incorrectAnswers, draftText: '' });
+  // A follow-up review keeps the concept of the review it came from.
+  const source = String(originalQuestion || '').trim();
+  const conceptLine = source.match(/^\s*Concept học sinh đã hỏi:\s*(.+)$/im);
+  const concept = conceptLine ? conceptLine[1].trim() : source.split(/\r?\n/)[0].trim();
+  const mistakes = finishedQuizMistakes(incorrectAnswers);
   return [
     'Học sinh đã nộp cả bài tập có hướng dẫn và quiz. Hãy sửa bài.',
+    concept ? `Concept học sinh đã hỏi: ${concept}` : '',
+    'Bài tập có hướng dẫn đã điền:',
     draft,
-    quizNotes,
-    'Trước khi chấm, giảng lại đúng concept của bài này trong 2-3 câu, bám phần đã dạy và tài liệu.',
-    'Rồi chỉ ra lỗi sai của bài tập và của quiz theo concept đó.',
-    'Chấm từng chỗ đã điền: Đúng hoặc Chưa đúng.',
-    'Chỗ sai thì viết lại đúng đoạn đó và nói hiểu nhầm nào so với concept.',
-    'Câu trắc nghiệm sai thì nói đáp án đúng và hiểu nhầm nào so với concept.',
+    mistakes.length
+      ? ['Câu trắc nghiệm chưa đúng:', ...mistakes].join('\n')
+      : 'Các câu trắc nghiệm đều đúng.',
+    'Chấm từng chỗ đã điền: Đúng hoặc Chưa đúng. Chỗ sai thì viết lại đúng đoạn đó.',
+    'Chỗ để trống hoặc điền chữ vô nghĩa (như "aaa", "abc", "...") là Chưa điền: chỉ gợi ý, không đưa đáp án.',
+    'Với mỗi chỗ sai (bài tập và quiz), chỉ rõ sai ở đâu và hiểu nhầm gì so với concept học sinh đã hỏi.',
+    'Sau đó giảng lại ngắn gọn đúng phần bị hiểu nhầm của concept đó. Không giảng lại nội dung các câu quiz, không tóm tắt lại chương trong tài liệu.',
+    'Nếu tất cả đều đúng, chỉ xác nhận ngắn, không giảng lại.',
     'Nếu đoạn tài liệu không có một phương thức, vẫn chấm chỗ điền theo yêu cầu của bài và nói một câu là đoạn trích chưa nêu phương thức đó.',
-    'Không từ chối cả bài. Không chép lại cả bài code.',
-    'Không nhắc lại đề quiz, các lựa chọn, hay câu hỏi.',
-    'Không mở chủ đề mới.',
+    'Không từ chối cả bài. Không chép lại cả bài code. Không nhắc lại đề quiz hay các lựa chọn.',
+    'Không mở chủ đề mới, không tạo quiz hay bài tập mới.',
   ].filter(Boolean).join('\n\n');
 }
 

@@ -535,12 +535,19 @@ test('work review prompt asks for the mistake only and is recognized as a hidden
       },
       selected: { key: 'A', text: 'init()' },
     }],
+    originalQuestion: 'Servlet xử lý request GET như thế nào?',
   });
 
   assert.equal(isFinishedWorkReviewQuestion(prompt), true);
-  assert.match(prompt, /giảng lại đúng concept/);
-  assert.match(prompt, /chỉ ra lỗi sai/);
+  assert.match(prompt, /Concept học sinh đã hỏi: Servlet xử lý request GET như thế nào\?/);
+  assert.match(prompt, /sai ở đâu và hiểu nhầm gì so với concept học sinh đã hỏi/);
+  assert.match(prompt, /Không giảng lại nội dung các câu quiz/);
+  assert.match(prompt, /Đã chọn: A\. init\(\)/);
+  assert.match(prompt, /Đáp án đúng: B\. doGet\(\)/);
   assert.match(prompt, /Không chép lại cả bài code/);
   assert.match(prompt, /Không nhắc lại đề quiz/);
+  // The quiz-remediation wording that re-taught the quiz topic must not leak into the review.
+  assert.doesNotMatch(prompt, /Ôn lại sau câu/);
+  assert.doesNotMatch(prompt, /Giải thích khái niệm và Minh họa trực quan/);
 });
 

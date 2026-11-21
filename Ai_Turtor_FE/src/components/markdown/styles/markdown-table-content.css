@@ -47,7 +47,10 @@
   font-size: 14px;
   line-height: 1.6;
   color: #0d0d0d;
-  overflow-wrap: anywhere;
+  /* "anywhere" let the layout shrink short columns to one letter ("S T T").
+     break-word only splits a word that is longer than its cell. */
+  overflow-wrap: break-word;
+  word-break: normal;
   white-space: normal;
 }
 
@@ -60,6 +63,7 @@
   font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .ai-answer-table tbody tr:last-child td {
