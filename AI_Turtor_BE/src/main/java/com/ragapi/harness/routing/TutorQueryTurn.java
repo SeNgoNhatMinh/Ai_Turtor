@@ -27,6 +27,7 @@ import com.ragapi.harness.util.ChapterHeadingUtils;
 import com.ragapi.harness.util.ConversationFocus;
 import com.ragapi.harness.util.HarnessRouting;
 import com.ragapi.harness.util.LearningPathParser;
+import com.ragapi.harness.answer.policy.CourseAnswerRequestPolicyService;
 import com.ragapi.harness.util.StudentChatIntentDetector;
 import com.ragapi.harness.util.StudentFacingMessages;
 import jakarta.servlet.http.HttpServletRequest;
@@ -546,7 +547,11 @@ class TutorQueryTurn {
             if (!workerLocked && queries.isUnderstandingRemediation(state.question)) {
                 state.routingMode = IntentClassifierService.MODE_RAG;
             }
-            state.guidedLesson = request != null
+            // Grading a finished guided practice quotes "Bài N: ..." from the concept line;
+            // it is a review, never a request to open that lesson again.
+            boolean finishedWorkReview = CourseAnswerRequestPolicyService.isFinishedWorkReview(state.question);
+            state.guidedLesson = !finishedWorkReview
+                    && request != null
                     && "GUIDED_LESSON".equalsIgnoreCase(request.getInteractionType());
             if (!workerLocked && state.guidedLesson) {
                 state.routingMode = IntentClassifierService.MODE_RAG;
@@ -580,7 +585,7 @@ class TutorQueryTurn {
                     state.question = "Ôn tập theo Improve Plan: " + state.improvePlanIntent.getLearningObjective();
                 }
             }
-            if (!workerLocked && StudentChatIntentDetector.isLessonStart(state.question)) {
+            if (!workerLocked && !finishedWorkReview && StudentChatIntentDetector.isLessonStart(state.question)) {
                 state.routingMode = IntentClassifierService.MODE_RAG;
                 state.intent.setMode(IntentClassifierService.MODE_RAG);
                 state.intent.setSubIntent("LESSON_TEACH");

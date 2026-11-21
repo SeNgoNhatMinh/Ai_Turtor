@@ -71,6 +71,33 @@ public enum SupportLevelPrompt {
         };
     }
 
+    /**
+     * Guided practice is REQUIRED at every support level; only the amount of scaffolding changes.
+     * The student must finish it together with the quiz before the tutor reviews their work.
+     */
+    public String guidedPracticeInstruction() {
+        String scaffolding = switch (this) {
+            case HIGH_SUPPORT -> """
+                    Level HIGH_SUPPORT: exactly 1 or 2 blanks. Put a short hint as a comment next to each blank
+                    (for example "# gợi ý: tên hàm đã học ở trên"). Most of the skeleton is already written.""";
+            case CHALLENGE -> """
+                    Level CHALLENGE: 3 or 4 blanks, no hints. A blank may be a whole line of logic.
+                    The task should apply the concept, not just recall a keyword.""";
+            case STANDARD -> """
+                    Level STANDARD: 2 or 3 blanks. At most one short hint for the hardest blank.""";
+        };
+        return """
+                ## Bài tập có hướng dẫn
+                REQUIRED at every support level, after the explanation and before "## Kiểm tra hiểu".
+                Write this heading exactly once, even when a teaching behavior also asks for it.
+                One sentence stating the task, then a short fenced block the student fills in.
+                The task practices the SAME concept as STUDENT QUESTION, using only COURSE MATERIAL CONTEXT.
+                For code topics use a code skeleton; for theory topics use 2-4 fill-in sentences inside the block.
+                Mark every blank as ____ (four underscores). Never paste the finished solution or the answers.
+                %s
+                """.formatted(scaffolding);
+    }
+
     /** Compact active-level reminder for tutor-context appendices. */
     public String activeLevelReminder() {
         return switch (this) {

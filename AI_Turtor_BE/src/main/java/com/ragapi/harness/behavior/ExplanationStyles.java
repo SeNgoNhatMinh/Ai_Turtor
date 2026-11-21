@@ -80,9 +80,9 @@ public final class ExplanationStyles {
                 | --- | --- | --- |
 
                 ## 5. Bài tập có hướng dẫn
-                A short fenced code skeleton. Mark every blank the student must fill as ____.
-                Use one ____ for each missing piece. Do not paste the finished solution.
-                Do not use a blank line instead of ____.
+                Do not write it at this position. The answer always has exactly one required
+                "## Bài tập có hướng dẫn" section later (see RESPONSE FORMAT); a behavior asking for this style
+                only means that section should get extra care. Mark every blank as ____ and never paste the solution.
 
                 ## 6. Tự thực hành
                 One short question that asks the student to explain or try the idea. Do not give the answer here.

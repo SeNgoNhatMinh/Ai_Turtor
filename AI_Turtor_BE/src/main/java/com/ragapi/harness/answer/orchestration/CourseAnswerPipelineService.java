@@ -9,6 +9,9 @@ import com.ragapi.harness.review.CanonicalTutorAnswerCacheService;
 import com.ragapi.harness.review.TutorCacheHitAuditService;
 import com.ragapi.harness.util.GroundedContentGuard;
 import com.ragapi.harness.util.NumberedAnswerHeadings;
+import com.ragapi.harness.util.GuidedPracticeGuard;
+import com.ragapi.harness.util.StudentVoiceFilter;
+import com.ragapi.harness.answer.policy.CourseAnswerRequestPolicyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -132,8 +135,11 @@ public class CourseAnswerPipelineService {
 
         log.info("Returning cached tutor answer for courseId={}", prepared.courseId());
         CourseRagAnswer hit = cachedAnswer.get();
-        String validatedAnswer = NumberedAnswerHeadings.number(
-                GroundedContentGuard.stripUnsupportedOptionalSections(hit.getAnswer(), prepared.context()));
+        String cachedBody = GroundedContentGuard.stripUnsupportedOptionalSections(hit.getAnswer(), prepared.context());
+        if (cachedAnswerNeedsPractice(prepared)) {
+            cachedBody = insertPracticeBeforeQuiz(cachedBody, prepared);
+        }
+        String validatedAnswer = NumberedAnswerHeadings.number(StudentVoiceFilter.clean(cachedBody));
         List<RetrievedCourseChunk> alignedChunks = evidenceService.selectAnswerEvidenceChunks(
                 prepared.chunks(), prepared.question(), validatedAnswer);
         List<String> alignedSourceLabels = evidenceService.buildSourceLabels(
@@ -153,5 +159,27 @@ public class CourseAnswerPipelineService {
         answerCacheService.storeRagAnswerAsync(
                 prepared.courseId(), classId, prepared.question(), enrichedHit);
         return Optional.of(cacheHitAuditService.completeHit(enrichedHit, prepared.backendStartedNanos()));
+    }
+
+    private static boolean cachedAnswerNeedsPractice(CourseAnswerPreparation prepared) {
+        if (prepared.understandingRemediation()
+                || CourseAnswerRequestPolicyService.isFinishedWorkReview(prepared.question())) {
+            return false;
+        }
+        String mode = prepared.request() == null ? null : prepared.request().teachingMode();
+        return !"LEARNING_PATH".equalsIgnoreCase(mode) && !"LESSON_DEEP_PATH".equalsIgnoreCase(mode);
+    }
+
+    /** Old cache entries predate the required guided exercise: add it before the appended quiz. */
+    private static String insertPracticeBeforeQuiz(String answer, CourseAnswerPreparation prepared) {
+        if (answer == null || GuidedPracticeGuard.hasUsablePractice(answer)) {
+            return answer;
+        }
+        java.util.regex.Matcher quiz = java.util.regex.Pattern
+                .compile("(?imu)^#{1,6}\\s*(?:\\d+\\.\\s*)?kiểm tra hiểu\\s*$").matcher(answer);
+        int split = quiz.find() ? quiz.start() : answer.length();
+        String head = GuidedPracticeGuard.ensure(answer.substring(0, split), prepared.question(),
+                CourseAnswerWorkerPipeline.resolveSupportLevel(prepared.request()));
+        return (head.trim() + "\n\n" + answer.substring(split).trim()).trim();
     }
 }

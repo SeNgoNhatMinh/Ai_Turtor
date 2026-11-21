@@ -68,6 +68,28 @@ public class CourseAnswerRequestPolicyService {
         return question.stripLeading().regionMatches(true, 0, prefix, 0, prefix.length());
     }
 
+    /** The concept line of a finished-work review, or the question itself for any other turn. */
+    public static String reviewConcept(String question) {
+        if (question == null || !isFinishedWorkReview(question)) {
+            return question;
+        }
+        java.util.regex.Matcher concept = java.util.regex.Pattern
+                .compile("(?m)^\\s*Concept học sinh đã hỏi:\\s*(.+?)\\s*$")
+                .matcher(question);
+        return concept.find() ? concept.group(1) : question;
+    }
+
+    /** The "Câu trắc nghiệm chưa đúng:" block of a finished-work review, or "" when every item was right. */
+    public static String reviewQuizMistakes(String question) {
+        if (question == null || !isFinishedWorkReview(question)) {
+            return "";
+        }
+        java.util.regex.Matcher block = java.util.regex.Pattern
+                .compile("(?ms)^\\s*Câu trắc nghiệm chưa đúng:\\s*\\n(.*?)(?=^(?![-\\s])|\\z)")
+                .matcher(question);
+        return block.find() ? block.group(1).trim() : "";
+    }
+
     public boolean isGuidedLessonMode(String teachingMode) {
         return "LEARNING_PATH".equalsIgnoreCase(teachingMode)
                 || "LESSON_TEACH".equalsIgnoreCase(teachingMode)

@@ -14,6 +14,8 @@ import com.ragapi.harness.answer.grounding.CourseAnswerEvidenceService;
 import com.ragapi.harness.model.CourseAnswerRequest;
 import com.ragapi.harness.model.RetrievedCourseChunk;
 import com.ragapi.harness.util.GroundedContentGuard;
+import com.ragapi.harness.util.GuidedPracticeGuard;
+import com.ragapi.harness.util.StudentVoiceFilter;
 import com.ragapi.harness.util.NumberedAnswerHeadings;
 import com.ragapi.harness.util.LessonExplanationCompleter;
 import com.ragapi.harness.util.StudentAnswerCompletenessGuard;
@@ -60,7 +62,8 @@ public class CourseAnswerGenerationStageService {
                 request.pedagogicalContext(),
                 request.learnerMemoryContext(),
                 request.teachingMode(),
-                prepared.understandingRemediation()
+                prepared.understandingRemediation(),
+                CourseAnswerWorkerPipeline.resolveSupportLevel(request)
         );
 
         log.info("Sending grounded course-learning prompt to LLM...");
@@ -103,7 +106,12 @@ public class CourseAnswerGenerationStageService {
             // taught first and only then quizzed — never exercises/quiz alone.
             boolean missingExplanation = requiresExplanationFirst(request, prepared)
                     && !hasExplanationBeforeQuiz(answer);
-            boolean recoveryNeeded = StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
+            // A graded review has no lesson body, worked example or explanation-first shape;
+            // judging it like a lesson forced a retry that fell through to the weakest model.
+            boolean reviewingWork = CourseAnswerRequestPolicyService.isFinishedWorkReview(prepared.question());
+            boolean recoveryNeeded = reviewingWork
+                    ? StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
+                    : StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
                     || isIncompleteLesson(request, answer)
                     || initialInsufficientMaterialAnswer
                     || droppedWorkedExample
@@ -131,7 +139,13 @@ public class CourseAnswerGenerationStageService {
                 if (StudentAnswerCompletenessGuard.containsAbbreviatedExampleOutput(retried)) {
                     retried = StudentAnswerCompletenessGuard.removeAbbreviatedExampleOutputs(retried);
                 }
-                if (isDeliverableLesson(retried)) {
+                if (reviewingWork) {
+                    // Keep the first review unless the retry is a usable, longer one.
+                    if (hasText(retried) && !StudentAnswerCompletenessGuard.isClearlyIncomplete(retried)
+                            && retried.length() > firstAnswer.length()) {
+                        answer = retried;
+                    }
+                } else if (isDeliverableLesson(retried)) {
                     answer = retried;
                 } else if (hasTeachableLesson(firstAnswer)) {
                     log.warn("Keeping the first grounded lesson because the retry did not return a usable answer");
@@ -194,22 +208,30 @@ public class CourseAnswerGenerationStageService {
                 log.warn("Study request answered without an explanation; refusing to deliver quiz/exercises only");
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
+            // Every taught answer, at every support level, carries a guided exercise next to the quiz.
+            // The client sends the review only after the student finished both.
+            if (requiresGuidedPractice(request, prepared, workReview, answerBody)) {
+                if (!GuidedPracticeGuard.hasUsablePractice(answerBody)) {
+                    log.warn("Worker 1 omitted the guided practice; inserting a level-appropriate fill-in exercise");
+                }
+                answerBody = GuidedPracticeGuard.ensure(answerBody,
+                        CourseAnswerRequestPolicyService.reviewConcept(prepared.question()),
+                        CourseAnswerWorkerPipeline.resolveSupportLevel(request));
+            }
             StringBuilder finalContent = new StringBuilder(answerBody.trim());
             // A lesson that passed validation keeps Worker 2's quiz. A phrase such as
             // "không được" or a method name outside one excerpt must not drop it.
-            // Work review is the one turn that must not open another quiz.
-            if (!workReview && hasText(workerOutputs.quiz())) {
+            // A work review also ends with a fresh quiz on the same concept.
+            if (hasText(workerOutputs.quiz())) {
                 finalContent.append("\n\n## Kiểm tra hiểu\n\n")
                         .append(CourseAnswerWorkerPipeline.normalizeWorkerQuizMarkdown(workerOutputs.quiz()));
-            } else if (workReview && hasText(workerOutputs.quiz())) {
-                log.info("Work review does not append a new quiz");
             }
             String deepStudyTitles = CourseAnswerWorkerPipeline.normalizeDeepStudyTitles(workerOutputs.deepStudy());
             if (!workReview && hasText(deepStudyTitles)
                     && !StudentFacingMessages.isInsufficientMaterialAnswer(answerBody)) {
                 finalContent.append("\n\n## Học chuyên sâu\n\n").append(deepStudyTitles);
             }
-            answer = NumberedAnswerHeadings.number(finalContent.toString());
+            answer = NumberedAnswerHeadings.number(StudentVoiceFilter.clean(finalContent.toString()));
             log.info("Received grounded answer from AI (length: {})", answer.length());
             List<RetrievedCourseChunk> alignedChunks = evidenceService.selectAnswerEvidenceChunks(
                     prepared.chunks(), prepared.question(), answer);
@@ -242,6 +264,22 @@ public class CourseAnswerGenerationStageService {
         }
     }
 
+
+    private boolean requiresGuidedPractice(CourseAnswerRequest request, CourseAnswerPreparation prepared,
+                                           boolean workReview, String answerBody) {
+        // Every review round ends with practice on the same concept (re-teaching has no limit).
+        if (workReview) {
+            return true;
+        }
+        if (prepared.understandingRemediation()) {
+            return false;
+        }
+        String mode = request == null ? null : request.teachingMode();
+        if ("LEARNING_PATH".equalsIgnoreCase(mode) || "LESSON_DEEP_PATH".equalsIgnoreCase(mode)) {
+            return false;
+        }
+        return !StudentFacingMessages.isInsufficientMaterialAnswer(answerBody);
+    }
 
     /** Removes a markdown section so Worker 3 can own the deep-study title list. */
     private String stripSection(String markdown, String headingKey) {
@@ -527,7 +565,8 @@ public class CourseAnswerGenerationStageService {
             String pedagogicalContext,
             String learnerMemoryContext,
             String teachingMode,
-            boolean understandingRemediation
+            boolean understandingRemediation,
+            SupportLevelPrompt supportLevel
     ) {
         String synthesizeBlock = synthesizeExam ? """
 
@@ -635,7 +674,8 @@ public class CourseAnswerGenerationStageService {
                         lessonDeepPath,
                         understandingRemediation,
                         workReview,
-                        compactLocal
+                        compactLocal,
+                        supportLevel
                 ),
                 courseId == null ? "" : courseId,
                 classId == null ? "" : classId,

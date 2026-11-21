@@ -1,4 +1,6 @@
 package com.ragapi.harness.routing;
+
+import com.ragapi.harness.answer.policy.CourseAnswerRequestPolicyService;
 import static com.ragapi.harness.util.TechnicalIntentDetector.containsCodeSyntax;
 import static com.ragapi.harness.util.TechnicalIntentDetector.hasText;
 import static com.ragapi.harness.util.TechnicalIntentDetector.looksLikeCodeOrMentorGuidance;
@@ -149,6 +151,19 @@ public class IntentClassifierService {
                     domain,
                     "Ask the student to provide a complete learning question. Do not call an external LLM.",
                     false, "LOCAL_VALIDATION");
+        }
+
+        // Hidden grading / re-teach turns quote the student's filled exercise inside a code fence.
+        // They grade a course concept and must never be taken for pasted source (Code Mentor).
+        if (CourseAnswerRequestPolicyService.isFinishedWorkReview(message)
+                || (message != null && message.stripLeading().startsWith("Ôn lại sau câu "))) {
+            return base(MODE_RAG,
+                    "Grading or re-teaching the student's finished practice and quiz",
+                    0.99,
+                    "EXPLAIN_CONCEPT",
+                    domain,
+                    "Grade the submitted work against the asked concept, grounded in course material.",
+                    true, "RULE");
         }
 
         if (context.hasTeachContext()

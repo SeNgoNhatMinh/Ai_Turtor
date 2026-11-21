@@ -8,6 +8,7 @@ import com.ragapi.harness.answer.generation.SupportLevelPrompt;
 import com.ragapi.harness.answer.policy.CourseAnswerRequestPolicyService;
 import com.ragapi.harness.model.CourseAnswerRequest;
 import com.ragapi.harness.util.StudentFacingMessages;
+import com.ragapi.harness.util.TutorAddress;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,6 +47,8 @@ class CourseAnswerWorkerPipeline {
         boolean workReview = CourseAnswerRequestPolicyService.isFinishedWorkReview(question);
         SupportLevelPrompt supportLevel = resolveSupportLevel(request);
         String quizCountInstruction = supportLevel.quizCountInstruction();
+        // A review quizzes the concept the student asked about, not the grading instructions.
+        String quizTopic = workReview ? CourseAnswerRequestPolicyService.reviewConcept(question) : question;
         String quizPrompt = remediation
                 ? """
                 You are Worker 2: an independent re-check quiz author after a wrong student answer.
@@ -99,8 +102,39 @@ class CourseAnswerWorkerPipeline {
                 """.formatted(
                         supportLevel.name(),
                         quizCountInstruction,
-                        question,
+                        quizTopic,
                         limitWorkerContext(context));
+        // Quiz explanations and deep-study titles reach the student too.
+        String reviewMistakes = workReview ? CourseAnswerRequestPolicyService.reviewQuizMistakes(question) : "";
+        String voicedQuizPrompt = (workReview ? """
+                You are Worker 2: a re-check quiz author after a graded quiz on CONCEPT.
+                For EACH item under WRONG QUIZ ITEMS, write one multiple-choice question that tests the SAME knowledge,
+                fully paraphrased: new wording, new example, reordered options. Never copy the old question or options.
+                If WRONG QUIZ ITEMS is (none), every item was right: write new questions one step harder on CONCEPT
+                (apply it to a new situation). Then add new questions on CONCEPT until the count below is met.
+                %s
+                Use only COURSE MATERIAL CONTEXT. Write in Vietnamese.
+                Format each item exactly like this (plain text):
+                Q1.
+                <question>
+                A. <choice>
+                B. <choice>
+                C. <choice>
+                D. <choice>
+                Đáp án đúng: <A|B|C|D>
+                Giải thích: <one short sentence>
+
+                CONCEPT:
+                %s
+
+                WRONG QUIZ ITEMS:
+                %s
+
+                COURSE MATERIAL CONTEXT:
+                %s
+                """.formatted(quizCountInstruction, quizTopic,
+                        hasText(reviewMistakes) ? reviewMistakes : "(none)", limitWorkerContext(context)) : quizPrompt)
+                + TutorAddress.RULE;
         String deepStudyPrompt = """
                 You are Worker 3: a deep-study topic suggester for a university AI Tutor.
                 Independently propose short clickable titles for further study about the student's question.
@@ -124,16 +158,25 @@ class CourseAnswerWorkerPipeline {
 
                 COURSE MATERIAL CONTEXT:
                 %s
-                """.formatted(question, limitWorkerContext(context));
+                """.formatted(question, limitWorkerContext(context)) + TutorAddress.RULE;
 
         String worker1Prompt = answerPrompt
                 + (workReview
                 ? """
 
                 WORKER-1 SCOPE (sửa bài):
-                - First restate the concept this exercise checked, then grade the filled blanks and the wrong quiz choices.
-                - Point each mistake back to that concept. Do not open a new chapter and do not paste the full program.
-                - Do NOT include "## Kiểm tra hiểu", "## Quiz tự luyện", "## Học chuyên sâu", or any new A/B/C quiz.
+                - The concept to review is the one in the "Concept học sinh đã hỏi:" line of STUDENT QUESTION.
+                - Grade the filled blanks and the wrong quiz choices, and point each mistake back to THAT concept.
+                - Then re-explain only the misunderstood part of that concept. Do NOT re-teach the quiz topics
+                  or summarize the chapter from COURSE MATERIAL CONTEXT; the material only confirms what is correct.
+                - Do not open a new chapter and do not paste the full program.
+                - Do NOT include "## Kiểm tra hiểu", "## Quiz tự luyện", "## Học chuyên sâu", or any A/B/C quiz;
+                  Worker 2 appends the re-check quiz.
+                - ALWAYS end with "## Bài tập có hướng dẫn" so the student practices this concept again:
+                  * every blank that was Chưa đúng or Chưa điền comes back PARAPHRASED (same knowledge, new wording,
+                    new example values), never copied;
+                  * when every blank was Đúng, write new lines one step harder on the SAME concept (apply it).
+                  Fill-in lines with ____ blanks only; size and hints follow REVIEW PRACTICE LEVEL below.
                 - If an excerpt misses a method, say that in one sentence and still mark the blank.
                 """
                 : remediation
@@ -160,13 +203,16 @@ class CourseAnswerWorkerPipeline {
                 - Do NOT include "## Kiểm tra hiểu", "Understanding Check", or any multiple-choice quiz.
                 - Do NOT include "## Quiz tự luyện". Worker 2 owns all quiz content.
                 - Do NOT include "## Học chuyên sâu". Worker 3 owns clickable deep-study titles.
+                - "## Bài tập có hướng dẫn" is REQUIRED at every support level (see RESPONSE FORMAT).
+                  The student must fill it in together with the quiz before any review.
                 - Number every bold section title in this answer: "## 1. ...", "## 2. ...", with no gaps.
                   This applies to every heading you write, not only explanation-style sections.
                 - If STUDENT-SPECIFIC EXPLANATION STYLE is present, render each selected style as its
                   own numbered section: "## 1. Giải thích khái niệm", "## 2. Ví dụ thực tế", and so on.
                   Apply the style to THIS question.
                   Do not reopen an older topic named in the style. Do not write an A/B/C quiz here.
-                """);
+                """)
+                + (workReview ? "\nREVIEW PRACTICE LEVEL:\n" + supportLevel.guidedPracticeInstruction() + "\n" : "");
         Map<String, Supplier<String>> lessonWorker = new LinkedHashMap<>();
         lessonWorker.put("worker-1", () -> generationService.generateWorker1GroundedAnswer(
                 worker1Prompt, question, request.teachingMode(), context, request.learnerMemoryContext(), false));
@@ -178,9 +224,19 @@ class CourseAnswerWorkerPipeline {
         if (workReview) {
             if (!hasText(answer)) {
                 log.warn("Worker 1 failed to generate the work review");
-                answer = StudentFacingMessages.GENERATION_UNAVAILABLE;
+                return new Outputs(StudentFacingMessages.GENERATION_UNAVAILABLE, "", "");
             }
-            return new Outputs(answer, "", "");
+            // Every review round re-checks the concept with a quiz, at every support level.
+            Map<String, AiWorkerResult<String>> reviewQuiz = workerOrchestrator.executeParallel(
+                    Map.of("worker-2", () -> produceUntilUsable(
+                            "worker-2",
+                            () -> generationService.generateWorkerUtilityAnswer(voicedQuizPrompt),
+                            CourseAnswerWorkerPipeline::isUsableQuiz)),
+                    LOCAL_FALLBACK_WAIT);
+            String quiz = successfulOutput(reviewQuiz.get("worker-2"));
+            recordWorkerOutput(traceId, "worker-2", "Worker 2 · Quiz Generator", "GENERATE_QUIZ",
+                    quiz, reviewQuiz.get("worker-2"));
+            return new Outputs(answer, quiz, "");
         }
         if (!hasText(answer)) {
             log.warn("Worker 1 failed to generate the main answer");
@@ -189,7 +245,7 @@ class CourseAnswerWorkerPipeline {
         Map<String, Supplier<String>> followUpWorkers = new LinkedHashMap<>();
         followUpWorkers.put("worker-2", () -> produceUntilUsable(
                 "worker-2",
-                () -> generationService.generateWorkerUtilityAnswer(quizPrompt),
+                () -> generationService.generateWorkerUtilityAnswer(voicedQuizPrompt),
                 CourseAnswerWorkerPipeline::isUsableQuiz));
         followUpWorkers.put("worker-3", () -> produceUntilUsable(
                 "worker-3",
