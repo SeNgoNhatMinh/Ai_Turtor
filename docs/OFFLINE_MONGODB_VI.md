@@ -4,7 +4,7 @@ Backend chạy với MongoDB 8.0.17 trong Docker trên máy chủ thay vì Mongo
 Cấu hình Atlas (`docker-compose.deploy.yml` + `.env.deploy`) vẫn giữ nguyên; chế độ offline chỉ thêm file override.
 
 | Thành phần | File |
-|---|---|
+| --- | --- |
 | Compose override | `AI_Turtor_BE/docker-compose.offline.yml` |
 | Biến môi trường (git-ignored, quyền 600) | `AI_Turtor_BE/.env.offline` (mẫu: `.env.offline.example`) |
 | Tạo user ứng dụng lần đầu | `AI_Turtor_BE/docker/mongo-offline/init/01-create-app-user.js` |
@@ -29,6 +29,43 @@ scripts/offline/compose.sh logs -f ai-tutor-api
 
 Lưu ý: chạy `docker compose` **không kèm** `docker-compose.offline.yml` sẽ đưa backend quay lại Atlas.
 Không bao giờ chạy `down -v`, vì lệnh này xóa volume dữ liệu.
+
+## AI local (Ollama trên Mac)
+
+`docker-compose.offline.yml` đặt cố định các giá trị sau, không đọc từ `.env.deploy`:
+
+- **Chat:** Ollama `gemma3:12b` (biến `LOCAL_AI_CHAT_MODEL`). Ollama chạy native trên Mac để dùng GPU Metal, backend gọi qua `http://host.docker.internal:11434`.
+- **Embedding:** `embeddinggemma`, ghi vào index Elasticsearch riêng `course_material_vectors_embeddinggemma_768`. Các index cloud cũ được giữ nguyên.
+- **Tắt toàn bộ nhà cung cấp cloud:** Groq, NVIDIA, OpenRouter, Prompt Guard, TTS, rerank, visual RAG. Biến env `*_ENABLED=false` luôn thắng cấu hình trong trang Admin.
+- **n8n:** node "Groq Chat Model" của Flow 2 đã được thay bằng node Ollama (credential "Ollama local (offline)"). Bản workflow gốc lưu ở `backup/n8n/`. Áp dụng lại cho file workflow khác:
+  `python3 -I scripts/offline/n8n_use_ollama.py IN.json OUT.json gemma3:12b`
+
+Kiểm tra sau khi khởi động:
+
+```bash
+docker logs ai-tutor-api 2>&1 | grep "LLM provider chain reloaded"
+# mong đợi: ollamaOnly=true, providers=[ollama/gemma3:12b]
+```
+
+Chuẩn bị model (chỉ cần Internet lần đầu):
+
+```bash
+ollama pull gemma3:12b && ollama pull embeddinggemma
+```
+
+Khi đổi model embedding, phải index lại toàn bộ tài liệu:
+
+```bash
+scripts/offline/reindex-all.sh
+```
+
+## Truy cập qua LAN
+
+- Máy khách vào `http://192.168.0.101` (biến `LAN_PUBLIC_URL` trong `.env.offline`). Nên đặt IP cố định (DHCP reservation) cho Mac trên router TP-Link.
+- Trình duyệt gọi n8n qua cùng origin (`/webhook/*`, Caddy proxy sang `n8n:5678`). Vì vậy bản build frontend không chứa IP và chạy được ở bất kỳ mạng nào.
+- Chỉ cổng 80 (web) và 8085 (API) mở ra LAN. MongoDB, Redis, Elasticsearch và n8n editor chỉ bind `127.0.0.1`.
+- Tắt chế độ ngủ của Mac: System Settings → Battery/Energy → *Prevent automatic sleeping*.
+- Sau khi sửa `VITE_*` hoặc Caddyfile: `scripts/offline/compose.sh build ai-tutor-frontend && scripts/offline/compose.sh up -d`.
 
 ## Backup định kỳ (MongoDB local)
 

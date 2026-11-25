@@ -19,6 +19,16 @@ http://:{$PORT:8080} {
 		}
 	}
 
+	# Same-origin n8n webhooks for the self-hosted/LAN stack (VITE_N8N_BASE_URL=/).
+	# Railway builds call n8n by its own domain and never hit these routes.
+	handle /webhook/* {
+		reverse_proxy {$N8N_UPSTREAM:http://n8n:5678}
+	}
+
+	handle /webhook-test/* {
+		reverse_proxy {$N8N_UPSTREAM:http://n8n:5678}
+	}
+
 	handle /ws/* {
 		reverse_proxy {$API_UPSTREAM:https://backend-production-d3dc.up.railway.app} {
 			header_up -Origin

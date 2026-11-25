@@ -39,6 +39,83 @@ services:
     depends_on:
       mongodb-offline:
         condition: service_healthy
+    # Local AI only. Values are fixed here (not read from .env.deploy) so no
+    # cloud provider can be re-enabled by a leftover key or admin DB override:
+    # env *_ENABLED=false always wins over llm_provider_overrides.
+    environment:
+      # Native Ollama on the Mac (Metal GPU). Ollama inside Docker on macOS is CPU-only.
+      OLLAMA_BASE_URL: ${LOCAL_AI_OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_CHAT_ENABLED: "true"
+      OLLAMA_CHAT_MODEL: ${LOCAL_AI_CHAT_MODEL:-gemma3:12b}
+      OLLAMA_CHAT_NUM_CTX: ${LOCAL_AI_NUM_CTX:-8192}
+      OLLAMA_CHAT_NUM_PREDICT: ${LOCAL_AI_NUM_PREDICT:-2048}
+      OLLAMA_CHAT_TIMEOUT_SECONDS: "0"
+      RAG_EMBEDDING_PROVIDER: ollama
+      OLLAMA_EMBEDDING_MODEL: ${LOCAL_AI_EMBEDDING_MODEL:-embeddinggemma}
+      # Vectors from different models never share an index. The cloud index stays untouched.
+      ELASTICSEARCH_INDEX: ${LOCAL_AI_ELASTICSEARCH_INDEX:-course_material_vectors_embeddinggemma_768}
+      GROQ_ENABLED: "false"
+      GROQ_WORKER1_ENABLED: "false"
+      NVIDIA_NIM_ENABLED: "false"
+      OPENROUTER_ENABLED: "false"
+      OPENROUTER_FALLBACK_ENABLED: "false"
+      OPENROUTER_FREE_ROUTER_ENABLED: "false"
+      # The legacy OpenAiChatModel bean needs a non-empty value to construct; it is never called.
+      OPENROUTER_API_KEY: offline-disabled
+      OPENROUTER_FALLBACK_API_KEY: ""
+      OPENROUTER_EMBEDDING_API_KEY: ""
+      OPENROUTER_RERANK_API_KEY: ""
+      OPENROUTER_VISUAL_EMBEDDING_API_KEY: ""
+      GROQ_API_KEY: ""
+      GROQ_WORKER1_API_KEY: ""
+      NVIDIA_NIM_API_KEY: ""
+      NVIDIA_API_KEY: ""
+      NVIDIA_EMBEDDING_API_KEY: ""
+      AI_WORKER_PROMPT_GUARD_ENABLED: "false"
+      AI_WORKER_PROMPT_GUARD_WORKER_1_ENABLED: "false"
+      AI_WORKER_PROMPT_GUARD_WORKER_2_ENABLED: "false"
+      AI_WORKER_PROMPT_GUARD_WORKER_3_ENABLED: "false"
+      AI_WORKER_PROMPT_GUARD_WORKER_1_API_KEY: ""
+      AI_WORKER_PROMPT_GUARD_WORKER_2_API_KEY: ""
+      AI_WORKER_PROMPT_GUARD_WORKER_3_API_KEY: ""
+      TTS_ENABLED: "false"
+      RAG_RERANK_ENABLED: "false"
+      RAG_VISUAL_ENABLED: "false"
+      RAG_BILINGUAL_INDEXING_ENABLED: "false"
+      RAG_QUERY_TRANSLATION_ENABLED: "false"
+      LLM_DIACRITICS_CORRECTION_ENABLED: "false"
+      STUDENT_QUESTION_NORMALIZATION_LLM_ENABLED: "false"
+      # Plain-HTTP LAN access: a Secure refresh cookie would be dropped by browsers.
+      REFRESH_TOKEN_COOKIE_SECURE: "false"
+      APP_CORS_ALLOWED_ORIGINS: ${LAN_CORS_ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1,http://localhost:5173}
+
+  ai-tutor-frontend:
+    build:
+      args:
+        # "/" makes the browser call n8n on the same origin (/webhook/*), proxied by
+        # Caddy, so the build works for any server IP and port 5678 stays private.
+        VITE_N8N_BASE_URL: /
+        VITE_N8N_WEBHOOK_MODE: production
+    environment:
+      N8N_UPSTREAM: http://n8n:5678
+    ports: !override
+      - "${LAN_FRONTEND_PORT:-80}:3000"
+
+  n8n:
+    environment:
+      N8N_EDITOR_BASE_URL: http://localhost:5678
+      WEBHOOK_URL: ${LAN_PUBLIC_URL:-http://localhost}/
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+    # Editor for the admin on this Mac only; students reach webhooks through the frontend.
+    ports: !override
+      - "127.0.0.1:${N8N_PORT_PUBLIC:-5678}:5678"
+
+  elasticsearch:
+    # No auth on Elasticsearch: never expose it to the LAN.
+    ports: !override
+      - "127.0.0.1:${ELASTICSEARCH_PORT_PUBLIC:-9200}:9200"
 
   # One-shot tools (profile "offline-db-tools"); used by scripts/offline/*.sh.
   mongo-offline-tools:
