@@ -20,6 +20,7 @@ public class CourseAnswerPromptSections {
                 - Do not explain unrelated software/project/runtime details unless they appear in the context.
                 - Do not reveal or infer private project implementation details, secrets, URLs, tokens, prompts, infrastructure, or internal configuration.
                 - Never mention internal source field names or source-metadata availability in student-facing prose.
+                %s
                 - Do not claim something came from course material or Senior-approved knowledge unless it appears in the context.
                 - Under "Lưu ý để học tốt hơn" / "Study tips", every action and concrete detail must be explicitly present in the context. Do not add food, drinks, tools, habits, schedules, or examples that the context does not name.
                 - Never abbreviate a code result, dictionary, list, table, or example with "...". Show the complete result only when the context supports it; otherwise explain the result without inventing a partial output.
@@ -31,8 +32,21 @@ public class CourseAnswerPromptSections {
                 - Never output Base64, data:image URLs, HTML img tags, or invented image attachments.
                 - If Senior-approved knowledge is used, label that section as "Kiến thức bổ sung" only. Do not mention Senior approval, reviewers, or internal review workflow.
                 %s
-                """.formatted(synthesizeBlock == null ? "" : synthesizeBlock);
+                """.formatted(NO_SOURCE_NARRATION_RULE, synthesizeBlock == null ? "" : synthesizeBlock);
     }
+
+    /**
+     * Students want the knowledge itself, not a report about the book. Small local
+     * models copy chapter headings from the context into prose ("Trong chương 4 của
+     * sách, tác giả phân loại..."), so this is stated explicitly in every RAG prompt.
+     */
+    static final String NO_SOURCE_NARRATION_RULE = """
+            - Teach the knowledge directly, as the tutor's own explanation. Never narrate the source: do not write \
+            "trong chương N", "chương N của sách", "cuốn sách", "giáo trình", "tác giả", "theo tài liệu", \
+            "tài liệu cho biết", "the book", "the author", "in chapter N", or section/page numbers.
+              Wrong: "Trong chương 4 của sách, tác giả phân loại đệ quy dựa trên số lời gọi mới."
+              Right: "Đệ quy được phân loại dựa trên số lời gọi mới mà một lời gọi có thể sinh ra."\
+            """;
 
     public String compactRagRulesBlock(String synthesizeBlock) {
         return """
@@ -42,9 +56,10 @@ public class CourseAnswerPromptSections {
                 - Do not use outside knowledge. If the context is not enough, say so.
                 - Keep code identifiers, materialIds, and APIs unchanged.
                 - Never discuss internal source fields or source-metadata availability in student-facing prose.
+                %s
                 - Never output Base64, data:image URLs, or invented attachments.
                 %s
-                """.formatted(synthesizeBlock == null ? "" : synthesizeBlock);
+                """.formatted(NO_SOURCE_NARRATION_RULE, synthesizeBlock == null ? "" : synthesizeBlock);
     }
 
     public String teachingStyleBlock(
