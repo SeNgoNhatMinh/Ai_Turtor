@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../features/ai_tutor/data/guided_practice.dart';
 import '../../features/ai_tutor/data/markdown_reveal.dart';
 import '../../core/utils/ai_chat_content.dart';
 import 'ai_markdown_body.dart';
@@ -14,6 +15,7 @@ class AiMarkdownReveal extends StatefulWidget {
     this.onStudyTipTap,
     this.onComplete,
     this.answerAction,
+    this.guidedPracticeBuilder,
   });
 
   final String data;
@@ -21,6 +23,7 @@ class AiMarkdownReveal extends StatefulWidget {
   final ValueChanged<String>? onStudyTipTap;
   final VoidCallback? onComplete;
   final Widget? answerAction;
+  final Widget Function(GuidedPractice practice)? guidedPracticeBuilder;
 
   @override
   State<AiMarkdownReveal> createState() => _AiMarkdownRevealState();
@@ -95,13 +98,16 @@ class _AiMarkdownRevealState extends State<AiMarkdownReveal> {
 
   @override
   Widget build(BuildContext context) {
-    final visible = widget.enabled && _index < widget.data.length
+    final revealing = widget.enabled && _index < widget.data.length;
+    final visible = revealing
         ? sliceMarkdownForReveal(widget.data, _index)
         : widget.data;
     return AiMarkdownBody(
       data: prepareAiChatMarkdown(visible),
       onStudyTipTap: widget.onStudyTipTap,
       answerAction: widget.answerAction,
+      // Like web: the exercise becomes interactive once fully shown.
+      guidedPracticeBuilder: revealing ? null : widget.guidedPracticeBuilder,
     );
   }
 }

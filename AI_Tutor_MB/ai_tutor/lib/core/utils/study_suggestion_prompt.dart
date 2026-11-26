@@ -14,10 +14,15 @@ class StudyPathSuggestion {
   const StudyPathSuggestion({
     required this.title,
     required this.suggestionText,
+    this.chapterTitle = '',
   });
 
   final String title;
   final String suggestionText;
+
+  /// Original outline heading from the course material (often English).
+  /// Not shown; sent with the request so retrieval targets the right chapter.
+  final String chapterTitle;
 }
 
 final _deepListLesson = RegExp(
@@ -210,8 +215,9 @@ String buildLessonChatPrompt(String? suggestionText) {
 
 List<StudyPathSuggestion> parseBulletsUnderHeadings(
   String? answer,
-  RegExp headingPattern,
-) {
+  RegExp headingPattern, {
+  int? maxItems = 8,
+}) {
   final text = answer ?? '';
   if (text.trim().isEmpty) return const [];
 
@@ -247,7 +253,7 @@ List<StudyPathSuggestion> parseBulletsUnderHeadings(
     if (seen.contains(key)) continue;
     seen.add(key);
     items.add(StudyPathSuggestion(title: line, suggestionText: line));
-    if (items.length >= 8) break;
+    if (maxItems != null && items.length >= maxItems) break;
   }
   return items;
 }

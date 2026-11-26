@@ -162,6 +162,8 @@ class _CourseDropdown extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(Radii.lg),
               menuMaxHeight: 360,
+              // Two-line items (name + class) need their own height.
+              itemHeight: null,
               selectedItemBuilder: (context) => items
                   .map((course) => _SelectedCourseLabel(course: course))
                   .toList(),
@@ -169,15 +171,7 @@ class _CourseDropdown extends StatelessWidget {
                   .map(
                     (course) => DropdownMenuItem(
                       value: course,
-                      child: Text(
-                        _courseDisplayName(course),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: _CourseMenuLabel(course: course),
                     ),
                   )
                   .toList(),
@@ -199,13 +193,13 @@ class _SelectedCourseLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final className = course.className?.trim();
+    final classLabel = course.classLabel;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          course.name.isNotEmpty ? course.name : course.code,
+          course.label,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -214,32 +208,59 @@ class _SelectedCourseLabel extends StatelessWidget {
             height: 1.2,
           ),
         ),
-        const Gap(Insets.xs),
-        Text(
-          [
-            course.code,
-            if (className != null && className.isNotEmpty) className,
-          ].join(' · '),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w500,
+        if (classLabel.isNotEmpty) ...[
+          const Gap(Insets.xs),
+          Text(
+            'Lớp $classLabel',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
 }
 
-String _courseDisplayName(Course course) {
-  final title = course.name.isNotEmpty ? course.name : course.code;
-  final className = course.className?.trim();
-  return [
-    course.code,
-    title,
-    if (className != null && className.isNotEmpty) className,
-  ].join(' · ');
+/// "PRF192 - Foundations of Programming Using C", class on a second line so
+/// two classes of the same course stay distinguishable.
+class _CourseMenuLabel extends StatelessWidget {
+  const _CourseMenuLabel({required this.course});
+
+  final Course course;
+
+  @override
+  Widget build(BuildContext context) {
+    final classLabel = course.classLabel;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          course.label,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (classLabel.isNotEmpty)
+          Text(
+            'Lớp $classLabel',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class _CourseServiceTabs extends StatelessWidget {
