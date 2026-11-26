@@ -1,4 +1,6 @@
 package com.ragapi.controller;
+
+import com.ragapi.util.ErrorStatus;
 import static com.ragapi.util.ValidationUtils.requireEnum;
 import static com.ragapi.util.ValidationUtils.requireText;
 import static com.ragapi.util.ValidationUtils.optionalMaxLength;
@@ -329,7 +331,7 @@ public class ClassSectionController {
                             .toString())
                     .body(workbook);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", "Cannot generate template: " + e.getMessage()));
         }
     }

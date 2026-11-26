@@ -1,5 +1,7 @@
 package com.ragapi.controller;
 
+import com.ragapi.util.ErrorStatus;
+
 import com.ragapi.dto.KnowledgeCandidateReviewRequest;
 import com.ragapi.harness.learning.HumanLearningService;
 import com.ragapi.harness.replay.HarnessReplayRunner;
@@ -40,7 +42,7 @@ public class KnowledgeCandidateController {
             return ResponseEntity.ok(Map.of("count", candidates.size(), "candidates", candidates));
         } catch (Exception e) {
             log.error("Error listing knowledge candidates", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -61,7 +63,7 @@ public class KnowledgeCandidateController {
             return ResponseEntity.ok(Map.of("count", candidates.size(), "candidates", candidates));
         } catch (Exception e) {
             log.error("Error listing pending knowledge candidates", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }

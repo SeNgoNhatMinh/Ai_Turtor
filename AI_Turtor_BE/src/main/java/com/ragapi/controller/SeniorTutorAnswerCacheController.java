@@ -1,5 +1,7 @@
 package com.ragapi.controller;
 
+import com.ragapi.util.ErrorStatus;
+
 import com.ragapi.dto.SeniorTutorAnswerCacheUpdateRequest;
 import com.ragapi.harness.review.TutorAnswerCacheSeniorService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,7 +49,7 @@ public class SeniorTutorAnswerCacheController {
             return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
         } catch (Exception error) {
             log.error("Error listing tutor answer cache", error);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", error.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(error)).body(Map.of("error", error.getMessage()));
         }
     }
 
@@ -60,7 +62,7 @@ public class SeniorTutorAnswerCacheController {
             return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
         } catch (Exception error) {
             log.error("Error loading tutor answer cache stats", error);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", error.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(error)).body(Map.of("error", error.getMessage()));
         }
     }
 
@@ -73,7 +75,7 @@ public class SeniorTutorAnswerCacheController {
             return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
         } catch (Exception error) {
             log.error("Error loading tutor answer cache diagnostics", error);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", error.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(error)).body(Map.of("error", error.getMessage()));
         }
     }
 
@@ -90,7 +92,7 @@ public class SeniorTutorAnswerCacheController {
             return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
         } catch (Exception error) {
             log.error("Error loading recent tutor cache hits", error);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", error.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(error)).body(Map.of("error", error.getMessage()));
         }
     }
 
@@ -103,7 +105,7 @@ public class SeniorTutorAnswerCacheController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", error.getMessage()));
         } catch (Exception error) {
             log.error("Error loading tutor answer cache entry {}", cacheId, error);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", error.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(error)).body(Map.of("error", error.getMessage()));
         }
     }
 
@@ -147,7 +149,7 @@ public class SeniorTutorAnswerCacheController {
             return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
         } catch (Exception error) {
             log.error("Error deleting tutor answer cache entry {}", cacheId, error);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", error.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(error)).body(Map.of("error", error.getMessage()));
         }
     }
 
@@ -158,7 +160,7 @@ public class SeniorTutorAnswerCacheController {
             return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
         } catch (Exception error) {
             log.error("Error updating tutor answer cache entry", error);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", error.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(error)).body(Map.of("error", error.getMessage()));
         }
     }
 }

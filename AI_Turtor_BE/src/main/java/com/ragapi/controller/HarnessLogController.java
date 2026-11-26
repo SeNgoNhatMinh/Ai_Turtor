@@ -1,5 +1,7 @@
 package com.ragapi.controller;
 
+import com.ragapi.util.ErrorStatus;
+
 import com.ragapi.dto.HarnessLogRequest;
 import com.ragapi.harness.trace.HarnessLogService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,7 +45,7 @@ public class HarnessLogController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error creating harness log", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -60,7 +62,7 @@ public class HarnessLogController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error creating harness error log", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -85,7 +87,7 @@ public class HarnessLogController {
             return ResponseEntity.ok(Map.of("count", logs.size(), "logs", logs));
         } catch (Exception e) {
             log.error("Error listing harness logs", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -105,7 +107,7 @@ public class HarnessLogController {
             return ResponseEntity.ok(Map.of("count", logs.size(), "logs", logs));
         } catch (Exception e) {
             log.error("Error listing harness error logs", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -123,7 +125,7 @@ public class HarnessLogController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error getting harness trace", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }

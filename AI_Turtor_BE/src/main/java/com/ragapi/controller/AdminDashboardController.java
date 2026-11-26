@@ -1,5 +1,7 @@
 package com.ragapi.controller;
 
+import com.ragapi.util.ErrorStatus;
+
 import com.ragapi.dto.AdminMentorUpdateRequest;
 import com.ragapi.dto.AdminTeacherRoleUpdateRequest;
 import com.ragapi.dto.AdminUserUpdateRequest;
@@ -60,7 +62,7 @@ public class AdminDashboardController {
             return ResponseEntity.ok(adminDashboardService.getDashboardStats());
         } catch (Exception e) {
             log.error("Error fetching dashboard stats", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -85,7 +87,7 @@ public class AdminDashboardController {
             return ResponseEntity.ok(Map.of("count", users.size(), "users", users));
         } catch (Exception e) {
             log.error("Error listing users", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -140,7 +142,7 @@ public class AdminDashboardController {
             return ResponseEntity.ok(Map.of("count", mentors.size(), "mentors", mentors));
         } catch (Exception e) {
             log.error("Error listing mentors", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -198,7 +200,7 @@ public class AdminDashboardController {
             return ResponseEntity.ok(Map.of("count", escalations.size(), "escalations", escalations));
         } catch (Exception e) {
             log.error("Error listing escalations", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }

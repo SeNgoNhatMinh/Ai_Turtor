@@ -1,5 +1,7 @@
 package com.ragapi.controller;
 
+import com.ragapi.util.ErrorStatus;
+
 import com.ragapi.dto.PinImproveSuggestionRequest;
 import com.ragapi.dto.UpdateStudentCourseMemoryRequest;
 import com.ragapi.harness.entity.StudentCourseMemory;
@@ -49,7 +51,7 @@ public class StudentMemoryController {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             log.error("Student course memory lookup failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(ex))
                     .body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
@@ -70,7 +72,7 @@ public class StudentMemoryController {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             log.error("Student course memory update failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(ex))
                     .body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
@@ -95,7 +97,7 @@ public class StudentMemoryController {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             log.error("Pin improve suggestion failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(ex))
                     .body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
@@ -116,7 +118,7 @@ public class StudentMemoryController {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             log.error("Unpin improve suggestion failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(ex))
                     .body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
@@ -133,7 +135,7 @@ public class StudentMemoryController {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             log.error("Delete improve suggestion failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", ex.getMessage()));
         }
     }
     @GetMapping("/courses/{courseId}/memories")
@@ -157,7 +159,7 @@ public class StudentMemoryController {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             log.error("Course memories lookup failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(ex))
                     .body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }

@@ -1,5 +1,7 @@
 package com.ragapi.controller;
 
+import com.ragapi.util.ErrorStatus;
+
 import com.ragapi.dto.AiConversationHistoryResponse;
 import com.ragapi.dto.AiConversationListResponse;
 import com.ragapi.dto.AiConversationSummary;
@@ -51,7 +53,7 @@ public class AiConversationController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Error listing AI conversations", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -69,7 +71,7 @@ public class AiConversationController {
             return ResponseEntity.ok(summary);
         } catch (Exception e) {
             log.error("Error creating AI conversation", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -90,7 +92,7 @@ public class AiConversationController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error searching AI messages", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -111,7 +113,7 @@ public class AiConversationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error fetching AI conversation messages", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -132,7 +134,7 @@ public class AiConversationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error listing pinned messages", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -151,7 +153,7 @@ public class AiConversationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error pinning message", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -170,7 +172,7 @@ public class AiConversationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error unpinning message", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -194,7 +196,7 @@ public class AiConversationController {
             return ResponseEntity.status(status).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error recording understanding check", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -216,7 +218,7 @@ public class AiConversationController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error renaming AI conversation", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -235,7 +237,7 @@ public class AiConversationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error deleting AI conversation", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 

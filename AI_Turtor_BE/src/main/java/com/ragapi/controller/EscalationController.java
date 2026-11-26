@@ -1,4 +1,6 @@
 package com.ragapi.controller;
+
+import com.ragapi.util.ErrorStatus;
 import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.optionalMaxLength;
@@ -92,7 +94,7 @@ public class EscalationController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error creating question escalation", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -117,7 +119,7 @@ public class EscalationController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error offering teacher help", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -169,7 +171,7 @@ public class EscalationController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error cancelling teacher help", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -192,7 +194,7 @@ public class EscalationController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error fetching escalation history", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }

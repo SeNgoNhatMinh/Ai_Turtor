@@ -1,4 +1,6 @@
 package com.ragapi.controller;
+
+import com.ragapi.util.ErrorStatus;
 import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.optionalMaxLength;
 import static com.ragapi.util.ValidationUtils.requireMaxLength;
@@ -150,7 +152,7 @@ public class CourseMaterialController {
                     .body(Map.of("error", "Elasticsearch error: " + e.getMessage()));
         } catch (Exception e) {
             log.error("Unexpected error during course material upload", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", "Server error: " + e.getMessage()));
         }
     }
@@ -188,7 +190,7 @@ public class CourseMaterialController {
                     .body(Map.of("error", "HTML TOC preview error: " + e.getMessage()));
         } catch (Exception e) {
             log.error("Unexpected error during HTML TOC preview", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", "Server error: " + e.getMessage()));
         }
     }
@@ -244,7 +246,7 @@ public class CourseMaterialController {
                     .body(Map.of("error", "HTML import error: " + e.getMessage()));
         } catch (Exception e) {
             log.error("Unexpected error during HTML material import", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", "Server error: " + e.getMessage()));
         }
     }
@@ -620,7 +622,7 @@ public class CourseMaterialController {
                     .body(Map.of("error", "Elasticsearch error: " + e.getMessage()));
         } catch (Exception e) {
             log.error("Unexpected error during course materials reindex", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", "Server error: " + e.getMessage()));
         }
     }
@@ -660,7 +662,7 @@ public class CourseMaterialController {
                     .body(Map.of("error", "Elasticsearch error: " + e.getMessage()));
         } catch (Exception e) {
             log.error("Unexpected error during course material reindex", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", "Server error: " + e.getMessage()));
         }
     }
@@ -689,7 +691,7 @@ public class CourseMaterialController {
                     .body(Map.of("error", "Elasticsearch error: " + e.getMessage()));
         } catch (Exception e) {
             log.error("Unexpected error during course material delete", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", "Server error: " + e.getMessage()));
         }
     }

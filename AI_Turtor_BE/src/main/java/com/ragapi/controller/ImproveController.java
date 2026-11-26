@@ -1,5 +1,7 @@
 package com.ragapi.controller;
 
+import com.ragapi.util.ErrorStatus;
+
 import com.ragapi.dto.SuggestionRequest;
 import com.ragapi.dto.SuggestionResponse;
 import com.ragapi.harness.improve.ImprovePlanService;
@@ -50,7 +52,7 @@ public class ImproveController {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             log.error("Improve plan lookup error", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(ex))
                     .body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
@@ -71,7 +73,7 @@ public class ImproveController {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             log.error("Improve plan lookup error", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(ex))
                     .body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
@@ -85,7 +87,7 @@ public class ImproveController {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             log.error("Improve plan complete error", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(ex))
                     .body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
@@ -98,7 +100,7 @@ public class ImproveController {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             log.error("Suggestion error", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(ex))
                     .body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }

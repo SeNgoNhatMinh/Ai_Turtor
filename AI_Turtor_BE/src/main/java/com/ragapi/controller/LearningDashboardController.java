@@ -1,5 +1,7 @@
 package com.ragapi.controller;
 
+import com.ragapi.util.ErrorStatus;
+
 import com.ragapi.service.student.AccessGuardService;
 import com.ragapi.harness.learning.LearningDashboardService;
 import com.ragapi.service.student.StudentOverviewStatsService;
@@ -43,7 +45,7 @@ public class LearningDashboardController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error building student dashboard", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -64,7 +66,7 @@ public class LearningDashboardController {
             return ResponseEntity.status(status).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error building student overview stats", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -86,7 +88,7 @@ public class LearningDashboardController {
             return ResponseEntity.ok(dashboardService.buildTeacherDashboard(teacherId, courseId, classId));
         } catch (Exception e) {
             log.error("Error building teacher dashboard", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -109,7 +111,7 @@ public class LearningDashboardController {
             return ResponseEntity.ok(Map.of("teacherId", teacherId, "count", escalations.size(), "escalations", escalations));
         } catch (Exception e) {
             log.error("Error listing teacher escalation inbox", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(e)).body(Map.of("error", e.getMessage()));
         }
     }
 }

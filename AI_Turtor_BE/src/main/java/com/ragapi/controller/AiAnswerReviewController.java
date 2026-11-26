@@ -1,5 +1,7 @@
 package com.ragapi.controller;
 
+import com.ragapi.util.ErrorStatus;
+
 import com.ragapi.dto.AiAnswerReviewRequest;
 import com.ragapi.dto.SeniorReviewResolutionRequest;
 import com.ragapi.harness.review.AiAnswerReviewService;
@@ -44,7 +46,7 @@ public class AiAnswerReviewController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error submitting AI answer review", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -65,7 +67,7 @@ public class AiAnswerReviewController {
             return ResponseEntity.ok(Map.of("count", reviews.size(), "reviews", reviews));
         } catch (Exception e) {
             log.error("Error listing AI answer reviews", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -90,7 +92,7 @@ public class AiAnswerReviewController {
             ));
         } catch (Exception e) {
             log.error("Error listing mentor pending AI answer reviews", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -113,7 +115,7 @@ public class AiAnswerReviewController {
             ));
         } catch (Exception e) {
             log.error("Error listing senior pending AI answer reviews", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }
@@ -133,7 +135,7 @@ public class AiAnswerReviewController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error resolving AI answer review", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", e.getMessage()));
         }
     }

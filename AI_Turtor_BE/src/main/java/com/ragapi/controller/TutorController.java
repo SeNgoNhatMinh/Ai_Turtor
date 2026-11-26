@@ -1,4 +1,6 @@
 package com.ragapi.controller;
+
+import com.ragapi.util.ErrorStatus;
 import static com.ragapi.util.ValidationUtils.STUDENT_QUESTION_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.optionalCodeSnippet;
 import static com.ragapi.util.ValidationUtils.requireMaxLength;
@@ -123,7 +125,7 @@ public class TutorController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Intent classification failed", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", "Server error: " + e.getMessage()));
         }
     }
@@ -169,7 +171,7 @@ public class TutorController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Intent guard failed", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", "Server error: " + e.getMessage()));
         }
     }

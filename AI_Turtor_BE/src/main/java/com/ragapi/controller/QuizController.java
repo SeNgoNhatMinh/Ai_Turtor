@@ -1,4 +1,6 @@
 package com.ragapi.controller;
+
+import com.ragapi.util.ErrorStatus;
 import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.requireMaxLength;
 import static com.ragapi.util.ValidationUtils.requireText;
@@ -124,7 +126,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("Learn from suggestion failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -141,7 +143,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("Generate quiz failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -154,7 +156,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("Get quiz failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -170,7 +172,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("Submit quiz failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -189,7 +191,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("List quizzes failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -206,7 +208,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("Generate quiz assignment failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -222,7 +224,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("Update quiz assignment failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -236,7 +238,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("Delete quiz assignment failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -252,7 +254,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("Publish quiz assignment failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -266,7 +268,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("List teacher quiz assignments failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -293,7 +295,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("List teacher quiz attempts failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -310,7 +312,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("Create manual teacher quiz failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -328,7 +330,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("List student quiz assignments failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -344,7 +346,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("Start assigned quiz failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 
@@ -365,7 +367,7 @@ public class QuizController {
             return ResponseEntity.badRequest().body(quizErrorBody(ex));
         } catch (Exception ex) {
             log.error("Teacher review quiz failed", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error: " + ex.getMessage()));
+            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
 

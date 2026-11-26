@@ -1,5 +1,7 @@
 package com.ragapi.controller;
 
+import com.ragapi.util.ErrorStatus;
+
 import com.ragapi.dto.MentorImportResponse;
 import com.ragapi.entity.Mentor;
 import com.ragapi.repository.MentorRepository;
@@ -74,7 +76,7 @@ public class MentorImportController {
                     : ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
         } catch (Exception e) {
             log.error("Error importing mentors", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("success", false, "message", "Server error: " + e.getMessage()));
         }
     }
@@ -130,7 +132,7 @@ public class MentorImportController {
                     .body(workbook);
         } catch (Exception e) {
             log.error("Error generating mentor import template", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", "Cannot generate template: " + e.getMessage()));
         }
     }
@@ -170,7 +172,7 @@ public class MentorImportController {
             ));
         } catch (Exception e) {
             log.error("Error fetching mentors", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", "Cannot fetch mentors: " + e.getMessage()));
         }
     }
@@ -192,7 +194,7 @@ public class MentorImportController {
                             .body(Map.of("error", "Mentor not found")));
         } catch (Exception e) {
             log.error("Error fetching mentor detail", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(ErrorStatus.of(e))
                     .body(Map.of("error", "Cannot fetch mentor: " + e.getMessage()));
         }
     }
