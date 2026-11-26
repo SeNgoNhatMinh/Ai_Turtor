@@ -1,0 +1,1622 @@
+[
+ {
+  "method": "DELETE",
+  "path": "/api/academic/courses/{courseId}",
+  "controller": "CourseController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/academic/courses/{courseId}/class-sections/{classId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/academic/enrollments/{enrollmentId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/admin/class-sections/{courseId}/{classId}/students/{studentId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/admin/courses/{courseId}",
+  "controller": "CourseController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/admin/courses/{courseId}/class-sections/{classId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/admin/enrollments/{enrollmentId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/admin/indexed-teaching-notes/{id}",
+  "controller": "AdminIndexedTeachingNotesController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/admin/llm-providers/{providerId}",
+  "controller": "AdminLlmProviderController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/admin/mentor-escalations/{escalationId}",
+  "controller": "AdminDashboardController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/admin/mentors/{mentorId}",
+  "controller": "AdminDashboardController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/admin/users/{userId}",
+  "controller": "AdminDashboardController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/ai/conversations/{conversationId}",
+  "controller": "AiConversationController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/ai/conversations/{conversationId}/messages/{messageId}/pin",
+  "controller": "AiConversationController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/ai/student-llm",
+  "controller": "StudentSchoolAnswerController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/courses/{courseId}/class-sections/{classId}/students/{studentId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/courses/{courseId}/materials/{materialId}",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/teacher/teaching-behaviors/{id}",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/tutor/answer-cache/{cacheId}",
+  "controller": "SeniorTutorAnswerCacheController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/tutor/escalations/{id}/teacher-inbox",
+  "controller": "EscalationController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/tutor/quiz-assignments/{assignmentId}",
+  "controller": "QuizController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/tutor/students/{studentId}/courses/{courseId}/memory/improve-suggestions",
+  "controller": "StudentMemoryController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/tutor/students/{studentId}/courses/{courseId}/memory/pinned-suggestions",
+  "controller": "StudentMemoryController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/v2/expert-training/gold-qa/{id}",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/v2/expert-training/tasks/{id}",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/academic/courses",
+  "controller": "CourseController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/academic/courses/{courseId}",
+  "controller": "CourseController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/academic/courses/{courseId}/class-sections",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/academic/courses/{courseId}/class-sections/{classId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/academic/courses/{courseId}/class-sections/{classId}/students",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/academic/enrollments",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/academic/enrollments/{enrollmentId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/academic/mentors/{teacherId}/class-sections",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/academic/mentors/{teacherId}/courses",
+  "controller": "CourseController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/academic/students/{studentId}/enrollments",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/ai-logs",
+  "controller": "AdminDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/ai-worker-traces",
+  "controller": "AdminAiWorkerTraceController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/class-sections/students/import/template",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/class-sections/students/import/template.xlsx",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/courses",
+  "controller": "CourseController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/courses/{courseId}",
+  "controller": "CourseController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/courses/{courseId}/class-sections/{classId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/courses/{courseId}/learning-guide",
+  "controller": "CourseLearningGuideController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/courses/{courseId}/material-import-jobs",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/dashboard/stats",
+  "controller": "AdminDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/diagnostics/elasticsearch",
+  "controller": "AdminElasticsearchDiagnosticsController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/enrollments",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/enrollments/{enrollmentId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/indexed-teaching-notes",
+  "controller": "AdminIndexedTeachingNotesController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/llm-providers",
+  "controller": "AdminLlmProviderController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/llm-providers/stats",
+  "controller": "AdminLlmProviderController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/material-import-jobs/{jobId}",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/materials/reindex-runs/current",
+  "controller": "AdminReindexRunController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/mentor-escalations",
+  "controller": "AdminDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/mentors",
+  "controller": "AdminDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/admin/users",
+  "controller": "AdminDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/ai/conversations",
+  "controller": "AiConversationController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/ai/conversations/search",
+  "controller": "AiConversationController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/ai/conversations/{conversationId}/messages",
+  "controller": "AiConversationController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/ai/conversations/{conversationId}/pinned-messages",
+  "controller": "AiConversationController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/ai/student-llm",
+  "controller": "StudentSchoolAnswerController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/ai/student-llm/usage",
+  "controller": "StudentSchoolAnswerController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/chat/detail",
+  "controller": "ChatController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/chat/history",
+  "controller": "ChatController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/chat/unread",
+  "controller": "ChatController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses",
+  "controller": "CourseController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses/class-sections/students/import/template",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses/class-sections/students/import/template.xlsx",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses/{courseId}",
+  "controller": "CourseController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses/{courseId}/class-sections",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses/{courseId}/class-sections/{classId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses/{courseId}/class-sections/{classId}/students",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses/{courseId}/learning-guide",
+  "controller": "CourseLearningGuideController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses/{courseId}/materials",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses/{courseId}/materials/reindex-progress",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses/{courseId}/materials/{materialId}",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses/{courseId}/materials/{materialId}/pages/{pageNumber}/image",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/courses/{courseId}/materials/{materialId}/pdf",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/dashboards/students/{studentId}",
+  "controller": "LearningDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/dashboards/students/{studentId}/overview-stats",
+  "controller": "LearningDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/dashboards/teachers/{teacherId}",
+  "controller": "LearningDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/harness/error-logs",
+  "controller": "HarnessLogController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/harness/logs",
+  "controller": "HarnessLogController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/harness/traces/{traceId}",
+  "controller": "HarnessLogController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/health/llm-diagnostics",
+  "controller": "HealthDiagnosticsController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/improve/students/{studentId}/courses/{courseId}/latest",
+  "controller": "ImproveController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/material-downloads/{ticket}",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/materials",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/mentors",
+  "controller": "MentorImportController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/mentors/import/template",
+  "controller": "MentorImportController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/mentors/import/template.csv",
+  "controller": "MentorImportController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/mentors/import/template.xlsx",
+  "controller": "MentorImportController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/mentors/import/template/download",
+  "controller": "MentorImportController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/mentors/{id}",
+  "controller": "MentorImportController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/mentors/{teacherId}/class-sections",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/mentors/{teacherId}/courses",
+  "controller": "CourseController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/mentors/{teacherId}/dashboard",
+  "controller": "LearningDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/mentors/{teacherId}/escalations/inbox",
+  "controller": "LearningDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/notifications",
+  "controller": "UserNotificationController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/students/{studentId}/courses",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/students/{studentId}/courses/{courseId}/classes/{classId}/materials",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/students/{studentId}/courses/{courseId}/classes/{classId}/materials/{materialId}/pdf",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/students/{studentId}/courses/{courseId}/improve-plan",
+  "controller": "ImproveController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/students/{studentId}/dashboard",
+  "controller": "LearningDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/students/{studentId}/enrollments",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/students/{studentId}/improve-plans",
+  "controller": "ImproveController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/students/{studentId}/overview-stats",
+  "controller": "LearningDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/ai-support/learning-reviews",
+  "controller": "AdaptiveLearningReviewController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/ai-support/learning-reviews/roster",
+  "controller": "AdaptiveLearningReviewController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/ai-support/learning-reviews/students/{studentId}/course-summary",
+  "controller": "AdaptiveLearningReviewController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/ai-support/learning-reviews/{reviewId}",
+  "controller": "AdaptiveLearningReviewController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/applied-teaching-behaviors",
+  "controller": "AppliedTeachingBehaviorController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/students/{studentId}/teaching/behaviors",
+  "controller": "StudentTeachingProfileController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/students/{studentId}/teaching/preview",
+  "controller": "StudentTeachingProfileController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/students/{studentId}/teaching/profile",
+  "controller": "StudentTeachingProfileController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/teaching-behavior-executions",
+  "controller": "AppliedTeachingBehaviorController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/teaching-behaviors",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/teaching-behaviors/overview",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/teaching-behaviors/{id}",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/teaching-behaviors/{id}/assignments",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/teaching-behaviors/{id}/executions",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teacher/teaching-behaviors/{id}/versions",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teachers/{teacherId}/classes",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teachers/{teacherId}/dashboard",
+  "controller": "LearningDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/teachers/{teacherId}/escalations/inbox",
+  "controller": "LearningDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tts/voices",
+  "controller": "TtsController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/answer-cache",
+  "controller": "SeniorTutorAnswerCacheController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/answer-cache/diagnostics",
+  "controller": "SeniorTutorAnswerCacheController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/answer-cache/hits/recent",
+  "controller": "SeniorTutorAnswerCacheController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/answer-cache/stats",
+  "controller": "SeniorTutorAnswerCacheController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/answer-cache/{cacheId}",
+  "controller": "SeniorTutorAnswerCacheController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/answer-reviews",
+  "controller": "AiAnswerReviewController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/answer-reviews/mentor-pending",
+  "controller": "AiAnswerReviewController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/answer-reviews/senior-pending",
+  "controller": "AiAnswerReviewController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/chapter-memory",
+  "controller": "CourseChapterMemoryController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/courses/{courseId}/memories",
+  "controller": "StudentMemoryController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/escalations/history",
+  "controller": "EscalationController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/escalations/knowledge-candidates",
+  "controller": "KnowledgeCandidateController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/escalations/knowledge-candidates/pending",
+  "controller": "KnowledgeCandidateController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/escalations/knowledge-candidates/senior-pending",
+  "controller": "KnowledgeCandidateController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/escalations/teachers/{teacherId}",
+  "controller": "LearningDashboardController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/escalations/{id}",
+  "controller": "EscalationController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/knowledge-candidates",
+  "controller": "KnowledgeCandidateController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/knowledge-candidates/pending",
+  "controller": "KnowledgeCandidateController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/knowledge-candidates/senior-pending",
+  "controller": "KnowledgeCandidateController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/knowledge-images/{fileId}",
+  "controller": "KnowledgeImageController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/quizzes/{quizSessionId}",
+  "controller": "QuizController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/students/{studentId}/courses/{courseId}/memory",
+  "controller": "StudentMemoryController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/students/{studentId}/courses/{courseId}/question-quota",
+  "controller": "TutorController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/students/{studentId}/courses/{courseId}/quiz-assignments",
+  "controller": "QuizController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/students/{studentId}/courses/{courseId}/quizzes",
+  "controller": "QuizController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/students/{studentId}/courses/{courseId}/sessions",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/students/{studentId}/courses/{courseId}/support-profile",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/teachers/{teacherId}/courses/{courseId}/classes/{classId}/directives",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/teachers/{teacherId}/courses/{courseId}/classes/{classId}/session-summaries",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/teachers/{teacherId}/courses/{courseId}/classes/{classId}/sessions",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/teachers/{teacherId}/quiz-assignments",
+  "controller": "QuizController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/teachers/{teacherId}/quiz-attempts",
+  "controller": "QuizController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/teachers/{teacherId}/session-summaries/{summaryId}/transcript",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/tutor/teachers/{teacherId}/sessions/{sessionId}/transcript",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/users/profile",
+  "controller": "UserController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/users/{userId}/profile",
+  "controller": "UserController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/v2/expert-training/chapters/preview",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/v2/expert-training/chapters/suggested",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/v2/expert-training/chapters/{chapterKey}/preview",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/v2/expert-training/coverage-gaps",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/v2/expert-training/eval-runs",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/v2/expert-training/eval-runs/{id}",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/v2/expert-training/gold-qa",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/v2/expert-training/harness/cases",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/v2/expert-training/rubrics",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/v2/expert-training/tasks",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/v2/expert-training/tasks/page",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "GET",
+  "path": "/api/v2/expert-training/tasks/{id}",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "PATCH",
+  "path": "/api/admin/courses/{courseId}/class-sections/{classId}/complete",
+  "controller": "CourseController"
+ },
+ {
+  "method": "PATCH",
+  "path": "/api/admin/courses/{courseId}/complete",
+  "controller": "CourseController"
+ },
+ {
+  "method": "PATCH",
+  "path": "/api/admin/llm-providers/{providerId}",
+  "controller": "AdminLlmProviderController"
+ },
+ {
+  "method": "PATCH",
+  "path": "/api/admin/mentors/{mentorId}",
+  "controller": "AdminDashboardController"
+ },
+ {
+  "method": "PATCH",
+  "path": "/api/admin/teachers/{teacherId}/role",
+  "controller": "AdminDashboardController"
+ },
+ {
+  "method": "PATCH",
+  "path": "/api/admin/users/{userId}",
+  "controller": "AdminDashboardController"
+ },
+ {
+  "method": "PATCH",
+  "path": "/api/ai/conversations/{conversationId}",
+  "controller": "AiConversationController"
+ },
+ {
+  "method": "PATCH",
+  "path": "/api/ai/conversations/{conversationId}/messages/{messageId}/pin",
+  "controller": "AiConversationController"
+ },
+ {
+  "method": "PATCH",
+  "path": "/api/teacher/teaching-behaviors/{id}/status",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "PATCH",
+  "path": "/api/tutor/answer-cache/{cacheId}",
+  "controller": "SeniorTutorAnswerCacheController"
+ },
+ {
+  "method": "PATCH",
+  "path": "/api/tutor/sessions/{sessionId}",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/academic/class-sections",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/academic/courses",
+  "controller": "CourseController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/academic/enrollments",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/class-sections",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/class-sections/{courseId}/{classId}/students",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/class-sections/{courseId}/{classId}/students/import",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/courses",
+  "controller": "CourseController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/courses/learning-guides/regenerate-all",
+  "controller": "CourseLearningGuideController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/courses/{courseId}/class-sections",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/courses/{courseId}/learning-guide/approve",
+  "controller": "CourseLearningGuideController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/courses/{courseId}/learning-guide/regenerate",
+  "controller": "CourseLearningGuideController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/courses/{courseId}/learning-guide/reject",
+  "controller": "CourseLearningGuideController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/enrollments",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/indexed-teaching-notes/{id}/reindex",
+  "controller": "AdminIndexedTeachingNotesController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/indexed-teaching-notes/{id}/unindex",
+  "controller": "AdminIndexedTeachingNotesController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/llm-providers/reload",
+  "controller": "AdminLlmProviderController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/llm-providers/{providerId}/disable",
+  "controller": "AdminLlmProviderController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/llm-providers/{providerId}/enable",
+  "controller": "AdminLlmProviderController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/llm-providers/{providerId}/restore",
+  "controller": "AdminLlmProviderController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/material-import-jobs/{jobId}/cancel",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/material-import-jobs/{jobId}/retry",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/materials/reindex-approved-knowledge",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/materials/reindex-runs",
+  "controller": "AdminReindexRunController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/admin/materials/reindex-runs/current/stop",
+  "controller": "AdminReindexRunController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/ai/conversations",
+  "controller": "AiConversationController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/ai/conversations/{conversationId}/messages/{messageId}/understanding-check",
+  "controller": "AiConversationController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/ai/generations/cancel",
+  "controller": "TutorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/ai/query",
+  "controller": "TutorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/ai/school-answer",
+  "controller": "StudentSchoolAnswerController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/chat/close",
+  "controller": "ChatController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/chat/mark-read",
+  "controller": "ChatController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/chat/send",
+  "controller": "ChatController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/chat/send-answer-and-index",
+  "controller": "ChatController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/code-mentor/query",
+  "controller": "CodeMentorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/code-mentor/upload",
+  "controller": "CodeMentorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/courses/{courseId}/class-sections/{classId}/students",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/courses/{courseId}/class-sections/{classId}/students/import",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/courses/{courseId}/materials/import-url",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/courses/{courseId}/materials/reindex",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/courses/{courseId}/materials/upload",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/courses/{courseId}/materials/url-toc",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/courses/{courseId}/materials/{materialId}/download-ticket",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/courses/{courseId}/materials/{materialId}/reindex",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/harness/error-logs",
+  "controller": "HarnessLogController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/harness/logs",
+  "controller": "HarnessLogController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/mentors/import",
+  "controller": "MentorImportController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/notifications/read",
+  "controller": "UserNotificationController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/notifications/{id}/read",
+  "controller": "UserNotificationController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/teacher/ai-support/learning-reviews/{reviewId}/decision",
+  "controller": "AdaptiveLearningReviewController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/teacher/ai-support/learning-reviews/{reviewId}/retry",
+  "controller": "AdaptiveLearningReviewController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/teacher/applied-teaching-behaviors/{id}/status",
+  "controller": "AppliedTeachingBehaviorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/teacher/students/{studentId}/teaching/behaviors",
+  "controller": "StudentTeachingProfileController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/teacher/students/{studentId}/teaching/behaviors/{behaviorId}/status",
+  "controller": "StudentTeachingProfileController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/teacher/students/{studentId}/teaching/behaviors/{behaviorId}/{action}",
+  "controller": "StudentTeachingProfileController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/teacher/teaching-behaviors",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/teacher/teaching-behaviors/{id}/assign",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/teacher/teaching-behaviors/{id}/rollback",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/teacher/teaching-behaviors/{id}/status",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/teacher/teaching-behaviors/{id}/test",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tts/read",
+  "controller": "TtsController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tts/synthesize",
+  "controller": "TtsController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/answer-cache/{cacheId}/approve",
+  "controller": "SeniorTutorAnswerCacheController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/answer-cache/{cacheId}/disable",
+  "controller": "SeniorTutorAnswerCacheController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/answer-reviews",
+  "controller": "AiAnswerReviewController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/answer-reviews/{id}/senior-resolve",
+  "controller": "AiAnswerReviewController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/chapter-memory/reload",
+  "controller": "CourseChapterMemoryController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/escalations",
+  "controller": "EscalationController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/escalations/cancel",
+  "controller": "EscalationController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/escalations/knowledge-candidates/{id}/approve",
+  "controller": "KnowledgeCandidateController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/escalations/knowledge-candidates/{id}/reject",
+  "controller": "KnowledgeCandidateController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/escalations/offer",
+  "controller": "EscalationController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/escalations/select",
+  "controller": "EscalationController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/escalations/{id}/answer",
+  "controller": "EscalationController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/escalations/{id}/knowledge-candidate",
+  "controller": "EscalationController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/improve-suggestions",
+  "controller": "ImproveController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/intent-classify",
+  "controller": "TutorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/intent-guard",
+  "controller": "TutorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/knowledge-candidates/{id}/approve",
+  "controller": "KnowledgeCandidateController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/knowledge-candidates/{id}/reject",
+  "controller": "KnowledgeCandidateController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/knowledge-images",
+  "controller": "KnowledgeImageController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/quiz-assignments/{assignmentId}/attempts",
+  "controller": "QuizController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/quiz-assignments/{assignmentId}/publish",
+  "controller": "QuizController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/quizzes/{quizSessionId}/submit",
+  "controller": "QuizController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/sessions/open",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/sessions/{sessionId}/close",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/students/{studentId}/courses/{courseId}/memory/pinned-suggestions",
+  "controller": "StudentMemoryController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/students/{studentId}/courses/{courseId}/quizzes/generate",
+  "controller": "QuizController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/students/{studentId}/courses/{courseId}/suggestions/learn",
+  "controller": "QuizController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/teachers/{teacherId}/courses/{courseId}/quiz-assignments/generate",
+  "controller": "QuizController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/teachers/{teacherId}/courses/{courseId}/quiz-assignments/manual",
+  "controller": "QuizController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/teachers/{teacherId}/directives",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/teachers/{teacherId}/directives/{directiveId}/archive",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/teachers/{teacherId}/directives/{directiveId}/confirm",
+  "controller": "TutorSessionController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/workers/curriculum",
+  "controller": "TutorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/tutor/workers/refuse",
+  "controller": "TutorController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/users/login",
+  "controller": "UserController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/users/logout",
+  "controller": "UserController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/users/refresh",
+  "controller": "UserController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/users/register",
+  "controller": "UserController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/chapters/confirm",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/chapters/manual",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/chapters/refresh",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/chapters/refresh-html",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/chapters/start",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/chapters/tasks",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/chapters/{chapterKey}/ignore",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/coverage/analyze",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/eval-runs",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/gold-qa",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/gold-qa/{id}/approve",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/gold-qa/{id}/exam",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/gold-qa/{id}/reject",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/gold-qa/{id}/send-for-review",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/harness/cases/{id}/replay",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/rubrics",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/rubrics/{id}/approve",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/rubrics/{id}/reject",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/tasks",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "POST",
+  "path": "/api/v2/expert-training/tasks/{id}/assign",
+  "controller": "ExpertCoTrainingController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/academic/courses/{courseId}",
+  "controller": "CourseController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/academic/courses/{courseId}/class-sections/{classId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/academic/enrollments/{enrollmentId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/admin/courses/{courseId}",
+  "controller": "CourseController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/admin/courses/{courseId}/class-sections/{classId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/admin/courses/{courseId}/learning-guide",
+  "controller": "CourseLearningGuideController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/admin/enrollments/{enrollmentId}",
+  "controller": "ClassSectionController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/admin/indexed-teaching-notes/{id}",
+  "controller": "AdminIndexedTeachingNotesController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/ai/student-llm",
+  "controller": "StudentSchoolAnswerController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/courses/{courseId}/materials/{materialId}",
+  "controller": "CourseMaterialController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/improve-plans/{planId}/complete",
+  "controller": "ImproveController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/teacher/students/{studentId}/teaching/behaviors/{behaviorId}",
+  "controller": "StudentTeachingProfileController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/teacher/students/{studentId}/teaching/profile",
+  "controller": "StudentTeachingProfileController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/teacher/teaching-behaviors/{id}",
+  "controller": "TeachingBehaviorController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/tutor/quiz-assignments/{assignmentId}",
+  "controller": "QuizController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/tutor/quizzes/{quizSessionId}/teacher-review",
+  "controller": "QuizController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/tutor/students/{studentId}/courses/{courseId}/memory",
+  "controller": "StudentMemoryController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/users/{userId}/password",
+  "controller": "UserController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/users/{userId}/profile",
+  "controller": "UserController"
+ },
+ {
+  "method": "PUT",
+  "path": "/api/v2/expert-training/tasks/{id}",
+  "controller": "ExpertCoTrainingController"
+ }
+]

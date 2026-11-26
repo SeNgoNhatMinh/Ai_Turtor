@@ -30,3 +30,4 @@ Thumbs.db
 
 # MongoDB dumps / restore logs (may contain user data)
 backup/
+loadtest-results/
