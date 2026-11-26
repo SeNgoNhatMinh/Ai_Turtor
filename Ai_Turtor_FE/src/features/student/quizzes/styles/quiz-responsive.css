@@ -18,6 +18,11 @@
   .quiz-item-action {
     justify-content: flex-start;
   }
+
+  .quiz-assignment-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 640px) {

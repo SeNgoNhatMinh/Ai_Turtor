@@ -5,7 +5,9 @@ import FeatureErrorBoundary from '../../components/common/FeatureErrorBoundary';
 
 const teacherPages = {
   'teacher-classes': lazy(() => import('../../features/teacher/classes/TeacherClassesPage')),
+  'teacher-quizzes': lazy(() => import('../../features/teacher/quizzes/TeacherQuizzesPage')),
   'teacher-materials': lazy(() => import('../../features/teacher/materials/TeacherMaterialsPage')),
+  'teacher-grading': lazy(() => import('../../features/teacher/grading/TeacherGradingPage')),
   'teacher-escalations': lazy(() => import('../../features/teacher/review/TeacherReviewPage')),
   'teacher-tutoring': lazy(() => import('../../features/teacher/tutoring/TeacherTutoringPage')),
   'teacher-teaching-behaviors': lazy(() => import('../../features/teacher/teaching-methods/TeachingMethodsPage')),

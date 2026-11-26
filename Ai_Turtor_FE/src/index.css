@@ -10,6 +10,7 @@
 @import "./features/teacher/classes/TeacherClasses.css";
 @import "./features/teacher/shared/TeacherTables.css";
 @import "./features/teacher/materials/TeacherMaterialsFoundation.css";
+@import "./features/teacher/grading/TeacherGradingFoundation.css";
 @import "./features/teacher/review/TeacherReviewFoundation.css";
 @import "./features/admin/AdminWorkspace.css";
 @import "./components/Toast.css";

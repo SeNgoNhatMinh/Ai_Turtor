@@ -80,6 +80,15 @@ const navigationItems = [
     icon: LayoutGrid,
   },
   {
+    key: 'teacher-quizzes',
+    workspace: 'teacher',
+    allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
+    group: 'Giảng dạy',
+    label: 'Quiz được giao',
+    description: 'Tạo, xuất bản quiz và duyệt bài làm của sinh viên.',
+    icon: ClipboardList,
+  },
+  {
     key: 'teacher-materials',
     workspace: 'teacher',
     allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
@@ -87,6 +96,15 @@ const navigationItems = [
     label: 'Tài liệu học tập',
     description: 'Xem học liệu của lớp được phân công.',
     icon: UploadCloud,
+  },
+  {
+    key: 'teacher-grading',
+    workspace: 'teacher',
+    allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
+    group: 'Giảng dạy',
+    label: 'Chấm quiz',
+    description: 'Xem bài làm quiz và xác nhận điểm cuối.',
+    icon: CheckSquare,
   },
   {
     key: 'teacher-escalations',
