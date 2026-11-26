@@ -19,23 +19,18 @@ QuizSession? latestInProgressQuiz(Iterable<QuizSession> sessions) {
 
 class QuizHubStats {
   const QuizHubStats({
-    required this.assigned,
     required this.inProgress,
     required this.submitted,
     required this.reviewed,
     this.latest,
   });
 
-  final int assigned;
   final int inProgress;
   final int submitted;
   final int reviewed;
   final DateTime? latest;
 
-  factory QuizHubStats.from({
-    required List<QuizSession> sessions,
-    required int assignedCount,
-  }) {
+  factory QuizHubStats.from({required List<QuizSession> sessions}) {
     var inProgress = 0;
     var submitted = 0;
     var reviewed = 0;
@@ -53,7 +48,6 @@ class QuizHubStats {
       }
     }
     return QuizHubStats(
-      assigned: assignedCount,
       inProgress: inProgress,
       submitted: submitted,
       reviewed: reviewed,
@@ -66,9 +60,9 @@ String quizResultStatusLabel(QuizSession session) {
   final reviewStatus = (session.teacherReviewStatus ?? '').toUpperCase();
   if (reviewStatus.contains('REVIEWED')) return 'Giảng viên đã duyệt';
   if (session.quizType == 'ASSIGNED' && session.isSubmitted) {
-    return 'Chờ giảng viên duyệt';
+    return 'Đã nộp';
   }
-  if (session.isSubmitted) return 'Backend đã chấm';
+  if (session.isSubmitted) return 'Đã chấm tự động';
   return session.status;
 }
 

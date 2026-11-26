@@ -98,13 +98,13 @@ async function mockBackend(page, unexpectedRequests) {
       '/api/ai/student-llm': { configured: false },
       '/api/ai/conversations': { conversations: [] },
       '/api/courses/PRO192/materials': { materials: [] },
+      '/api/courses/PRO192/learning-guide': { courseId: 'PRO192', topics: [], status: 'NO_SYLLABUS' },
       '/api/students/student-1/courses/PRO192/classes/SE1833/materials': { materials: [] },
       '/api/tutor/students/student-1/courses/PRO192/support-profile': {},
       '/api/tutor/students/student-1/courses/PRO192/question-quota': { used: 0, remaining: 10, limit: 10 },
       '/api/tts/voices': [],
       '/api/tutor/students/student-1/courses/PRO192/memory': {},
       '/api/tutor/students/student-1/courses/PRO192/quizzes': { quizzes: [] },
-      '/api/tutor/students/student-1/courses/PRO192/quiz-assignments': { assignments: [] },
       '/api/tutor/escalations/history': { escalations: [] },
       '/api/students/student-1/improve-plans': { content: [] },
       '/api/students/student-1/courses/PRO192/improve-plan': {},
@@ -633,7 +633,7 @@ test('practice quiz tabs stay inside the viewport and remain navigable', async (
 
   const quizTabs = page.locator('.quiz-tabs');
   await expect(quizTabs).toBeVisible();
-  await expect(quizTabs.getByRole('tab')).toHaveCount(5);
+  await expect(quizTabs.getByRole('tab')).toHaveCount(4);
 
   const navBounds = await quizTabs.locator(':scope > .ant-tabs-nav').boundingBox();
   expect(navBounds).not.toBeNull();

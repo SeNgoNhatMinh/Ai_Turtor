@@ -644,53 +644,6 @@ export const normalizeQuizSession = (quiz) => ({
   updatedAt: quiz?.updatedAt || quiz?.submittedAt || quiz?.createdAt || new Date().toISOString(),
 });
 
-export const normalizeTeacherQuizAttempt = (attempt) => ({
-  ...(attempt || {}),
-  id: attempt?.quizSessionId || attempt?.id || attempt?.sessionId,
-  quizSessionId: attempt?.quizSessionId || attempt?.id || attempt?.sessionId,
-  assignmentId: attempt?.assignmentId || '',
-  studentId: attempt?.studentId || '',
-  teacherId: attempt?.teacherId || '',
-  courseId: attempt?.courseId || '',
-  classId: attempt?.classId || '',
-  title: attempt?.title || attempt?.topic || 'Assigned quiz',
-  topic: attempt?.topic || attempt?.title || '',
-  quizType: attempt?.quizType || 'ASSIGNED',
-  status: attempt?.status || 'SUBMITTED',
-  teacherReviewStatus: attempt?.teacherReviewStatus || attempt?.reviewStatus || 'PENDING',
-  score: attempt?.score ?? attempt?.autoScore ?? null,
-  autoScore: attempt?.autoScore ?? attempt?.score ?? null,
-  teacherReviewedScore: attempt?.teacherReviewedScore ?? attempt?.reviewedScore ?? null,
-  finalScore: attempt?.finalScore ?? attempt?.teacherReviewedScore ?? attempt?.autoScore ?? attempt?.score ?? null,
-  maxScore: attempt?.maxScore ?? 0,
-  percentage: attempt?.autoPercentage ?? attempt?.percentage ?? null,
-  autoPercentage: attempt?.autoPercentage ?? attempt?.percentage ?? null,
-  finalPercentage: attempt?.finalPercentage ?? attempt?.autoPercentage ?? attempt?.percentage ?? null,
-  teacherFeedback: attempt?.teacherFeedback || '',
-  gradingMode: attempt?.gradingMode || attempt?.grading || '',
-  createdAt: attempt?.createdAt || '',
-  submittedAt: attempt?.submittedAt || '',
-  teacherReviewedAt: attempt?.teacherReviewedAt || '',
-  questions: asArray(attempt?.questions),
-  answers: asArray(attempt?.answers),
-});
-
-export const normalizeQuizAssignment = (assignment) => ({
-  ...(assignment || {}),
-  id: assignment?.id || assignment?.assignmentId,
-  assignmentId: assignment?.assignmentId || assignment?.id,
-  title: assignment?.title || assignment?.name || assignment?.topic || 'Untitled Quiz',
-  topic: assignment?.topic || assignment?.title || '',
-  suggestionText: assignment?.suggestionText || '',
-  gradingMode: assignment?.gradingMode || assignment?.grading || 'AUTO',
-  status: assignment?.status || 'DRAFT',
-  targetType: assignment?.targetType || 'CLASS',
-  classId: assignment?.classId || '',
-  publishedAt: assignment?.publishedAt || '',
-  questionCount: assignment?.questionCount ?? asArray(assignment?.questions).length,
-  questions: asArray(assignment?.questions),
-});
-
 export const normalizeImprovePlan = (plan) => {
   const planItems = asArray(plan?.planItems || plan?.items);
   const planItemDetails = asArray(plan?.planItemDetails || plan?.itemDetails);

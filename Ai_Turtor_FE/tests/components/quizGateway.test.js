@@ -16,10 +16,8 @@ vi.mock('../../src/services/n8nService', () => ({
 vi.mock('../../src/services/quizApi', () => ({
   quizApi: {
     generateSelfQuiz: vi.fn(),
-    generateTeacherQuizDraft: vi.fn(),
     submitQuiz: vi.fn(),
     getQuiz: vi.fn(),
-    getTeacherQuizAssignments: vi.fn(),
   },
 }));
 
@@ -62,16 +60,16 @@ describe('quiz n8n gateway', () => {
     expect(quizApi.generateSelfQuiz).not.toHaveBeenCalled();
   });
 
-  it('loads the canonical result after n8n submits an assigned quiz', async () => {
+  it('loads the canonical result after n8n submits a self-practice quiz', async () => {
     n8nService.submitQuiz.mockResolvedValue({
       success: true,
-      status: 'SUBMITTED_WAITING_TEACHER_REVIEW',
+      status: 'SUBMITTED',
       quizSessionId: 'quiz-1',
     });
     quizApi.getQuiz.mockResolvedValue({
       quizSessionId: 'quiz-1',
       status: 'SUBMITTED',
-      teacherReviewStatus: 'PENDING_REVIEW',
+      score: 1,
       questions: [{ questionId: 'question-1' }],
       answers: [{ questionId: 'question-1', selectedAnswer: 'Đúng' }],
     });
@@ -86,34 +84,7 @@ describe('quiz n8n gateway', () => {
 
     expect(quizApi.getQuiz).toHaveBeenCalledWith('quiz-1');
     expect(result.answers[0].selectedAnswer).toBe('Đúng');
-    expect(result.teacherReviewStatus).toBe('PENDING_REVIEW');
+    expect(result.score).toBe(1);
     expect(quizApi.submitQuiz).not.toHaveBeenCalled();
-  });
-
-  it('loads the canonical teacher draft when n8n returns only an assignment receipt', async () => {
-    n8nService.generateQuiz.mockResolvedValue({
-      success: true,
-      status: 'DRAFT_CREATED',
-      quizType: 'TEACHER_ASSIGNMENT',
-      assignmentId: 'assignment-1',
-    });
-    quizApi.getTeacherQuizAssignments.mockResolvedValue([{
-      assignmentId: 'assignment-1',
-      title: 'OOP review',
-      status: 'DRAFT',
-      questions: [{ questionId: 'question-1', questionText: 'OOP là gì?' }],
-    }]);
-
-    const draft = await quizGateway.generateTeacherDraft({
-      teacherId: 'teacher-1',
-      teacherName: 'Teacher A',
-      courseId: 'PRO192',
-      classId: 'SE1833',
-      payload: { title: 'OOP review', topic: 'OOP', questionCount: 3 },
-    });
-
-    expect(quizApi.getTeacherQuizAssignments).toHaveBeenCalledWith('teacher-1');
-    expect(draft.assignmentId).toBe('assignment-1');
-    expect(draft.questions).toHaveLength(1);
   });
 });

@@ -67,7 +67,6 @@ abstract final class AppRoutes {
 
   static const studentQuiz = '/s/quiz';
   static String studentQuizForCourse(String courseId) => '/s/quiz/$courseId';
-  static const teacherQuiz = '/t/quiz';
 
   // ── Admin shell routes ──────────────────────────────────────────
   static const adminHome = '/a/home';

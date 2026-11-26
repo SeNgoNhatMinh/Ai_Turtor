@@ -41,16 +41,13 @@ class QuizRepository {
     String? suggestionText,
     int questionCount = 5,
   }) async {
-    final payload = withN8nContext(
-      {
-        'studentId': studentId,
-        'courseId': courseId,
-        if (classId != null) 'classId': classId,
-        ...quizPromptPayload(topic: topic, suggestionText: suggestionText),
-        'questionCount': questionCount,
-      },
-      authToken: authToken,
-    );
+    final payload = withN8nContext({
+      'studentId': studentId,
+      'courseId': courseId,
+      if (classId != null) 'classId': classId,
+      ...quizPromptPayload(topic: topic, suggestionText: suggestionText),
+      'questionCount': questionCount,
+    }, authToken: authToken);
 
     final response = await _n8n.post<Map<String, dynamic>>(
       '/quiz-generate',
@@ -60,7 +57,8 @@ class QuizRepository {
     final data = Map<String, dynamic>.from(response.data ?? {});
     ensureN8nSuccess(data);
 
-    final sessionId = data['quizSessionId']?.toString() ?? data['id']?.toString();
+    final sessionId =
+        data['quizSessionId']?.toString() ?? data['id']?.toString();
     final questions = data['questions'];
     if (sessionId != null &&
         sessionId.isNotEmpty &&
@@ -85,16 +83,13 @@ class QuizRepository {
     required List<Map<String, String>> answers,
     String? classId,
   }) async {
-    final payload = withN8nContext(
-      {
-        'quizSessionId': quizSessionId,
-        'studentId': studentId,
-        'courseId': courseId,
-        if (classId != null) 'classId': classId,
-        'answers': answers,
-      },
-      authToken: authToken,
-    );
+    final payload = withN8nContext({
+      'quizSessionId': quizSessionId,
+      'studentId': studentId,
+      'courseId': courseId,
+      if (classId != null) 'classId': classId,
+      'answers': answers,
+    }, authToken: authToken);
 
     final response = await _n8n.post<Map<String, dynamic>>(
       '/quiz-submit',
@@ -104,7 +99,8 @@ class QuizRepository {
     final data = Map<String, dynamic>.from(response.data ?? {});
     ensureN8nSuccess(data);
 
-    if (data['questions'] == null || (data['questions'] as List?)?.isEmpty == true) {
+    if (data['questions'] == null ||
+        (data['questions'] as List?)?.isEmpty == true) {
       try {
         return getQuiz(quizSessionId);
       } catch (_) {
@@ -132,140 +128,6 @@ class QuizRepository {
     return parseList(
       unwrapList(response.data, ['quizzes']),
       QuizSession.fromJson,
-    );
-  }
-
-  // ── Student: assigned quizzes ────────────────────────────────
-
-  Future<List<QuizAssignment>> listStudentQuizAssignments({
-    required String studentId,
-    required String courseId,
-    String? classId,
-  }) async {
-    final response = await _spring.get<dynamic>(
-      '/api/tutor/students/$studentId/courses/$courseId/quiz-assignments',
-      queryParameters: {
-        if (classId != null) 'classId': classId,
-      },
-    );
-    return parseList(
-      unwrapList(response.data, ['assignments']),
-      QuizAssignment.fromJson,
-    );
-  }
-
-  Future<QuizSession> startAssignedQuiz({
-    required String assignmentId,
-    required String studentId,
-  }) async {
-    final response = await _spring.post<Map<String, dynamic>>(
-      '/api/tutor/quiz-assignments/$assignmentId/attempts',
-      queryParameters: {'studentId': studentId},
-      options: Options(receiveTimeout: aiReceiveTimeout),
-    );
-    return QuizSession.fromJson(response.data ?? {});
-  }
-
-  // ── Teacher: manage quiz assignments ────────────────────────
-
-  Future<QuizAssignment> generateQuizAssignment({
-    required String teacherId,
-    required String courseId,
-    required String title,
-    required String authToken,
-    String? classId,
-    String? topic,
-    String? suggestionText,
-    int questionCount = 5,
-  }) async {
-    final payload = withN8nContext(
-      {
-        'teacherId': teacherId,
-        'courseId': courseId,
-        if (classId != null) 'classId': classId,
-        'title': title,
-        ...quizPromptPayload(topic: topic, suggestionText: suggestionText),
-        'questionCount': questionCount,
-      },
-      authToken: authToken,
-    );
-
-    final response = await _n8n.post<Map<String, dynamic>>(
-      '/quiz-generate',
-      data: payload,
-      options: Options(receiveTimeout: aiReceiveTimeout),
-    );
-    final data = Map<String, dynamic>.from(response.data ?? {});
-    ensureN8nSuccess(data);
-
-    if (data['assignment'] is Map) {
-      return QuizAssignment.fromJson(
-        Map<String, dynamic>.from(data['assignment'] as Map),
-      );
-    }
-    return QuizAssignment.fromJson(data);
-  }
-
-  Future<QuizAssignment> updateQuizAssignment({
-    required String assignmentId,
-    String? title,
-    String? topic,
-    List<Map<String, dynamic>>? questions,
-  }) async {
-    final response = await _spring.put<Map<String, dynamic>>(
-      '/api/tutor/quiz-assignments/$assignmentId',
-      data: {
-        if (title != null) 'title': title,
-        if (topic != null) 'topic': topic,
-        if (questions != null) 'questions': questions,
-      },
-    );
-    return QuizAssignment.fromJson(response.data ?? {});
-  }
-
-  Future<void> deleteQuizAssignment(String assignmentId) async {
-    await _spring.delete<void>('/api/tutor/quiz-assignments/$assignmentId');
-  }
-
-  Future<QuizAssignment> publishQuizAssignment({
-    required String assignmentId,
-    String targetType = 'CLASS',
-    List<String>? targetStudentIds,
-  }) async {
-    final response = await _spring.post<Map<String, dynamic>>(
-      '/api/tutor/quiz-assignments/$assignmentId/publish',
-      data: {
-        'targetType': targetType,
-        if (targetStudentIds != null) 'targetStudentIds': targetStudentIds,
-      },
-    );
-    return QuizAssignment.fromJson(response.data ?? {});
-  }
-
-  Future<QuizSession> teacherReviewQuiz({
-    required String quizSessionId,
-    int? reviewedScore,
-    String? feedback,
-  }) async {
-    final response = await _spring.put<Map<String, dynamic>>(
-      '/api/tutor/quizzes/$quizSessionId/teacher-review',
-      data: {
-        if (reviewedScore != null) 'reviewedScore': reviewedScore,
-        if (feedback != null) 'feedback': feedback,
-      },
-    );
-    return QuizSession.fromJson(response.data ?? {});
-  }
-
-  Future<List<QuizAssignment>> listTeacherQuizAssignments(
-    String teacherId,
-  ) async {
-    final response = await _spring.get<dynamic>(
-      '/api/tutor/teachers/$teacherId/quiz-assignments',
-    );
-    return parseList(
-      unwrapList(response.data, ['assignments']),
-      QuizAssignment.fromJson,
     );
   }
 }

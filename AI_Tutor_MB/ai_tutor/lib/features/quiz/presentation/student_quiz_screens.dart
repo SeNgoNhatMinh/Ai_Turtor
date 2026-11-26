@@ -113,19 +113,14 @@ class _StudentQuizBody extends HookConsumerWidget {
     final tabIndex = useState(0);
     final restoredQuizId = useRef<String?>(null);
     final history = ref.watch(studentQuizHistoryProvider(course.id));
-    final assigned = ref.watch(studentQuizAssignmentsProvider(course.id));
     final memory = ref.watch(courseMemoryProvider(course.id));
     final learningGuide = ref.watch(courseLearningGuideProvider(course.id));
     final sessions = history.valueOrNull ?? const <QuizSession>[];
-    final assignedItems = assigned.valueOrNull ?? const <QuizAssignment>[];
     final inProgress = sessions
         .where((session) => !session.isSubmitted)
         .toList();
     final submitted = sessions.where((session) => session.isSubmitted).toList();
-    final stats = QuizHubStats.from(
-      sessions: sessions,
-      assignedCount: assignedItems.length,
-    );
+    final stats = QuizHubStats.from(sessions: sessions);
     final topicSuggestions = buildQuizTopicSuggestions(
       weakTopics: memory.valueOrNull?.weakTopics ?? const [],
       curriculumTopics: learningGuide.valueOrNull?.topicTitles ?? const [],
@@ -214,18 +209,11 @@ class _StudentQuizBody extends HookConsumerWidget {
                     onTap: () => tabIndex.value = 1,
                   ),
                   _HubTab(
-                    label: assignedItems.isEmpty
-                        ? 'Được giao'
-                        : 'Được giao (${assignedItems.length})',
-                    selected: tabIndex.value == 2,
-                    onTap: () => tabIndex.value = 2,
-                  ),
-                  _HubTab(
                     label: submitted.isEmpty
                         ? 'Lịch sử'
                         : 'Lịch sử (${submitted.length})',
-                    selected: tabIndex.value == 3,
-                    onTap: () => tabIndex.value = 3,
+                    selected: tabIndex.value == 2,
+                    onTap: () => tabIndex.value = 2,
                   ),
                 ],
               ),
@@ -242,8 +230,7 @@ class _StudentQuizBody extends HookConsumerWidget {
                 emptyMessage:
                     'Hãy tạo mới hoặc tiếp tục một quiz. Quiz dở sẽ hiện ở đây.',
               ),
-              2 => _AssignedTab(courseId: course.id, assignedAsync: assigned),
-              3 => _QuizSessionList(
+              2 => _QuizSessionList(
                 courseId: course.id,
                 historyAsync: history,
                 submittedOnly: true,
@@ -363,12 +350,6 @@ class _QuizStatGrid extends StatelessWidget {
       childAspectRatio: 2.4,
       children: [
         _QuizStatCard(
-          icon: LucideIcons.bookOpen,
-          label: 'Được giao',
-          value: '${stats.assigned}',
-          description: 'Từ giảng viên',
-        ),
-        _QuizStatCard(
           icon: LucideIcons.clock,
           label: 'Đang làm',
           value: '${stats.inProgress}',
@@ -378,7 +359,7 @@ class _QuizStatGrid extends StatelessWidget {
           icon: LucideIcons.checkCircle2,
           label: 'Đã nộp',
           value: '${stats.submitted}',
-          description: 'Đã gửi chấm',
+          description: 'Đã lưu kết quả',
         ),
         _QuizStatCard(
           icon: LucideIcons.trophy,
@@ -386,7 +367,7 @@ class _QuizStatGrid extends StatelessWidget {
           value: stats.latest == null ? '—' : formatRelativeTime(stats.latest!),
           description: stats.reviewed > 0
               ? '${stats.reviewed} bài đã được giảng viên duyệt'
-              : 'Chưa có bài được giảng viên duyệt',
+              : 'Lịch sử luyện tập',
         ),
       ],
     );
@@ -861,118 +842,6 @@ class _QuizHistoryCard extends StatelessWidget {
   }
 }
 
-// ── Assigned tab ─────────────────────────────────────────────────
-
-class _AssignedTab extends ConsumerWidget {
-  const _AssignedTab({required this.courseId, required this.assignedAsync});
-  final String courseId;
-  final AsyncValue<List<QuizAssignment>> assignedAsync;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return assignedAsync.when(
-      loading: () => const LoadingSkeleton(),
-      error: (e, _) => ErrorState(
-        message: describeError(e),
-        onRetry: () => ref.invalidate(studentQuizAssignmentsProvider(courseId)),
-      ),
-      data: (assignments) {
-        if (assignments.isEmpty) {
-          return const EmptyState(
-            title: 'Chưa có quiz được giao',
-            message: 'Giảng viên chưa giao quiz cho bạn.',
-          );
-        }
-        return RefreshIndicator(
-          color: AppColors.primary,
-          onRefresh: () =>
-              ref.refresh(studentQuizAssignmentsProvider(courseId).future),
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(
-              Insets.screenH,
-              0,
-              Insets.screenH,
-              Insets.xxxl,
-            ),
-            itemCount: assignments.length,
-            separatorBuilder: (_, __) => const Gap(Insets.sm),
-            itemBuilder: (ctx, i) =>
-                _AssignedQuizCard(
-                      assignment: assignments[i],
-                      courseId: courseId,
-                    )
-                    .animate(delay: (40 * i).clamp(0, 280).ms)
-                    .fadeIn(duration: Motion.base),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _AssignedQuizCard extends ConsumerWidget {
-  const _AssignedQuizCard({required this.assignment, required this.courseId});
-  final QuizAssignment assignment;
-  final String courseId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return FptCard(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => TakeQuizScreen.fromAssignment(assignment: assignment),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.infoBg,
-              borderRadius: BorderRadius.circular(Radii.sm),
-            ),
-            child: const Icon(
-              LucideIcons.fileQuestion,
-              color: AppColors.peacockBlue,
-              size: 22,
-            ),
-          ),
-          const Gap(Insets.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  assignment.title,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const Gap(2),
-                Text(
-                  '${assignment.questions.length} câu'
-                  '${assignment.publishedAt != null ? ' · ${formatRelativeTime(assignment.publishedAt!)}' : ''}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textTertiary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(
-            LucideIcons.chevronRight,
-            size: 16,
-            color: AppColors.textTertiary,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ── Take Quiz Screen ─────────────────────────────────────────────
 
 class TakeQuizScreen extends HookConsumerWidget {
@@ -983,7 +852,6 @@ class TakeQuizScreen extends HookConsumerWidget {
     this.suggestionText,
     this.questionCount = 5,
     this.existingSession,
-    this.assignmentId,
   });
 
   final String courseId;
@@ -991,17 +859,9 @@ class TakeQuizScreen extends HookConsumerWidget {
   final String? suggestionText;
   final int questionCount;
   final QuizSession? existingSession;
-  final String? assignmentId;
 
   factory TakeQuizScreen.fromSession({required QuizSession session}) {
     return TakeQuizScreen(courseId: session.courseId, existingSession: session);
-  }
-
-  factory TakeQuizScreen.fromAssignment({required QuizAssignment assignment}) {
-    return TakeQuizScreen(
-      courseId: assignment.courseId,
-      assignmentId: assignment.id,
-    );
   }
 
   @override
@@ -1015,12 +875,6 @@ class TakeQuizScreen extends HookConsumerWidget {
         Future.microtask(() {
           ref.read(activeQuizProvider.notifier).loadSession(existingSession!);
         });
-      } else if (assignmentId != null) {
-        Future.microtask(
-          () => ref
-              .read(activeQuizProvider.notifier)
-              .startAssigned(assignmentId: assignmentId!),
-        );
       } else {
         Future.microtask(
           () => ref
@@ -1468,7 +1322,7 @@ class _QuizResultView extends StatelessWidget {
               const Gap(Insets.sm),
               Text(
                 awaitingReview
-                    ? 'Điểm đang chờ giảng viên duyệt'
+                    ? 'Chưa có điểm chính thức'
                     : '$score / $max  (${pct.round()}%)',
                 style: Theme.of(
                   context,

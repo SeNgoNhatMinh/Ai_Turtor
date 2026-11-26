@@ -76,10 +76,7 @@ export function useTeacherActionCenter({ teacherId, role, courseId, classId }) {
     if (hasScope) queryClient.invalidateQueries({ queryKey, exact: true });
   }, [hasScope, queryClient, queryKey]);
 
-  useRealtimeEvent([
-    ...REALTIME_EVENT_TYPES.material,
-    ...REALTIME_EVENT_TYPES.quizHistory,
-  ], (event) => {
+  useRealtimeEvent(REALTIME_EVENT_TYPES.material, (event) => {
     if (eventMatchesCourse(event, courseId)) invalidate();
   });
   useRealtimeReconnect(invalidate);

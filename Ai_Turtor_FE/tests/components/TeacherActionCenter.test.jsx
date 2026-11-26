@@ -9,19 +9,19 @@ describe('TeacherActionCenter', () => {
       <TeacherActionCenter
         hasScope
         items={[{
-          key: 'quiz-review',
-          title: '2 bài quiz chờ duyệt điểm',
-          description: 'Kiểm tra điểm tự động.',
-          status: 'PENDING_REVIEW',
-          tab: 'teacher-grading',
+          key: 'escalations',
+          title: '2 yêu cầu hỗ trợ đang mở',
+          description: 'Trao đổi và gửi câu trả lời chính thức cho sinh viên.',
+          status: 'OPEN',
+          tab: 'teacher-escalations',
         }]}
         onNavigate={onNavigate}
         onRefresh={vi.fn()}
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /2 bài quiz chờ duyệt điểm/i }));
-    expect(onNavigate).toHaveBeenCalledWith('teacher-grading');
+    fireEvent.click(screen.getByRole('button', { name: /2 yêu cầu hỗ trợ đang mở/i }));
+    expect(onNavigate).toHaveBeenCalledWith('teacher-escalations');
   });
 
   it('does not load actions until a canonical class scope exists', () => {

@@ -194,7 +194,6 @@ const STUDENT_READS = [
   '/api/tutor/students/{studentId}/courses/{courseId}/memory',
   '/api/tutor/students/{studentId}/courses/{courseId}/sessions',
   '/api/tutor/students/{studentId}/courses/{courseId}/quizzes',
-  '/api/tutor/students/{studentId}/courses/{courseId}/quiz-assignments',
   '/api/tutor/students/{studentId}/courses/{courseId}/support-profile',
 ];
 

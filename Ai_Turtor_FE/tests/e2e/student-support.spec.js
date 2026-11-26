@@ -43,7 +43,6 @@ async function setupStudent(page) {
       'GET /api/tutor/students/student-1/courses/PRO192/memory': {},
       'GET /api/tutor/students/student-1/courses/PRO192/question-quota': { used: 2, remaining: 8, limit: 10 },
       'GET /api/tutor/students/student-1/courses/PRO192/quizzes': { quizzes: [] },
-      'GET /api/tutor/students/student-1/courses/PRO192/quiz-assignments': { assignments: [] },
       'GET /api/students/student-1/improve-plans': { content: [] },
       'GET /api/students/student-1/courses/PRO192/improve-plan': {},
       'GET /api/courses/PRO192/materials': { materials: [] },

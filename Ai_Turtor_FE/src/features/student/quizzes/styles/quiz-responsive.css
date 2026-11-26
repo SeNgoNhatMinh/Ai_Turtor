@@ -21,9 +21,6 @@
 }
 
 @media (max-width: 640px) {
-  .quiz-grading-score-summary {
-    justify-content: flex-start;
-  }
 
   .quiz-review-question-heading {
     flex-direction: column;

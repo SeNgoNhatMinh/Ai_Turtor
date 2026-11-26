@@ -207,9 +207,6 @@
     }
   },
   "statClasses": "Lớp đang dạy",
-  "teacherQuizTitle": "Quiz AI",
-  "teacherQuizSubtitle": "Tạo quiz bằng AI và giao cho sinh viên luyện tập",
-  "teacherQuizManage": "Quản lý Quiz AI",
   "statEscalations": "Escalation chờ",
   "statGrading": "Bài cần chấm",
   "statReviews": "Review chờ",

@@ -9,14 +9,9 @@ import {
   getExpertTrainingNextAction,
 } from '../src/features/expert-training/expertTrainingSelectors.js';
 import {
-  buildQuizScoreboardRows,
-  getTeacherQuizAttemptRowStatus,
-} from '../src/features/teacher/quizzes/quizScoreboardUtils.js';
-import {
   FEEDBACK_ACTIONS,
   getFeedbackActionKeyForStar,
 } from '../src/constants/answerReview.js';
-import { isQuizDraft } from '../src/features/teacher/quizzes/quizAssignmentUtils.js';
 
 const roles = ['STUDENT', 'TEACHER', 'SENIOR_MENTOR', 'ADMIN'];
 
@@ -46,8 +41,8 @@ test('education navigation tabs stay within each workspace role', () => {
   assert.ok(studentTabs.has('student-quizzes'));
   assert.ok(studentTabs.has('student-chat'));
   assert.ok(!studentTabs.has('teacher-expert-training'));
-  assert.ok(teacherTabs.has('teacher-quizzes'));
-  assert.ok(teacherTabs.has('teacher-grading'));
+  assert.ok(!teacherTabs.has('teacher-quizzes'));
+  assert.ok(!teacherTabs.has('teacher-grading'));
   assert.ok(teacherTabs.has('teacher-expert-training'));
   assert.ok(!teacherTabs.has('senior-review'));
   assert.ok(seniorTabs.has('senior-review'));
@@ -65,27 +60,6 @@ test('student answer feedback follows education escalation tiers', () => {
   assert.equal(FEEDBACK_ACTIONS[getFeedbackActionKeyForStar(2)].reviewType, 'ANSWER_DISPUTE');
   assert.equal(FEEDBACK_ACTIONS[getFeedbackActionKeyForStar(1)].reviewType, 'ANSWER_DISPUTE');
   assert.equal(FEEDBACK_ACTIONS.sourceConflict.reviewType, 'SOURCE_CONFLICT');
-});
-
-test('teacher quiz workflow: drafts stay editable, published attempts feed scoreboard', () => {
-  assert.equal(isQuizDraft({ status: 'DRAFT' }), true);
-  assert.equal(isQuizDraft({ status: 'PUBLISHED' }), false);
-
-  const rows = buildQuizScoreboardRows(
-    { targetType: 'CLASS' },
-    [{
-      studentId: 's1',
-      status: 'SUBMITTED',
-      teacherReviewStatus: 'PENDING',
-      finalScore: 7,
-      maxScore: 10,
-      finalPercentage: 70,
-      submittedAt: '2026-07-01T08:00:00Z',
-    }],
-    [{ id: 's1', fullName: 'Lan' }, { id: 's2', fullName: 'Minh' }],
-  );
-  assert.equal(getTeacherQuizAttemptRowStatus(rows[0].attempt).label, 'Đã nộp · Chờ chấm');
-  assert.equal(rows.find((row) => row.studentId === 's2').statusLabel, 'Chưa làm');
 });
 
 test('teacher expert tasks split open pool, active work, and completed contributions', () => {

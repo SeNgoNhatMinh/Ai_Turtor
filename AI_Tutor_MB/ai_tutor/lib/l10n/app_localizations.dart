@@ -1102,24 +1102,6 @@ abstract class AppLocalizations {
   /// **'Lớp đang dạy'**
   String get statClasses;
 
-  /// No description provided for @teacherQuizTitle.
-  ///
-  /// In vi, this message translates to:
-  /// **'Quiz AI'**
-  String get teacherQuizTitle;
-
-  /// No description provided for @teacherQuizSubtitle.
-  ///
-  /// In vi, this message translates to:
-  /// **'Tạo quiz bằng AI và giao cho sinh viên luyện tập'**
-  String get teacherQuizSubtitle;
-
-  /// No description provided for @teacherQuizManage.
-  ///
-  /// In vi, this message translates to:
-  /// **'Quản lý Quiz AI'**
-  String get teacherQuizManage;
-
   /// No description provided for @statEscalations.
   ///
   /// In vi, this message translates to:

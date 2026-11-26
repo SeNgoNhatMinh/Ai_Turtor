@@ -154,6 +154,9 @@ public class QuizService {
         if (!STATUS_GENERATED.equalsIgnoreCase(session.getStatus())) {
             throw new IllegalArgumentException("Quiz attempt has already been submitted");
         }
+        if (isAssignedQuiz(session)) {
+            throw new IllegalArgumentException("Quiz được giao đã ngừng hỗ trợ.");
+        }
 
         Map<String, String> submitted = request.getAnswers().stream()
                 .filter(answer -> answer.getQuestionId() != null)
@@ -163,21 +166,20 @@ public class QuizService {
                         (first, second) -> second
                 ));
 
-        boolean manual = "TEACHER_MANUAL".equalsIgnoreCase(session.getGradingMode());
         int score = 0;
         List<QuizSession.QuizAnswer> checkedAnswers = new ArrayList<>();
         for (QuizSession.QuizQuestion question : session.getQuestions()) {
             String selected = submitted.getOrDefault(question.getQuestionId(), "");
-            boolean correct = !manual && isCorrect(selected, question.getCorrectAnswer());
+            boolean correct = isCorrect(selected, question.getCorrectAnswer());
             if (correct) {
                 score++;
             }
             checkedAnswers.add(QuizSession.QuizAnswer.builder()
                     .questionId(question.getQuestionId())
                     .selectedAnswer(selected)
-                    .correct(manual ? null : correct)
-                    .correctAnswer(manual ? null : question.getCorrectAnswer())
-                    .explanation(manual ? null : question.getExplanation())
+                    .correct(correct)
+                    .correctAnswer(question.getCorrectAnswer())
+                    .explanation(question.getExplanation())
                     .build());
         }
 
@@ -185,11 +187,10 @@ public class QuizService {
         double percentage = maxScore == 0 ? 0.0 : Math.round((score * 10000.0 / maxScore)) / 100.0;
         LocalDateTime now = LocalDateTime.now();
         session.setAnswers(checkedAnswers);
-        session.setScore(manual ? null : score);
+        session.setScore(score);
         session.setMaxScore(maxScore);
-        session.setPercentage(manual ? null : percentage);
+        session.setPercentage(percentage);
         session.setStatus(STATUS_SUBMITTED);
-        // Teacher-assigned quizzes and their manual review were removed; nothing waits for a teacher.
         session.setTeacherReviewStatus("NOT_REQUIRED");
         session.setSubmittedAt(now);
         session.setUpdatedAt(now);
@@ -200,7 +201,7 @@ public class QuizService {
                 saved.getCourseId(),
                 saved.getClassId(),
                 saved.getTopic(),
-                manual ? 0.0 : percentage
+                percentage
         );
         try {
             learningEvidenceService.recordEligibleQuizSubmission(saved);
@@ -220,7 +221,13 @@ public class QuizService {
         return quizSessionRepository.findByStudentIdAndCourseIdOrderByCreatedAtDesc(
                 requireText(studentId, "studentId"),
                 requireText(courseId, "courseId")
-        );
+        ).stream()
+                .filter(session -> !isAssignedQuiz(session) || !STATUS_GENERATED.equalsIgnoreCase(session.getStatus()))
+                .toList();
+    }
+
+    private boolean isAssignedQuiz(QuizSession session) {
+        return "ASSIGNED".equalsIgnoreCase(session.getQuizType()) || normalize(session.getAssignmentId()) != null;
     }
 
     private String resolveTopic(GenerateQuizRequest request) {

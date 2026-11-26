@@ -2285,121 +2285,6 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 3
-          },
-          "conditions": [
-            {
-              "id": "4f5ecf53-e598-40d5-8f7b-eb20aa2d2686",
-              "leftValue": "={{$json.quizType}}",
-              "rightValue": "ASSIGNED",
-              "operator": {
-                "type": "string",
-                "operation": "equals",
-                "name": "filter.operator.equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "looseTypeValidation": true,
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        -464,
-        3408
-      ],
-      "id": "484187b0-a596-45a2-a1fe-22086900b343",
-      "name": "IF - Assigned Quiz?"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://ai-tutor-api:8085/api/harness/logs",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{$node[\"Set - Normalize Quiz Submit\"].json.authToken}}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "traceId",
-              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.traceId}}"
-            },
-            {
-              "name": "studentId",
-              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.studentId}}"
-            },
-            {
-              "name": "courseId",
-              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.courseId}}"
-            },
-            {
-              "name": "classId",
-              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.classId}}"
-            },
-            {
-              "name": "workflowName",
-              "value": "Quiz Submit Harness"
-            },
-            {
-              "name": "nodeName",
-              "value": "Notify Teacher Review"
-            },
-            {
-              "name": "mode",
-              "value": "QUIZ_SUBMIT"
-            },
-            {
-              "name": "eventType",
-              "value": "TEACHER_REVIEW_REQUIRED"
-            },
-            {
-              "name": "status",
-              "value": "SUCCESS"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        -48,
-        3392
-      ],
-      "id": "a1a9c757-fa19-4a96-bc1f-b5ee4bd0a343",
-      "name": "Notify Teacher / Teacher Inbox"
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({\r\n  success: true,\r\n  status: \"SUBMITTED_WAITING_TEACHER_REVIEW\",\r\n  quizType: \"ASSIGNED\",\r\n  quizSessionId: $json.id || $node[\"Set - Normalize Quiz Submit\"].json.quizSessionId,\r\n  score: $json.score,\r\n  maxScore: $json.maxScore,\r\n  percentage: $json.percentage,\r\n  teacherReviewStatus: $json.teacherReviewStatus || \"PENDING_REVIEW\",\r\n  message: \"Bài quiz đã nộp và chấm tạm thời; mentor sẽ review điểm cuối.\",\r\n  traceId: $node[\"Set - Normalize Quiz Submit\"].json.traceId\r\n}) }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.5,
-      "position": [
-        320,
-        3392
-      ],
-      "id": "3e6dec31-670a-4bf5-9378-798052c1e66e",
-      "name": "Respond Submitted Waiting Teacher Review"
-    },
-    {
-      "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({\r\n  success: true,\r\n  status: \"SUBMITTED\",\r\n  quizType: $json.quizType || \"SELF_PRACTICE\",\r\n  quizSessionId: $json.id || $node[\"Set - Normalize Quiz Submit\"].json.quizSessionId,\r\n  score: $json.score,\r\n  maxScore: $json.maxScore,\r\n  percentage: $json.percentage,\r\n  message: \"Quiz đã được chấm và kết quả đã cập nhật vào learning memory.\",\r\n  traceId: $node[\"Set - Normalize Quiz Submit\"].json.traceId\r\n}) }}",
         "options": {}
@@ -2444,10 +2329,6 @@
             {
               "name": "studentId",
               "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.studentId}}"
-            },
-            {
-              "name": "teacherId",
-              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.teacherId}}"
             },
             {
               "name": "courseId",
@@ -2501,21 +2382,9 @@
               "type": "string"
             },
             {
-              "id": "680bd827-adf6-4e98-bb8e-e5bece09abdb",
-              "name": "route",
-              "value": "={{$json.body.teacherId ? 'TEACHER' : 'STUDENT'}}",
-              "type": "string"
-            },
-            {
               "id": "52f7de62-04ed-4df7-a90b-48eff485ad29",
               "name": "studentId",
               "value": "={{$json.body.studentId || ''}}",
-              "type": "string"
-            },
-            {
-              "id": "403e6558-5ae6-46b9-80ec-91e63bd1f0d4",
-              "name": "teacherId",
-              "value": "={{$json.body.teacherId || ''}}",
               "type": "string"
             },
             {
@@ -2528,12 +2397,6 @@
               "id": "b076dab2-1149-4a77-b438-1f266b3731bb",
               "name": "classId",
               "value": "={{$json.body.classId || ''}}",
-              "type": "string"
-            },
-            {
-              "id": "d495197a-3c43-46f6-8180-b1696b1624c1",
-              "name": "title ",
-              "value": "={{$json.body.title || ''}}",
               "type": "string"
             },
             {
@@ -2758,274 +2621,6 @@
       ],
       "id": "eddb685d-2dd1-48fc-9f5a-a20ef4db9d36",
       "name": "Log Student Quiz Generated"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=http://ai-tutor-api:8085/api/tutor/teachers/{{$node[\"Set: Normalize Quiz Generate Input\"].json.teacherId}}/courses/{{$node[\"Set: Normalize Quiz Generate Input\"].json.courseId}}/quiz-assignments/generate",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{$node[\"Set: Normalize Quiz Generate Input\"].json.authToken}}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"classId\": \"{{$node['Set: Normalize Quiz Generate Input'].json.classId}}\",\n  \"title\": \"{{$node['Set: Normalize Quiz Generate Input'].json.title}}\",\n  \"topic\": \"{{$node['Set: Normalize Quiz Generate Input'].json.topic}}\",\n  \"suggestionText\": \"{{$node['Set: Normalize Quiz Generate Input'].json.suggestionText}}\",\n  \"questionCount\": \"{{$node['Set: Normalize Quiz Generate Input'].json.questionCount}}\"\n}",
-        "options": {
-          "timeout": 21600000
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        -976,
-        2848
-      ],
-      "id": "ff1d472e-6f9e-4f82-9c9d-e8b6e920f76c",
-      "name": "Generate Teacher Assignment Draft",
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 3000,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 3
-          },
-          "conditions": [
-            {
-              "id": "114e974c-a00a-4328-8263-3f76d47bfb70",
-              "leftValue": "={{$json.error ? 'ERROR' : 'OK'}}",
-              "rightValue": "ERROR",
-              "operator": {
-                "type": "string",
-                "operation": "equals",
-                "name": "filter.operator.equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        -752,
-        2848
-      ],
-      "id": "daee94e7-a60e-4f14-a731-3dd171b44835",
-      "name": "IF Generate Failed?1"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://ai-tutor-api:8085/api/harness/logs",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "traceId",
-              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.traceId}}"
-            },
-            {
-              "name": "workflowName",
-              "value": "Quiz Generate Harness"
-            },
-            {
-              "name": "nodeName",
-              "value": "Generate Student Practice Quiz"
-            },
-            {
-              "name": "mode",
-              "value": "QUIZ_GENERATE"
-            },
-            {
-              "name": "eventType",
-              "value": "NODE_ERROR"
-            },
-            {
-              "name": "status",
-              "value": "FAILED"
-            },
-            {
-              "name": "errorMessage",
-              "value": "={{$json.error.message || $json.message || 'Generate teacher draft failed'}}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        -448,
-        2832
-      ],
-      "id": "de613cc4-d69b-4c89-808f-fbc1889eeb1b",
-      "name": "Log Error2"
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({\r\n  success: false,\r\n  status: \"FAILED\",\r\n  quizType: \"TEACHER_ASSIGNMENT\",\r\n  message: \"Không thể tạo draft quiz cho giáo viên lúc này.\",\r\n  traceId: $node[\"Set: Normalize Quiz Generate Input\"].json.traceId,\r\n  error: \"QUIZ_ASSIGNMENT_GENERATE_FAILED\"\r\n}) }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.5,
-      "position": [
-        -176,
-        2832
-      ],
-      "id": "61d046ce-0ddd-4c04-8386-5aa065703911",
-      "name": "Respond Failed3"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://ai-tutor-api:8085/api/harness/logs",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "traceId",
-              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.traceId}}"
-            },
-            {
-              "name": "teacherId ",
-              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.teacherId}}"
-            },
-            {
-              "name": "courseId",
-              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.courseId}}"
-            },
-            {
-              "name": "classId",
-              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.classId}}"
-            },
-            {
-              "name": "workflowName",
-              "value": "Quiz Generate Harness"
-            },
-            {
-              "name": "nodeName",
-              "value": "Teacher Assignment Draft Created"
-            },
-            {
-              "name": "mode",
-              "value": "QUIZ_GENERATE"
-            },
-            {
-              "name": "eventType",
-              "value": "QUIZ_DRAFT_CREATED"
-            },
-            {
-              "name": "status",
-              "value": "SUCCESS"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        -448,
-        3008
-      ],
-      "id": "b846ce3b-5e66-48fb-94ca-caa0354b450f",
-      "name": "Log Teacher Draft Created"
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({\r\n  success: true,\r\n  status: \"DRAFT_CREATED\",\r\n  quizType: \"TEACHER_ASSIGNMENT\",\r\n  assignmentId: $node[\"Generate Teacher Assignment Draft\"].json.id,\r\n  assignment: $node[\"Generate Teacher Assignment Draft\"].json,\r\n  message: \"Draft quiz đã được tạo; mentor có thể sửa, xóa hoặc publish.\",\r\n  traceId: $node[\"Set: Normalize Quiz Generate Input\"].json.traceId\r\n}) }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.5,
-      "position": [
-        -160,
-        3008
-      ],
-      "id": "1284ef00-4bae-4d70-a0ae-9d05946c10d4",
-      "name": "Respond Teacher Draft Created"
-    },
-    {
-      "parameters": {
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "loose",
-                  "version": 3
-                },
-                "conditions": [
-                  {
-                    "leftValue": "={{ ($node[\"Set: Normalize Quiz Generate Input\"].json.route || '').trim().toUpperCase() }}",
-                    "rightValue": "STUDENT",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    },
-                    "id": "4d241445-9bed-4fde-883d-d5ee1266113c"
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "STUDENT"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "loose",
-                  "version": 3
-                },
-                "conditions": [
-                  {
-                    "id": "98608acd-4894-4f57-9666-c45f71e14c07",
-                    "leftValue": "={{ ($node[\"Set: Normalize Quiz Generate Input\"].json.route || '').trim().toUpperCase() }}",
-                    "rightValue": "TEACHER",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "TEACHER"
-            }
-          ]
-        },
-        "looseTypeValidation": true,
-        "options": {}
-      },
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.4,
-      "position": [
-        -1264,
-        2608
-      ],
-      "id": "601b6620-ec8e-46e3-a503-1ce112844549",
-      "name": "Switch: route"
     },
     {
       "parameters": {
@@ -4048,7 +3643,7 @@
         ],
         [
           {
-            "node": "IF - Assigned Quiz?",
+            "node": "Respond Self Practice Score",
             "type": "main",
             "index": 0
           }
@@ -4060,35 +3655,6 @@
         [
           {
             "node": "Respond Failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF - Assigned Quiz?": {
-      "main": [
-        [
-          {
-            "node": "Notify Teacher / Teacher Inbox",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Respond Self Practice Score",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Notify Teacher / Teacher Inbox": {
-      "main": [
-        [
-          {
-            "node": "Respond Submitted Waiting Teacher Review",
             "type": "main",
             "index": 0
           }
@@ -4121,7 +3687,7 @@
       "main": [
         [
           {
-            "node": "Switch: route",
+            "node": "Generate Student Practice Quiz",
             "type": "main",
             "index": 0
           }
@@ -4173,75 +3739,6 @@
         [
           {
             "node": "Respond Student Quiz",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Generate Teacher Assignment Draft": {
-      "main": [
-        [
-          {
-            "node": "IF Generate Failed?1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Generate Failed?1": {
-      "main": [
-        [
-          {
-            "node": "Log Error2",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Log Teacher Draft Created",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log Error2": {
-      "main": [
-        [
-          {
-            "node": "Respond Failed3",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log Teacher Draft Created": {
-      "main": [
-        [
-          {
-            "node": "Respond Teacher Draft Created",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Switch: route": {
-      "main": [
-        [
-          {
-            "node": "Generate Student Practice Quiz",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Generate Teacher Assignment Draft",
             "type": "main",
             "index": 0
           }

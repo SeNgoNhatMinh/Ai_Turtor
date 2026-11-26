@@ -30,7 +30,7 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
     }
   }, [compactByDefault]);
   const workspaceCards = {
-    teacher: { eyebrow: 'Không gian giảng dạy', title: 'Quản lý lớp học', detail: 'Theo dõi lớp, quiz và bài nộp', button: 'Xem lớp học', tab: 'teacher-classes', icon: GraduationCap },
+    teacher: { eyebrow: 'Không gian giảng dạy', title: 'Quản lý lớp học', detail: 'Theo dõi lớp và tiến độ sinh viên', button: 'Xem lớp học', tab: 'teacher-classes', icon: GraduationCap },
     senior: { eyebrow: 'Kiểm duyệt chuyên môn', title: 'Senior Mentor', detail: 'Rà soát phản hồi và tri thức AI', button: 'Mở hàng đợi', tab: 'senior-review', icon: ShieldCheck },
   };
   const workspaceCard = workspaceCards[activeRole];

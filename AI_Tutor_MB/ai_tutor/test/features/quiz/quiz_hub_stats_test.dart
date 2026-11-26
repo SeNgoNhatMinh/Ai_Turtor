@@ -28,7 +28,6 @@ QuizSession _session({
 void main() {
   test('aggregates hub stats like the web quiz page', () {
     final stats = QuizHubStats.from(
-      assignedCount: 2,
       sessions: [
         _session(
           id: 'a',
@@ -50,7 +49,6 @@ void main() {
       ],
     );
 
-    expect(stats.assigned, 2);
     expect(stats.inProgress, 1);
     expect(stats.submitted, 2);
     expect(stats.reviewed, 1);
@@ -73,7 +71,7 @@ void main() {
       teacherReviewedScore: 9,
     );
 
-    expect(quizResultStatusLabel(waiting), 'Chờ giảng viên duyệt');
+    expect(quizResultStatusLabel(waiting), 'Đã nộp');
     expect(shouldHideQuizAnswerKey(waiting), isTrue);
     expect(quizDisplayScore(reviewed), 9);
     expect(shouldHideQuizAnswerKey(reviewed), isFalse);

@@ -9,9 +9,7 @@ import {
 } from '../src/features/student/quizzes/practiceQuizUtils.js';
 import {
   normalizeImprovePlan,
-  normalizeQuizAssignment,
   normalizeQuizSession,
-  normalizeTeacherQuizAttempt,
 } from '../src/services/normalizers.js';
 import {
   getAnswerForQuestion,
@@ -22,34 +20,21 @@ import {
   getClassCourseId,
   getClassOptionValue,
 } from '../src/features/teacher/shared/teacherUtils.js';
-import {
-  buildQuizScoreboardRows,
-  summarizeQuizScoreboard,
-} from '../src/features/teacher/quizzes/quizScoreboardUtils.js';
-
-test('normalizes quiz sessions and assignments from backend aliases', () => {
+test('normalizes quiz sessions from backend aliases', () => {
   const quiz = normalizeQuizSession({
     sessionId: 'quiz-1',
     type: 'ASSIGNED',
     autoScore: 2,
     questions: [{ id: 'q1' }, { id: 'q2' }],
   });
-  const assignment = normalizeQuizAssignment({
-    assignmentId: 'assignment-1',
-    name: 'OOP Review',
-    questions: [{ id: 'q1' }],
-  });
-
   assert.equal(getQuizId(quiz), 'quiz-1');
   assert.equal(quiz.quizType, 'ASSIGNED');
   assert.equal(quiz.maxScore, 2);
-  assert.equal(assignment.title, 'OOP Review');
-  assert.equal(assignment.questionCount, 1);
 });
 
 test('uses clear quiz status and score labels', () => {
   assert.equal(getQuizStatusLabel({ status: 'GENERATED' }), 'Đang làm');
-  assert.equal(getQuizStatusLabel({ status: 'SUBMITTED', quizType: 'ASSIGNED' }), 'Đã nộp · Chờ duyệt');
+  assert.equal(getQuizStatusLabel({ status: 'SUBMITTED', quizType: 'ASSIGNED' }), 'Đã nộp');
   assert.equal(getQuizStatusLabel({ teacherReviewStatus: 'REVIEWED' }), 'Giảng viên đã duyệt');
   assert.equal(getQuizScoreText({ teacherReviewedScore: 8, maxScore: 10 }), 'Điểm 8/10');
 });
@@ -62,26 +47,6 @@ test('normalizes requested quiz question count as an integer between 3 and 10', 
   assert.equal(normalizeQuizQuestionCount(null), 5);
 });
 
-test('normalizes teacher quiz attempt summaries without loading student histories', () => {
-  const attempt = normalizeTeacherQuizAttempt({
-    quizSessionId: 'attempt-1',
-    studentId: 'student-1',
-    autoScore: 6,
-    teacherReviewedScore: 8,
-    finalScore: 8,
-    maxScore: 10,
-    autoPercentage: 60,
-    finalPercentage: 80,
-    teacherReviewStatus: 'REVIEWED',
-  });
-
-  assert.equal(attempt.id, 'attempt-1');
-  assert.equal(attempt.score, 6);
-  assert.equal(attempt.finalScore, 8);
-  assert.equal(attempt.finalPercentage, 80);
-  assert.equal(attempt.teacherReviewStatus, 'REVIEWED');
-});
-
 test('preserves a pending teacher-manual score as null', () => {
   const quiz = normalizeQuizSession({
     quizSessionId: 'manual-quiz',
@@ -90,18 +55,8 @@ test('preserves a pending teacher-manual score as null', () => {
     score: null,
     autoScore: null,
   });
-  const attempt = normalizeTeacherQuizAttempt({
-    quizSessionId: 'manual-attempt',
-    gradingMode: 'TEACHER_MANUAL',
-    score: null,
-    autoScore: null,
-  });
-
   assert.equal(quiz.score, null);
   assert.equal(quiz.autoScore, null);
-  assert.equal(attempt.score, null);
-  assert.equal(attempt.autoScore, null);
-  assert.equal(attempt.finalScore, null);
 });
 
 test('sorts quiz history by latest activity', () => {
@@ -169,36 +124,4 @@ test('resolves the canonical teacher class used by student enrollment', () => {
 
   assert.equal(getClassOptionValue(matchedClass), '1833');
   assert.equal(getClassCourseId(matchedClass), 'PRO192');
-});
-
-test('builds quiz scoreboard rows for class roster and attempts', () => {
-  const assignment = {
-    id: 'qa-1',
-    targetType: 'CLASS',
-    classId: 'SE1833',
-  };
-  const students = [
-    { id: 's1', fullName: 'An' },
-    { id: 's2', fullName: 'Bình' },
-  ];
-  const attempts = [
-    {
-      studentId: 's1',
-      status: 'SUBMITTED',
-      teacherReviewStatus: 'REVIEWED',
-      finalScore: 8,
-      maxScore: 10,
-      finalPercentage: 80,
-      submittedAt: '2026-07-01T10:00:00Z',
-    },
-  ];
-
-  const rows = buildQuizScoreboardRows(assignment, attempts, students);
-  const summary = summarizeQuizScoreboard(rows);
-
-  assert.equal(rows.length, 2);
-  assert.equal(rows.find((row) => row.studentId === 's1').scoreLabel, '8 / 10');
-  assert.equal(rows.find((row) => row.studentId === 's2').statusLabel, 'Chưa làm');
-  assert.equal(summary.submitted, 1);
-  assert.equal(summary.notStarted, 1);
 });

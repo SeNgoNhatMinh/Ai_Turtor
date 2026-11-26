@@ -1,18 +1,13 @@
 import { API_BASE_URL, API_TIMEOUTS, request } from './apiClient';
 import { encodePath } from '../config/env';
 import { queryKeys } from '../app/queryKeys';
-import {
-  asArray,
-  normalizeQuizAssignment,
-  normalizeQuizSession,
-  normalizeTeacherQuizAttempt,
-} from './normalizers';
+import { asArray, normalizeQuizSession } from './normalizers';
 import { fetchServerQuery, invalidateServerQueries } from './queryCache';
 
 const normalizeListResponse = (data, keys, normalizer) => {
   const list = asArray(data, ...keys);
   if (list.length) return list.map(normalizer);
-  if (data && typeof data === 'object' && (data.id || data.quizSessionId || data.sessionId || data.assignmentId)) {
+  if (data && typeof data === 'object' && (data.id || data.quizSessionId || data.sessionId)) {
     return [normalizer(data)];
   }
   return [];
@@ -40,23 +35,6 @@ export const quizApi = {
     return fetchServerQuery(queryKeys.studentQuizHistory(studentId, courseId), loader, { force: options.force });
   },
 
-  async getAssignedQuizzes(studentId, courseId, classId = '', options = {}) {
-    const params = new URLSearchParams();
-    if (classId) params.append('classId', classId);
-    const qs = params.toString();
-    const loader = async ({ signal } = {}) => normalizeListResponse(
-      await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quiz-assignments${qs ? `?${qs}` : ''}`, { signal: options.signal || signal }),
-      ['assignments', 'quizAssignments', 'assignedQuizzes', 'items', 'content', 'data', 'results'],
-      normalizeQuizAssignment,
-    );
-    if (options.signal) return loader();
-    return fetchServerQuery(
-      queryKeys.studentAssignedQuizzes(studentId, courseId, classId),
-      loader,
-      { force: options.force },
-    );
-  },
-
   async getQuiz(quizSessionId, options = {}) {
     return normalizeQuizSession(await request(
       `${API_BASE_URL}/tutor/quizzes/${encodePath(quizSessionId)}`,
@@ -73,100 +51,5 @@ export const quizApi = {
     }));
     invalidateServerQueries(['quizzes']);
     return quiz;
-  },
-
-  async startQuizAssignmentAttempt(assignmentId, studentId) {
-    const params = new URLSearchParams({ studentId });
-    const quiz = normalizeQuizSession(await request(`${API_BASE_URL}/tutor/quiz-assignments/${encodePath(assignmentId)}/attempts?${params}`, {
-      method: 'POST',
-      timeoutMs: API_TIMEOUTS.ai,
-    }));
-    invalidateServerQueries(['quizzes', studentId]);
-    return quiz;
-  },
-
-  async teacherReviewQuiz(quizSessionId, payload) {
-    return request(`${API_BASE_URL}/tutor/quizzes/${encodePath(quizSessionId)}/teacher-review`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      timeoutMs: API_TIMEOUTS.ai,
-    });
-  },
-
-  async getTeacherQuizAttempts(teacherId, filters = {}, options = {}) {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        params.set(key, String(value));
-      }
-    });
-    const response = await request(
-      `${API_BASE_URL}/tutor/teachers/${encodePath(teacherId)}/quiz-attempts?${params}`,
-      { signal: options.signal },
-    );
-    return {
-      teacherId: response?.teacherId || teacherId,
-      page: Number(response?.page) || 0,
-      size: Number(response?.size) || Number(filters.size) || 20,
-      totalElements: Number(response?.totalElements) || 0,
-      totalPages: Number(response?.totalPages) || 0,
-      attempts: asArray(response, 'attempts', 'content', 'items').map(normalizeTeacherQuizAttempt),
-    };
-  },
-
-  async getTeacherQuizAssignments(teacherId, options = {}) {
-    return asArray(
-      await request(`${API_BASE_URL}/tutor/teachers/${encodePath(teacherId)}/quiz-assignments`, {
-        signal: options.signal,
-      }),
-      'assignments',
-      'content',
-    ).map(normalizeQuizAssignment);
-  },
-
-  async generateTeacherQuizDraft(teacherId, courseId, payload) {
-    return request(`${API_BASE_URL}/tutor/teachers/${encodePath(teacherId)}/courses/${encodePath(courseId)}/quiz-assignments/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      timeoutMs: API_TIMEOUTS.quizGeneration,
-    });
-  },
-
-  async createManualTeacherQuiz(teacherId, courseId, payload) {
-    const assignment = normalizeQuizAssignment(await request(
-      `${API_BASE_URL}/tutor/teachers/${encodePath(teacherId)}/courses/${encodePath(courseId)}/quiz-assignments/manual`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        timeoutMs: API_TIMEOUTS.quizGeneration,
-      },
-    ));
-    invalidateServerQueries(['teacher-quizzes', teacherId]);
-    return assignment;
-  },
-
-  async updateQuizAssignment(assignmentId, payload) {
-    return request(`${API_BASE_URL}/tutor/quiz-assignments/${encodePath(assignmentId)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-  },
-
-  async deleteQuizAssignment(assignmentId) {
-    return request(`${API_BASE_URL}/tutor/quiz-assignments/${encodePath(assignmentId)}`, {
-      method: 'DELETE',
-    });
-  },
-
-  async publishQuizAssignment(assignmentId, payload) {
-    return request(`${API_BASE_URL}/tutor/quiz-assignments/${encodePath(assignmentId)}/publish`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
   },
 };

@@ -30,7 +30,6 @@ import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/senior/presentation/senior_queue_screens.dart';
 import '../../features/quiz/presentation/student_quiz_screens.dart';
-import '../../features/quiz/presentation/teacher_quiz_screen.dart';
 import '../../shared/models/senior_queue.dart';
 import '../../shared/models/teacher_inbox.dart';
 import '../utils/status_style.dart';
@@ -273,10 +272,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.teacherProfile,
             builder: (_, __) => const ProfileScreen(),
-          ),
-          GoRoute(
-            path: AppRoutes.teacherQuiz,
-            builder: (_, __) => const TeacherQuizScreen(),
           ),
         ],
       ),

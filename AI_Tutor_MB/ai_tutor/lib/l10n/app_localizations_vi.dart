@@ -546,16 +546,6 @@ class AppLocalizationsVi extends AppLocalizations {
   String get statClasses => 'Lớp đang dạy';
 
   @override
-  String get teacherQuizTitle => 'Quiz AI';
-
-  @override
-  String get teacherQuizSubtitle =>
-      'Tạo quiz bằng AI và giao cho sinh viên luyện tập';
-
-  @override
-  String get teacherQuizManage => 'Quản lý Quiz AI';
-
-  @override
   String get statEscalations => 'Escalation chờ';
 
   @override

@@ -482,11 +482,6 @@ class _TeacherExtras extends ConsumerWidget {
     return _ProfileMenuCard(
       children: [
         _ProfileMenuItem(
-          icon: Icons.quiz_outlined,
-          title: l10n.teacherQuizManage,
-          onTap: () => context.push(AppRoutes.teacherQuiz),
-        ),
-        _ProfileMenuItem(
           icon: Icons.dark_mode_outlined,
           title: l10n.appearanceTitle,
           onTap: () {

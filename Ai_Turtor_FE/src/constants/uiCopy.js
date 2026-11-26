@@ -48,7 +48,7 @@ export const uiCopy = {
     },
     quizzes: {
       title: "Luyện tập bằng quiz theo tài liệu môn học",
-      subtitle: "Tạo quiz tự ôn, làm quiz giảng viên giao và xem lại kết quả sau khi nộp.",
+      subtitle: "Tạo quiz tự ôn và xem lại kết quả sau khi nộp.",
       noActive: "Chưa có quiz đang làm. Hãy tạo mới hoặc tiếp tục một quiz.",
       noResult: "Chưa chọn kết quả quiz để xem lại.",
       contextRequired: "Cần chọn môn học đã đăng ký để sử dụng quiz luyện tập.",

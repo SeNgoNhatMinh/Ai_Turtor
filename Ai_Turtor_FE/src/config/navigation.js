@@ -4,7 +4,6 @@ import {
   ClipboardList,
   LayoutGrid,
   UploadCloud,
-  CheckSquare,
   Inbox,
   BarChart3,
   Users,

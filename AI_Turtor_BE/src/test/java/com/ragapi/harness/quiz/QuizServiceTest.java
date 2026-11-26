@@ -111,7 +111,7 @@ class QuizServiceTest {
 
     @Test
     void submittedQuizNeedsNoTeacherReviewAndShowsItsAnswers() {
-        QuizSession session = assignedSession("GENERATED", null);
+        QuizSession session = quizSession("GENERATED", "SELF_PRACTICE", null);
         when(sessionRepository.findById("QUIZ-1")).thenReturn(Optional.of(session));
         when(sessionRepository.save(any(QuizSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -125,9 +125,29 @@ class QuizServiceTest {
 
     @Test
     void quizCannotBeSubmittedTwice() {
-        QuizSession session = assignedSession("SUBMITTED", "PENDING");
+        QuizSession session = quizSession("SUBMITTED", "SELF_PRACTICE", null);
         when(sessionRepository.findById("QUIZ-1")).thenReturn(Optional.of(session));
         assertThrows(IllegalArgumentException.class, () -> service.submitQuiz("QUIZ-1", submitRequest()));
+    }
+
+    @Test
+    void unfinishedAssignedQuizCannotBeSubmitted() {
+        QuizSession session = quizSession("GENERATED", "ASSIGNED", "ASSIGNMENT-1");
+        when(sessionRepository.findById("QUIZ-1")).thenReturn(Optional.of(session));
+
+        assertThrows(IllegalArgumentException.class, () -> service.submitQuiz("QUIZ-1", submitRequest()));
+        verify(sessionRepository, never()).save(any(QuizSession.class));
+    }
+
+    @Test
+    void historyKeepsSubmittedAssignmentsButOmitsUnfinishedOnes() {
+        QuizSession unfinished = quizSession("GENERATED", "ASSIGNED", "ASSIGNMENT-1");
+        QuizSession submitted = quizSession("SUBMITTED", "ASSIGNED", "ASSIGNMENT-2");
+        QuizSession practice = quizSession("GENERATED", "SELF_PRACTICE", null);
+        when(sessionRepository.findByStudentIdAndCourseIdOrderByCreatedAtDesc("STUDENT-1", "PRO192"))
+                .thenReturn(List.of(unfinished, submitted, practice));
+
+        assertEquals(List.of(submitted, practice), service.listStudentCourseQuizzes("STUDENT-1", "PRO192"));
     }
 
     private static final String JDBC_PASSAGE = """
@@ -139,17 +159,16 @@ class QuizServiceTest {
         return new RetrievedCourseChunk(content, 0.8, materialId, "PRJ301", null, "teacher", "COURSE", "TEXTBOOK");
     }
 
-    private QuizSession assignedSession(String status, String reviewStatus) {
+    private QuizSession quizSession(String status, String quizType, String assignmentId) {
         return QuizSession.builder()
                 .id("QUIZ-1")
                 .studentId("STUDENT-1")
                 .teacherId("TEACHER-1")
                 .courseId("PRO192")
                 .classId("SE1840")
-                .assignmentId("ASSIGNMENT-1")
-                .quizType("ASSIGNED")
+                .assignmentId(assignmentId)
+                .quizType(quizType)
                 .status(status)
-                .teacherReviewStatus(reviewStatus)
                 .score(1)
                 .maxScore(1)
                 .percentage(100.0)

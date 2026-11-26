@@ -7,7 +7,6 @@ import { getUserFacingError } from '../../../services/apiClient';
 import { quizGateway } from '../../ai-harness/quizGateway';
 import {
   asQuizArray,
-  getAssignmentId,
   getSuggestionText,
   normalizeQuizQuestionCount,
   normalizeQuizStatus,
@@ -63,16 +62,8 @@ export function usePracticeQuizzes({
     staleTime: 15_000,
     retry: 1,
   });
-  const assignedQuery = useQuery({
-    queryKey: queryKeys.studentAssignedQuizzes(studentId, courseId, classId),
-    queryFn: ({ signal }) => quizApi.getAssignedQuizzes(studentId, courseId, classId, { signal }),
-    enabled: hasContext,
-    staleTime: 15_000,
-    retry: 1,
-  });
   const history = historyQuery.data || EMPTY_LIST;
-  const assigned = assignedQuery.data || EMPTY_LIST;
-  const isLoading = Boolean(loadingKey) || historyQuery.isFetching || assignedQuery.isFetching;
+  const isLoading = Boolean(loadingKey) || historyQuery.isFetching;
 
   useEffect(() => {
     if (!initialSuggestion) return undefined;
@@ -97,7 +88,6 @@ export function usePracticeQuizzes({
     }));
   }, [suggestions]);
 
-  const safeAssigned = useMemo(() => asQuizArray(assigned), [assigned]);
   const sortedHistory = useMemo(() => sortQuizHistory(history), [history]);
 
   const restoredRef = useRef(false);
@@ -127,25 +117,20 @@ export function usePracticeQuizzes({
     )).length;
     const latestQuiz = sortedHistory[0];
     return {
-      assigned: safeAssigned.length,
       inProgress,
       submitted,
       reviewed,
       latest: latestQuiz?.updatedAt || latestQuiz?.submittedAt || latestQuiz?.createdAt,
     };
-  }, [safeAssigned.length, sortedHistory]);
+  }, [sortedHistory]);
 
   const refetchHistory = historyQuery.refetch;
-  const refetchAssigned = assignedQuery.refetch;
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.quizHistory, () => {
-    if (hasContext) { refetchHistory(); refetchAssigned(); }
-  });
-  useRealtimeEvent(REALTIME_EVENT_TYPES.quizAssignment, () => {
-    if (hasContext) refetchAssigned();
+    if (hasContext) refetchHistory();
   });
   useRealtimeReconnect(() => {
-    if (hasContext) { refetchHistory(); refetchAssigned(); }
+    if (hasContext) refetchHistory();
   });
 
   const loadQuizzes = useCallback(async () => {
@@ -153,18 +138,15 @@ export function usePracticeQuizzes({
     setLoadingKey('refresh');
     setError('');
     try {
-      const [historyResult, assignedResult] = await Promise.all([
-        refetchHistory(),
-        refetchAssigned(),
-      ]);
-      return [historyResult.data || [], assignedResult.data || []];
+      const historyResult = await refetchHistory({ throwOnError: true });
+      return historyResult.data || [];
     } catch (requestError) {
       setError(getUserFacingError(requestError, 'Không thể tải danh sách quiz.'));
     } finally {
       setLoadingKey('');
     }
     return [];
-  }, [hasContext, refetchAssigned, refetchHistory]);
+  }, [hasContext, refetchHistory]);
 
   const generateQuiz = useCallback(async (overrideTopic = '') => {
     const selectedTopic = normalizeTopic(overrideTopic) || buildQuizTopic(suggestedTopic, topic);
@@ -214,25 +196,6 @@ export function usePracticeQuizzes({
       }
     });
   }, [classId, courseId, hasContext, loadQuizzes, questionCount, runLocked, studentId, suggestedTopic, topic, triggerToast]);
-
-  const startAssignedQuiz = useCallback(async (assignment) => {
-    const assignmentId = getAssignmentId(assignment);
-    if (!assignmentId || !studentId) return;
-    return runLocked(`quiz:assignment:${assignmentId}`, async () => {
-      setLoadingKey(`assignment:${assignmentId}`);
-      setError('');
-      setLastResult(null);
-      try {
-        const quiz = await quizApi.startQuizAssignmentAttempt(assignmentId, studentId);
-        setActiveQuiz(quiz);
-        setActiveTab('active');
-      } catch (requestError) {
-        setError(getUserFacingError(requestError, 'Không thể bắt đầu quiz được giao.'));
-      } finally {
-        setLoadingKey('');
-      }
-    });
-  }, [runLocked, studentId]);
 
   const submitQuiz = useCallback(async (quizSessionId, payload) => {
     return runLocked(`quiz:submit:${quizSessionId}`, async () => {
@@ -301,14 +264,13 @@ export function usePracticeQuizzes({
     setSuggestedTopic,
     questionCount,
     setQuestionCount,
-    assigned: safeAssigned,
     history: sortedHistory,
     activeQuiz,
     lastResult,
     loadingKey,
     submitting,
-    error: error || (historyQuery.error || assignedQuery.error
-      ? getUserFacingError(historyQuery.error || assignedQuery.error, 'Không thể tải danh sách quiz.')
+    error: error || (historyQuery.error
+      ? getUserFacingError(historyQuery.error, 'Không thể tải danh sách quiz.')
       : ''),
     activeTab,
     setActiveTab,
@@ -318,7 +280,6 @@ export function usePracticeQuizzes({
     quizStats,
     loadQuizzes,
     generateQuiz,
-    startAssignedQuiz,
     submitQuiz,
     viewQuizHistory,
     retryFromResult,

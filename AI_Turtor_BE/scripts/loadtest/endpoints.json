@@ -101,11 +101,6 @@
  },
  {
   "method": "DELETE",
-  "path": "/api/tutor/quiz-assignments/{assignmentId}",
-  "controller": "QuizController"
- },
- {
-  "method": "DELETE",
   "path": "/api/tutor/students/{studentId}/courses/{courseId}/memory/improve-suggestions",
   "controller": "StudentMemoryController"
  },
@@ -746,11 +741,6 @@
  },
  {
   "method": "GET",
-  "path": "/api/tutor/students/{studentId}/courses/{courseId}/quiz-assignments",
-  "controller": "QuizController"
- },
- {
-  "method": "GET",
   "path": "/api/tutor/students/{studentId}/courses/{courseId}/quizzes",
   "controller": "QuizController"
  },
@@ -778,16 +768,6 @@
   "method": "GET",
   "path": "/api/tutor/teachers/{teacherId}/courses/{courseId}/classes/{classId}/sessions",
   "controller": "TutorSessionController"
- },
- {
-  "method": "GET",
-  "path": "/api/tutor/teachers/{teacherId}/quiz-assignments",
-  "controller": "QuizController"
- },
- {
-  "method": "GET",
-  "path": "/api/tutor/teachers/{teacherId}/quiz-attempts",
-  "controller": "QuizController"
  },
  {
   "method": "GET",
@@ -1326,16 +1306,6 @@
  },
  {
   "method": "POST",
-  "path": "/api/tutor/quiz-assignments/{assignmentId}/attempts",
-  "controller": "QuizController"
- },
- {
-  "method": "POST",
-  "path": "/api/tutor/quiz-assignments/{assignmentId}/publish",
-  "controller": "QuizController"
- },
- {
-  "method": "POST",
   "path": "/api/tutor/quizzes/{quizSessionId}/submit",
   "controller": "QuizController"
  },
@@ -1362,16 +1332,6 @@
  {
   "method": "POST",
   "path": "/api/tutor/students/{studentId}/courses/{courseId}/suggestions/learn",
-  "controller": "QuizController"
- },
- {
-  "method": "POST",
-  "path": "/api/tutor/teachers/{teacherId}/courses/{courseId}/quiz-assignments/generate",
-  "controller": "QuizController"
- },
- {
-  "method": "POST",
-  "path": "/api/tutor/teachers/{teacherId}/courses/{courseId}/quiz-assignments/manual",
   "controller": "QuizController"
  },
  {
@@ -1588,16 +1548,6 @@
   "method": "PUT",
   "path": "/api/teacher/teaching-behaviors/{id}",
   "controller": "TeachingBehaviorController"
- },
- {
-  "method": "PUT",
-  "path": "/api/tutor/quiz-assignments/{assignmentId}",
-  "controller": "QuizController"
- },
- {
-  "method": "PUT",
-  "path": "/api/tutor/quizzes/{quizSessionId}/teacher-review",
-  "controller": "QuizController"
  },
  {
   "method": "PUT",

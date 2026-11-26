@@ -2,7 +2,6 @@ import { memo } from 'react';
 import { Tag } from 'antd';
 import {
   formatQuizDateTime,
-  getAssignmentId,
   getQuizId,
   getQuizQuestionCount,
   getQuizScoreText,
@@ -13,7 +12,7 @@ import {
 function QuizItemCard({ item, action }) {
   const questionCount = getQuizQuestionCount(item);
   return (
-    <div className="quiz-item-card" data-quiz-id={getQuizId(item) || getAssignmentId(item)}>
+    <div className="quiz-item-card" data-quiz-id={getQuizId(item)}>
       <div className="quiz-item-main">
         <div className="quiz-item-title-row">
           <strong>{item.title || item.topic || 'Quiz luyện tập'}</strong>

@@ -52,7 +52,9 @@ class TeacherDashboardScreen extends ConsumerWidget {
               ),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: Insets.screenH),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Insets.screenH,
+                  ),
                   child: Text(
                     l10n.teacherGreeting(session?.fullName ?? ''),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -87,8 +89,6 @@ class TeacherDashboardScreen extends ConsumerWidget {
                     PlugProSectionHeader(title: 'Thống kê nhanh'),
                     const Gap(Insets.sm),
                     _StatGrid(data: data, l10n: l10n),
-                    const Gap(Insets.xl),
-                    _TeacherQuizShortcut(l10n: l10n),
                     const Gap(Insets.xxl),
                     PlugProSectionHeader(title: l10n.weakTopicsAllClasses),
                     const Gap(Insets.md),
@@ -101,9 +101,8 @@ class TeacherDashboardScreen extends ConsumerWidget {
                         title: l10n.emptyTodayTasksTitle,
                         message: l10n.emptyTodayTasksMessage,
                         ctaLabel: l10n.refresh,
-                        onCta: () => ref.invalidate(
-                          teacherDashboardControllerProvider,
-                        ),
+                        onCta: () =>
+                            ref.invalidate(teacherDashboardControllerProvider),
                       )
                     else
                       ...data.todayTasks.asMap().entries.map((entry) {
@@ -138,9 +137,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
                                 ),
                               ),
                             )
-                            .animate(
-                              delay: (40 * index).clamp(0, 320).ms,
-                            )
+                            .animate(delay: (40 * index).clamp(0, 320).ms)
                             .fadeIn(duration: Motion.base);
                       }),
                   ]),
@@ -303,62 +300,6 @@ class _WeakTopicsChart extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    ).animate().fadeIn(duration: Motion.base);
-  }
-}
-
-class _TeacherQuizShortcut extends StatelessWidget {
-  const _TeacherQuizShortcut({required this.l10n});
-
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    return FptCard(
-      onTap: () => context.push(AppRoutes.teacherQuiz),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.primaryWash,
-              borderRadius: BorderRadius.circular(Radii.md),
-            ),
-            child: const Icon(
-              LucideIcons.listChecks,
-              color: AppColors.primary,
-              size: 22,
-            ),
-          ),
-          const Gap(Insets.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.teacherQuizTitle,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Gap(Insets.xs),
-                Text(
-                  l10n.teacherQuizSubtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(
-            LucideIcons.chevronRight,
-            size: 18,
-            color: AppColors.textTertiary,
-          ),
-        ],
       ),
     ).animate().fadeIn(duration: Motion.base);
   }

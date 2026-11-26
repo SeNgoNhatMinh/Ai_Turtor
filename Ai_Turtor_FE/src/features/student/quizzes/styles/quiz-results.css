@@ -138,37 +138,3 @@
   border-radius: 10px;
   background: #f5f5f5;
 }
-
-.quiz-teacher-review-item {
-  margin-bottom: 14px;
-}
-
-.quiz-grading-score-summary {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.quiz-grading-score-summary .ant-tag {
-  margin-inline-end: 0;
-}
-
-.quiz-final-review-form,
-.quiz-final-review-summary {
-  border-top: 1px solid #e5e7eb;
-  padding-top: 16px;
-}
-
-.quiz-final-review-form {
-  display: grid;
-  gap: 14px;
-}
-
-.quiz-final-review-form .portal-form {
-  margin-top: 0;
-}
-
-.quiz-final-review-summary p {
-  margin: 3px 0;
-}

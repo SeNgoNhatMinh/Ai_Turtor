@@ -145,20 +145,6 @@ $fixes = @{
   error: "QUIZ_SUBMIT_FAILED"
 }) }}
 '@
-    "Respond Submitted Waiting Teacher Review" = @'
-={{ JSON.stringify({
-  success: true,
-  status: "SUBMITTED_WAITING_TEACHER_REVIEW",
-  quizType: "ASSIGNED",
-  quizSessionId: $json.id || $node["Set: Normalize Quiz Submit"].json.quizSessionId,
-  score: $json.score,
-  maxScore: $json.maxScore,
-  percentage: $json.percentage,
-  teacherReviewStatus: $json.teacherReviewStatus || "PENDING_REVIEW",
-  message: "Bài quiz đã được nộp và chấm tạm thời. Mentor sẽ review lại điểm/bài làm.",
-  traceId: $node["Set: Normalize Quiz Submit"].json.traceId
-}) }}
-'@
     "Respond Self Practice Score" = @'
 ={{ JSON.stringify({
   success: true,
@@ -180,27 +166,6 @@ $fixes = @{
   message: "Không thể tạo quiz tự ôn lúc này.",
   traceId: $node["Set: Normalize Quiz Generate Input"].json.traceId,
   error: "QUIZ_GENERATE_FAILED"
-}) }}
-'@
-    "Respond Failed3" = @'
-={{ JSON.stringify({
-  success: false,
-  status: "FAILED",
-  quizType: "TEACHER_ASSIGNMENT",
-  message: "Không thể tạo draft quiz cho giáo viên lúc này.",
-  traceId: $node["Set: Normalize Quiz Generate Input"].json.traceId,
-  error: "QUIZ_ASSIGNMENT_GENERATE_FAILED"
-}) }}
-'@
-    "Respond Teacher Draft Created" = @'
-={{ JSON.stringify({
-  success: true,
-  status: "DRAFT_CREATED",
-  quizType: "TEACHER_ASSIGNMENT",
-  assignmentId: $node["Generate Teacher Assignment Draft"].json.id,
-  assignment: $node["Generate Teacher Assignment Draft"].json,
-  message: "Draft quiz đã được tạo từ tài liệu. Mentor có thể review, sửa, xóa hoặc publish.",
-  traceId: $node["Set: Normalize Quiz Generate Input"].json.traceId
 }) }}
 '@
     "Respond Student Quiz" = @'
@@ -271,15 +236,14 @@ $safeMessages = @{
     "Respond Answer Only" = "Câu trả lời của mentor đã được gửi cho học sinh; AI không học nội dung này."
     " Respond Approved" = "KnowledgeCandidate đã được approve và index vào RAG Brain."
     "Respond Rejected" = "KnowledgeCandidate đã bị reject; AI không học nội dung này."
-    "Respond Submitted Waiting Teacher Review" = "Bài quiz đã nộp và chấm tạm thời; mentor sẽ review điểm cuối."
     "Respond Self Practice Score" = "Quiz đã được chấm và kết quả đã cập nhật vào learning memory."
     "Respond Failed" = "Không thể nộp quiz lúc này. Vui lòng thử lại sau."
     "Respond Student Quiz" = "Quiz tự ôn đã được tạo từ tài liệu môn học."
-    "Respond Teacher Draft Created" = "Draft quiz đã được tạo; mentor có thể sửa, xóa hoặc publish."
+
     "Respond Answer Failed" = "Không thể lưu câu trả lời của mentor. Vui lòng thử lại sau."
     "Respond Review Failed" = "Không thể lưu đánh giá câu trả lời AI. Vui lòng thử lại sau."
     "Respond Failed1" = "Không thể tạo quiz tự ôn lúc này."
-    "Respond Failed3" = "Không thể tạo draft quiz cho giáo viên lúc này."
+
 }
 $safeAnswers = @{
     "Respond ESCALATE" = "Câu hỏi đã được gửi cho giáo viên/mentor phụ trách."

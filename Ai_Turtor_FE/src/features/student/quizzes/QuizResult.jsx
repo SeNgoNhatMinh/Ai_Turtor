@@ -15,8 +15,8 @@ const normalizeStatus = (status) => String(status || '').toUpperCase();
 const getStatusLabel = (result) => {
   const reviewStatus = normalizeStatus(result?.teacherReviewStatus || result?.reviewStatus);
   if (reviewStatus.includes('REVIEWED')) return 'Giảng viên đã duyệt';
-  if (result?.quizType === 'ASSIGNED' && normalizeStatus(result?.status) === 'SUBMITTED') return 'Chờ giảng viên duyệt';
-  if (normalizeStatus(result?.status) === 'SUBMITTED') return 'Backend đã chấm';
+  if (result?.quizType === 'ASSIGNED' && normalizeStatus(result?.status) === 'SUBMITTED') return 'Đã nộp';
+  if (normalizeStatus(result?.status) === 'SUBMITTED') return 'Đã chấm tự động';
   return result?.status || 'Đã tạo';
 };
 
@@ -57,17 +57,10 @@ function QuizResult({ result, onRetry, retryLoading = false }) {
         <div className="quiz-score-panel">
           <Progress percent={percent} strokeColor={percent >= 70 ? '#16A34A' : percent >= 45 ? '#F59E0B' : '#EF4444'} />
           <Text strong>
-            {isTeacherOnlineQuiz && !isTeacherReviewed && !hasScore
-              ? 'Điểm đang chờ giảng viên duyệt'
+            {!hasScore
+              ? 'Chưa có điểm'
               : `Điểm: ${score}/${maxScore}`}
           </Text>
-          {isTeacherOnlineQuiz && !isTeacherReviewed && (
-            <Text type="secondary">
-              {gradingMode === 'TEACHER_MANUAL'
-                ? 'Giảng viên sẽ nhập điểm cuối cùng sau khi xem bài.'
-                : 'Điểm backend tính chỉ là gợi ý cho đến khi giảng viên xác nhận.'}
-            </Text>
-          )}
           {result.teacherFeedback && <Text>{result.teacherFeedback}</Text>}
           {result.feedback && !result.teacherFeedback && <Text>{result.feedback}</Text>}
           {Array.isArray(result.weakTopics) && result.weakTopics.length > 0 && (
