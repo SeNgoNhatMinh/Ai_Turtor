@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import LogRocket from 'logrocket';
+import LogRocket from '@/utils/logRocket';
 import { queryKeys } from '../app/queryKeys';
 import { materialsApi } from '../services/materialsApi';
 import { getUserFacingError } from '../services/apiClient';

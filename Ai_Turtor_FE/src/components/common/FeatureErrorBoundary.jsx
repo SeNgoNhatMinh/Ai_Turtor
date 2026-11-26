@@ -1,6 +1,6 @@
 import { Component } from 'react';
 import { Alert, Button } from 'antd';
-import LogRocket from 'logrocket';
+import LogRocket from '@/utils/logRocket';
 import { createErrorReference, reportFrontendError } from '../../utils/errorReporting';
 
 class FeatureErrorBoundary extends Component {

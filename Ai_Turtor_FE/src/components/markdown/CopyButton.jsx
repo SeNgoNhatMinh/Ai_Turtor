@@ -1,12 +1,13 @@
 import { memo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
+import { copyText } from '@/utils/clipboard';
 
 function CopyButton({ text, className = '' }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(String(text || ''));
+      await copyText(text || '');
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1300);
     } catch {

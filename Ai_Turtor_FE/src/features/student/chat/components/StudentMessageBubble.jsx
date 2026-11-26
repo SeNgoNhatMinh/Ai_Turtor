@@ -3,24 +3,7 @@ import { Check, Copy, Pencil, Send, X } from 'lucide-react';
 import { PushpinOutlined } from '@ant-design/icons';
 import { LIMITS, validateChatInput } from '../../../../utils/validators';
 import StudentMessageContent from './StudentMessageContent';
-
-async function copyText(text) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-  const copied = document.execCommand('copy');
-  textarea.remove();
-  if (!copied) throw new Error('Clipboard is unavailable');
-}
+import { copyText } from '@/utils/clipboard';
 
 export default function StudentMessageBubble({
   canResend,

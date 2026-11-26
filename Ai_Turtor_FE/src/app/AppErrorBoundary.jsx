@@ -1,5 +1,5 @@
 import { Component, createRef } from 'react';
-import LogRocket from 'logrocket';
+import LogRocket from '@/utils/logRocket';
 import { createErrorReference, reportFrontendError } from '../utils/errorReporting';
 import './AppErrorBoundary.css';
 

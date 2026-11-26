@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Outlet } from 'react-router-dom';
-import LogRocket from 'logrocket';
+import LogRocket from '@/utils/logRocket';
 import { useAppNavigation } from './app/useAppNavigation';
 import { getHomeRouteForRole } from './app/routes';
 import Toast from './components/Toast';

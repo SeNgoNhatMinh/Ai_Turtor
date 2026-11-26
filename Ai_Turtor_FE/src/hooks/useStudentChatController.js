@@ -5,6 +5,7 @@ import { asArray } from '../services/normalizers';
 import { aiTutorApi } from '../services/aiTutorApi';
 import { supportChatApi } from '../services/supportChatApi';
 import { n8nService } from '../services/n8nService';
+import { createHarnessTraceId } from '../features/ai-harness/trace';
 import { readStudentOwnLlm } from '../features/student/chat/studentOwnLlm';
 import {
   buildAiServiceErrorMessage,
@@ -140,7 +141,7 @@ export function useStudentChatController({
     }
     const previousSessionId = activeSessionId;
     const previousSessionTitle = activeSessionTitle;
-    const generationTraceId = crypto.randomUUID();
+    const generationTraceId = createHarnessTraceId();
     activeGenerationTraceIdRef.current = generationTraceId;
     const requestId = activeAiRequestIdRef.current + 1;
     activeAiRequestIdRef.current = requestId;

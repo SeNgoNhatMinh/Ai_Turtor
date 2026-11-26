@@ -5,6 +5,7 @@ import { adminAcademicApi } from '../../../../services/adminAcademicApi';
 import { getCourseSelectOptions } from '../adminAcademicUtils';
 import RichMarkdownEditor from './RichMarkdownEditor';
 import { renderInlineMarkdown, renderMarkdownLines } from './inlineMarkdown';
+import { copyText } from '@/utils/clipboard';
 
 const STATUS_META = {
   APPROVED: { color: 'green', label: 'Đã duyệt · đang hiển thị cho sinh viên' },
@@ -165,7 +166,7 @@ function CurriculumGuideTab({ courses, triggerToast }) {
 
   const copyFullTemplate = async () => {
     try {
-      await navigator.clipboard.writeText(FULL_TEMPLATE);
+      await copyText(FULL_TEMPLATE);
       triggerToast?.('Đã sao chép mẫu.', 'success');
     } catch {
       triggerToast?.('Không sao chép được. Bấm "Mẫu trống" để lấy mẫu.', 'error');

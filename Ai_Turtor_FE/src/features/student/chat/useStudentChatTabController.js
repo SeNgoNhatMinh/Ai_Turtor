@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { message } from 'antd';
-import LogRocket from 'logrocket';
+import LogRocket from '@/utils/logRocket';
 import { confirmAction } from '../../../components/common/confirmDialog';
 import { materialsApi } from '../../../services/materialsApi';
 import { supportChatApi } from '../../../services/supportChatApi';

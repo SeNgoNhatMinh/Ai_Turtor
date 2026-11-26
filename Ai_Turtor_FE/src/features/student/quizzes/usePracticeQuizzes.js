@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import LogRocket from 'logrocket';
+import LogRocket from '@/utils/logRocket';
 import { queryKeys } from '../../../app/queryKeys';
 import { quizApi } from '../../../services/quizApi';
 import { getUserFacingError } from '../../../services/apiClient';
