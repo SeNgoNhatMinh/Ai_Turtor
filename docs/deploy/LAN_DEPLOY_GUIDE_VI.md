@@ -1,37 +1,38 @@
-# Chạy AI Tutor trên 1 máy, nhiều máy truy cập qua `fptturtor.vn`
+# Chạy AI Tutor hoàn toàn local trên 1 máy, các máy khác vào bằng IP
 
-Mục tiêu: một máy (gọi là **máy chủ**) chạy toàn bộ hệ thống bằng Docker. Các máy khác cùng mạng mở trình duyệt vào `http://fptturtor.vn` là dùng được.
+Mục tiêu: **một máy (máy chủ) chạy tất cả**: web, backend, n8n, MongoDB, Redis, Elasticsearch và **AI bằng Ollama**. Không dùng dịch vụ cloud nào. Các máy khác cùng router mở trình duyệt vào `http://<IP máy chủ>` là dùng được.
 
+```text
+Máy khách ──http://192.168.1.220──▶ Máy chủ (IP do router cấp)
+                                      ├─ :80     web (chuyển tiếp /api, /ws sang backend)
+                                      ├─ :5678   n8n (trình duyệt gọi trực tiếp)
+                                      ├─ :8085   backend  ─┐
+                                      ├─ MongoDB, Redis,   │ chỉ dùng nội bộ
+                                      │  Elasticsearch     │ trong máy chủ
+                                      └─ Ollama :11434  ◀──┘ (chat + embedding)
 ```
-Máy khách ──http://fptturtor.vn──▶ Máy chủ (192.168.1.220)
-                                     ├─ :80   ai-tutor-frontend (web + chuyển tiếp /api, /ws sang BE)
-                                     ├─ :8085 ai-tutor-api (BE)
-                                     └─ :5678 ai-tutor-n8n (trình duyệt gọi trực tiếp)
-```
 
-> Trình duyệt chỉ cần tới **2 cổng** của máy chủ: `80` (web + API) và `5678` (n8n).
+Trong hướng dẫn dùng `192.168.1.220` làm ví dụ, bạn thay bằng IP thật ở Bước 2.
 
 ---
 
-## Bước 1. Cùng một mạng
+## Bước 1. Cùng một router
 
-- Cắm dây hoặc bắt cùng **một Wi-Fi/router** cho máy chủ và tất cả máy khách.
-- Router nên có internet: BE cần gọi LLM (Groq, OpenRouter…) và MongoDB Atlas.
-- Không dùng Wi-Fi có "client isolation" (Wi-Fi khách, Wi-Fi trường thường bật). Nếu các máy không ping được nhau ở Bước 2, nguyên nhân thường là ở đây; khi đó dùng router/điểm phát riêng.
+- Máy chủ và tất cả máy khách cắm dây hoặc bắt **cùng một Wi-Fi/router**.
+- Hệ thống chạy local nên **không cần internet**. Chỉ cần internet một lần để tải Docker image và model Ollama (Bước 3, 6).
+- Không dùng Wi-Fi có "client isolation" (Wi-Fi khách, Wi-Fi trường): các máy sẽ không thấy nhau. Nếu Bước 2 không `ping` được, dùng router hoặc điểm phát riêng.
 
-## Bước 2. Lấy IPv4 của máy chủ
+## Bước 2. Lấy IP của máy chủ và cố định IP
 
-**macOS** (máy chủ):
+**macOS:**
 
 ```bash
 ipconfig getifaddr en0      # Wi-Fi; nếu trống thử en1 (cắm dây)
 ```
 
-**Windows**: `ipconfig`, xem dòng `IPv4 Address` của card đang dùng.
+**Windows:** chạy `ipconfig`, xem dòng `IPv4 Address`.
 
-Ví dụ kết quả: `192.168.1.220`. Hướng dẫn dưới đây dùng IP này, bạn thay bằng IP thật.
-
-Nên **cố định IP** cho máy chủ để IP không đổi sau khi khởi động lại: vào trang quản trị router (thường là `192.168.1.1`), mục DHCP → *Address Reservation / Static Lease*, gán IP cho MAC của máy chủ.
+**Cố định IP** để địa chỉ không đổi sau khi khởi động lại (vì IP này được ghi cứng vào web ở Bước 4): vào trang quản trị router (thường `192.168.1.1`), mục DHCP → *Address Reservation / Static Lease*, gán IP cho máy chủ.
 
 Kiểm tra từ một máy khách:
 
@@ -39,141 +40,155 @@ Kiểm tra từ một máy khách:
 ping 192.168.1.220
 ```
 
-## Bước 3. Mở cho mọi máy truy cập (`localhost` → `0.0.0.0`)
+## Bước 3. Cài Ollama và tải model trên máy chủ
 
-Docker đã publish cổng ra `0.0.0.0` (mọi card mạng). Chỉ cần sửa cấu hình để **không còn chỗ nào trỏ về `localhost`**.
+- **macOS:** cài app Ollama từ ollama.com. Nên chạy Ollama trực tiếp trên máy, không chạy trong Docker, vì Docker trên Mac không dùng được GPU nên rất chậm.
+- **Windows/Linux:** cài Ollama từ ollama.com, hoặc dùng container có sẵn (`--profile ollama`, xem Bước 6).
 
-### 3.1. Sửa `AI_Turtor_BE/.env.deploy` trên máy chủ
+Tải 2 model (chat và embedding):
 
-Thêm hoặc sửa các dòng sau:
-
-```env
-# Web chạy ở cổng 80 để gõ tên miền không cần :port
-FRONTEND_PORT=80
-
-# Trình duyệt gọi API cùng tên miền (Caddy chuyển tiếp /api sang BE)
-VITE_API_BASE_URL=/api
-
-# n8n: trình duyệt gọi trực tiếp, KHÔNG được là localhost
-VITE_N8N_BASE_URL=http://fptturtor.vn:5678
-
-# Cho phép trình duyệt từ tên miền mới
-APP_CORS_ALLOWED_ORIGINS=http://fptturtor.vn,http://192.168.1.220,http://localhost:5173,http://localhost:3000
+```bash
+ollama pull gemma3:4b
+ollama pull embeddinggemma
+ollama list                 # phải thấy cả hai
 ```
 
-> Các biến `VITE_*` được **ghi cứng lúc build** frontend. Sửa xong bắt buộc build lại (bước 3.2), restart thôi là không đủ.
+> Máy mạnh hơn có thể dùng model chat lớn hơn (ví dụ `gemma3:12b`) để trả lời tốt hơn; nhớ sửa `OLLAMA_CHAT_MODEL` ở Bước 4.
 
-### 3.2. Build và chạy lại
+## Bước 4. Cấu hình `AI_Turtor_BE/.env.deploy`
+
+Sửa hoặc thêm các dòng sau. Thay `192.168.1.220` bằng IP ở Bước 2.
+
+```env
+# --- Truy cập bằng IP ---
+FRONTEND_PORT=80
+VITE_API_BASE_URL=/api
+VITE_N8N_BASE_URL=http://192.168.1.220:5678
+APP_CORS_ALLOWED_ORIGINS=http://192.168.1.220,http://localhost,http://localhost:5173
+
+# --- AI local: chỉ dùng Ollama ---
+# Ollama chạy trực tiếp trên máy chủ (Mac/Windows):
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+# (nếu dùng container --profile ollama thì: OLLAMA_BASE_URL=http://ollama:11434)
+OLLAMA_CHAT_ENABLED=true
+OLLAMA_CHAT_MODEL=gemma3:4b
+OLLAMA_CHAT_TIMEOUT_SECONDS=0
+RAG_EMBEDDING_PROVIDER=ollama
+OLLAMA_EMBEDDING_MODEL=embeddinggemma
+
+# Để TRỐNG mọi key cloud, khi đó backend tự chạy chế độ chỉ Ollama:
+GROQ_API_KEY=
+GROQ_WORKER1_API_KEY=
+OPENROUTER_API_KEY=
+OPENROUTER_FALLBACK_API_KEY=
+OPENROUTER_EMBEDDING_API_KEY=
+OPENROUTER_RERANK_API_KEY=
+NVIDIA_API_KEY=
+NVIDIA_NIM_API_KEY=
+NVIDIA_EMBEDDING_API_KEY=
+CEREBRAS_API_KEY=
+
+# Prompt Guard đang gọi Groq, tắt khi chạy local:
+AI_WORKER_PROMPT_GUARD_ENABLED=false
+
+# --- MongoDB local (container mongodb) ---
+SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/tutor_db
+```
+
+> Các biến `VITE_*` được ghi cứng lúc build web. Đổi xong phải build lại (Bước 6), restart thôi là không đủ.
+>
+> Nếu trang Admin → *Cấu hình nhà cung cấp LLM* đã lưu sẵn key cloud, hãy tắt các nhà cung cấp đó ở trang này nữa.
+
+## Bước 5. (Nếu cần giữ dữ liệu cũ) Chuyển dữ liệu từ MongoDB Atlas về máy
+
+Làm **trước** khi chạy Bước 6 nếu muốn giữ tài khoản, môn học, học liệu, lịch sử chat đang có trên Atlas.
 
 ```bash
 cd AI_Turtor_BE
-docker compose --env-file .env.deploy -f docker-compose.deploy.yml up -d --build ai-tutor-api ai-tutor-frontend n8n
+# 1) Sao lưu từ Atlas (thay <ATLAS_URI> bằng URI Atlas cũ)
+MONGO_BACKUP_SOURCE_URI="<ATLAS_URI>" \
+  docker compose --env-file .env.deploy -f docker-compose.deploy.yml --profile db-tools run --rm mongo-backup
+
+# 2) Bật MongoDB local rồi khôi phục vào đó
+docker compose --env-file .env.deploy -f docker-compose.deploy.yml --profile local-db up -d mongodb
+docker compose --env-file .env.deploy -f docker-compose.deploy.yml --profile db-restore run --rm mongo-restore
+```
+
+File sao lưu nằm ở `AI_Turtor_BE/backup/tutor_db.archive.gz`. Bỏ qua bước này nếu muốn bắt đầu với dữ liệu trống.
+
+## Bước 6. Build và chạy toàn bộ
+
+```bash
+cd AI_Turtor_BE
+docker compose --env-file .env.deploy -f docker-compose.deploy.yml --profile local-db up -d --build
+# Windows/Linux dùng Ollama trong Docker thì thêm: --profile ollama
 docker ps --format '{{.Names}}  {{.Ports}}'
 ```
 
-Phải thấy:
+Phải thấy (ít nhất):
 
-```
+```text
 ai-tutor-frontend  0.0.0.0:80->3000/tcp
 ai-tutor-api       0.0.0.0:8085->8085/tcp
 ai-tutor-n8n       0.0.0.0:5678->5678/tcp
+ai-tutor-mongodb   0.0.0.0:27017->27017/tcp
 ```
 
-### 3.3. Tường lửa trên máy chủ
+Kiểm tra backend đã chạy chế độ chỉ Ollama:
 
-- **macOS**: System Settings → Network → Firewall. Nếu đang bật, vào *Options* và cho phép **Docker** nhận kết nối đến.
-- **Windows** (PowerShell chạy với quyền Admin):
+```bash
+docker logs ai-tutor-api 2>&1 | grep "LLM provider chain reloaded"
+# mong đợi: ollamaOnly=true, providers=[ollama/gemma3:4b]
+```
+
+**Index lại tài liệu (bắt buộc):** embedding đã đổi sang Ollama, nên vector cũ (tạo bằng NVIDIA) không dùng được nữa. Đăng nhập Admin → **Reindex** → chạy lại cho tất cả môn. Chưa reindex thì AI sẽ không tìm thấy tài liệu môn học.
+
+## Bước 7. Mở tường lửa trên máy chủ
+
+- **macOS:** System Settings → Network → Firewall. Nếu đang bật, vào *Options* và cho phép **Docker** nhận kết nối.
+- **Windows** (PowerShell chạy Admin):
 
   ```powershell
-  New-NetFirewallRule -DisplayName "AI Tutor" -Direction Inbound -Protocol TCP -LocalPort 80,5678 -Action Allow
+  New-NetFirewallRule -DisplayName "AI Tutor LAN" -Direction Inbound -Protocol TCP -LocalPort 80,5678 -Action Allow
   ```
 
-### 3.4. Thử bằng IP trước
+Chỉ mở **80** (web) và **5678** (n8n). Không cần mở 8085, 27017 hay 11434 cho máy khách.
 
-Từ **một máy khách**, mở `http://192.168.1.220`. Thấy trang đăng nhập là Bước 3 đã xong. Nếu không vào được, xem mục *Xử lý sự cố* ở cuối.
+## Bước 8. Các máy khác truy cập
 
-## Bước 4. Gắn tên miền `fptturtor.vn` → IP máy chủ
+Trên mọi máy khách, mở trình duyệt vào:
 
-Chọn **một** trong hai cách.
-
-### Cách A. Sửa file hosts trên từng máy (đơn giản, ít máy)
-
-Thêm **một dòng** vào file hosts của **mọi máy**, kể cả máy chủ:
-
-```
-192.168.1.220 fptturtor.vn
+```text
+http://192.168.1.220
 ```
 
-**macOS / Linux**:
-
-```bash
-sudo nano /etc/hosts                 # thêm dòng trên, lưu: Ctrl+O, Enter, Ctrl+X
-sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder   # chỉ macOS
-```
-
-**Windows**: mở Notepad bằng *Run as administrator*, mở file
-`C:\Windows\System32\drivers\etc\hosts` (chọn *All Files* để thấy file), thêm dòng trên, lưu, rồi chạy:
-
-```powershell
-ipconfig /flushdns
-```
-
-> Trên máy chủ, có thể dùng `127.0.0.1 fptturtor.vn` thay cho IP LAN.
-
-### Cách B. dnsmasq trên máy chủ (nhiều máy, không phải sửa từng máy)
-
-Máy chủ làm DNS cho cả mạng; máy khách chỉ cần đặt DNS là IP máy chủ.
-
-**Cài trên máy chủ (macOS):**
-
-```bash
-brew install dnsmasq
-echo 'address=/fptturtor.vn/192.168.1.220' >> "$(brew --prefix)/etc/dnsmasq.conf"
-echo 'server=8.8.8.8' >> "$(brew --prefix)/etc/dnsmasq.conf"     # tên miền khác vẫn ra internet
-sudo brew services start dnsmasq
-```
-
-Kiểm tra trên máy chủ: `dig @127.0.0.1 fptturtor.vn +short` phải in ra `192.168.1.220`. Mở cổng **53 UDP/TCP** nếu tường lửa đang bật.
-
-**Trỏ máy khách dùng DNS này**, chọn 1 trong 2:
-
-- **Cả mạng (khuyên dùng):** trong router → DHCP → *DNS Server* đặt `192.168.1.220`. Các máy kết nối lại Wi-Fi là nhận.
-- **Từng máy:**
-  - macOS: System Settings → Network → Wi-Fi → Details → DNS → thêm `192.168.1.220`.
-  - Windows: Network adapter → IPv4 → *Use the following DNS* → `192.168.1.220`.
-
-> Nếu máy chủ tắt thì máy khách mất DNS. Vì vậy trong router nên đặt thêm `8.8.8.8` làm DNS phụ.
-
-## Bước 5. Truy cập
-
-Trên mọi máy, mở **`http://fptturtor.vn`** (gõ rõ `http://`, xem lưu ý HTTPS bên dưới).
+Gõ rõ `http://`. Không cần sửa file hosts hay cài thêm gì trên máy khách.
 
 Kiểm tra nhanh từ một máy khách:
 
 ```bash
-curl -I http://fptturtor.vn/health        # mong đợi: HTTP 200
-curl -s  http://fptturtor.vn/api/health   # có phản hồi (401 cũng được: nghĩa là BE đã nhận)
-curl -I http://fptturtor.vn:5678          # n8n trả về HTTP 200 hoặc 3xx
+curl -I http://192.168.1.220/health      # HTTP 200
+curl -I http://192.168.1.220:5678        # n8n trả 200 hoặc 3xx
 ```
 
-Sau đó đăng nhập, gửi một câu hỏi trong **Trò chuyện AI Tutor**, rồi mở trang Admin để chắc API, n8n và realtime đều chạy.
+Sau đó đăng nhập, hỏi một câu trong **Trò chuyện AI Tutor** để chắc chat, n8n và Ollama đều chạy.
 
 ---
 
 ## Lưu ý
 
-- **HTTPS:** hệ thống chạy `http`. Nếu trình duyệt tự chuyển sang `https://fptturtor.vn` và báo lỗi, gõ lại đúng `http://fptturtor.vn`, hoặc dùng cửa sổ ẩn danh.
-- **`fptturtor.vn` là tên miền thật trên internet.** File hosts/dnsmasq chỉ ghi đè trong mạng của bạn. Nếu muốn tránh nhầm với trang thật, có thể dùng tên kiểu `fptturtor.lan`; khi đó thay tên miền ở mọi bước trên.
-- **IP máy chủ đổi** (đổi mạng, chưa cố định IP): sửa lại hosts/dnsmasq, sửa `APP_CORS_ALLOWED_ORIGINS` rồi chạy lại bước 3.2.
-- **Máy chủ phải luôn bật và không ngủ:** macOS vào System Settings → Battery/Energy, bật *Prevent automatic sleeping*.
+- **Tốc độ:** mọi câu trả lời do Ollama trên máy chủ tạo ra. Model `gemma3:4b` chạy CPU có thể mất vài chục giây đến vài phút mỗi câu, và chậm hơn khi nhiều người hỏi cùng lúc. Hệ thống đã được chỉnh để **chờ tới 6 giờ**, không tự cắt câu trả lời.
+- **Máy chủ phải luôn bật, không ngủ:** macOS vào System Settings → Battery/Energy → bật *Prevent automatic sleeping*.
+- **Nếu IP máy chủ đổi:** sửa `VITE_N8N_BASE_URL` và `APP_CORS_ALLOWED_ORIGINS` theo IP mới, rồi chạy lại Bước 6. Vì vậy nên cố định IP ở Bước 2.
 
 ## Xử lý sự cố
 
 | Hiện tượng | Kiểm tra / cách sửa |
 |---|---|
-| Máy khách không `ping` được máy chủ | Sai mạng hoặc Wi-Fi bật client isolation (Bước 1); tường lửa Windows chặn ICMP |
-| Vào được bằng IP nhưng không vào được `fptturtor.vn` | Thiếu dòng hosts / DNS chưa trỏ đúng: `ping fptturtor.vn` phải ra `192.168.1.220`; nhớ flush DNS |
-| Trang mở được nhưng đăng nhập/tải dữ liệu lỗi | `docker logs ai-tutor-api --tail 50`; kiểm tra `curl http://fptturtor.vn/api/health` |
-| Chat báo lỗi kết nối trên máy khách, máy chủ thì chạy | Frontend vẫn build với `VITE_N8N_BASE_URL=localhost`: sửa `.env.deploy` và **build lại** (3.2); mở cổng 5678 |
-| Lỗi CORS trong Console (F12) | Thêm đúng origin đang dùng (`http://fptturtor.vn`) vào `APP_CORS_ALLOWED_ORIGINS`, build lại `ai-tutor-api` |
-| Cổng 80 báo *address already in use* | Có dịch vụ khác giữ cổng 80: tắt nó, hoặc đặt `FRONTEND_PORT=3000` và truy cập `http://fptturtor.vn:3000` |
+| Máy khách không `ping` được máy chủ | Khác mạng hoặc Wi-Fi bật client isolation (Bước 1); tường lửa Windows chặn ICMP |
+| Mở `http://<IP>` không vào được | `docker ps` có `ai-tutor-frontend 0.0.0.0:80`? Tường lửa đã mở cổng 80? Cổng 80 bị dịch vụ khác chiếm thì đặt `FRONTEND_PORT=3000` và vào `http://<IP>:3000` |
+| Trang mở được nhưng chat báo lỗi trên máy khách | `VITE_N8N_BASE_URL` vẫn là `localhost`: sửa thành `http://<IP>:5678`, **build lại** (Bước 6), mở cổng 5678 |
+| Lỗi CORS trong Console (F12) | Thêm đúng `http://<IP>` vào `APP_CORS_ALLOWED_ORIGINS`, build lại |
+| Log không có `ollamaOnly=true` | Còn key cloud trong `.env.deploy` hoặc trong trang Admin → Cấu hình nhà cung cấp LLM |
+| AI báo không tìm thấy tài liệu | Chưa **Reindex** sau khi đổi embedding (Bước 6) |
+| Backend không gọi được Ollama | Trên máy chủ chạy `curl http://localhost:11434/api/tags`; kiểm tra `OLLAMA_BASE_URL` (Bước 4) |
