@@ -1,0 +1,227 @@
+/* Experience survey: student form and admin summary. */
+.feedback-page,
+.feedback-admin-page {
+  display: grid;
+  gap: 18px;
+  width: 100%;
+  max-width: 820px;
+  min-width: 0;
+}
+
+.feedback-admin-page {
+  max-width: 100%;
+}
+
+.feedback-form {
+  display: grid;
+  gap: 14px;
+}
+
+.feedback-question {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--color-border, #dbe4ef);
+  border-radius: 14px;
+  background: var(--color-surface, #ffffff);
+}
+
+.feedback-question legend {
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  color: var(--color-text, #10243e);
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.feedback-question legend + * {
+  clear: both;
+}
+
+.feedback-question.is-missing {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+.feedback-scale {
+  display: grid;
+  gap: 6px;
+}
+
+.feedback-scale__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feedback-scale__button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: 10px;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text, #10243e);
+  font: inherit;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.feedback-scale__button:hover {
+  border-color: #f37021;
+}
+
+.feedback-scale__button:focus-visible {
+  outline: 2px solid #f37021;
+  outline-offset: 2px;
+}
+
+.feedback-scale__button.is-selected {
+  border-color: #f37021;
+  background: #f37021;
+  color: #ffffff;
+}
+
+.feedback-scale__ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--color-text-secondary, #66788d);
+  font-size: 0.8rem;
+}
+
+.feedback-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.feedback-choices--stack {
+  display: grid;
+  gap: 8px;
+}
+
+.feedback-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.feedback-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 14px;
+}
+
+.feedback-bars {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--color-border, #dbe4ef);
+  border-radius: 14px;
+  background: var(--color-surface, #ffffff);
+}
+
+.feedback-bars h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.feedback-bars__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(60px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.86rem;
+}
+
+.feedback-bars__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.feedback-bars__track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.16);
+  overflow: hidden;
+}
+
+.feedback-bars__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #f37021;
+}
+
+.feedback-bars__value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.feedback-admin-search {
+  max-width: 420px;
+}
+
+.feedback-detail {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 14px;
+  margin: 0;
+}
+
+.feedback-detail dt {
+  color: var(--color-text-secondary, #66788d);
+  font-weight: 600;
+}
+
+.feedback-detail dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.app-container.dark .feedback-question,
+.app-container.dark .feedback-bars,
+.app-container.dark .feedback-scale__button {
+  border-color: #2f2f2f;
+  background: #171717;
+  color: #f9fafb;
+}
+
+.app-container.dark .feedback-scale__button.is-selected {
+  border-color: #f37021;
+  background: #f37021;
+  color: #ffffff;
+}
+
+.app-container.dark .feedback-question legend {
+  color: #f9fafb;
+}
+
+@media (max-width: 520px) {
+  .feedback-question {
+    padding: 14px;
+  }
+
+  .feedback-scale__buttons {
+    gap: 6px;
+  }
+
+  .feedback-scale__button {
+    flex: 1 1 0;
+    min-width: 40px;
+    padding: 0;
+  }
+
+  .feedback-actions .ant-btn {
+    width: 100%;
+  }
+}

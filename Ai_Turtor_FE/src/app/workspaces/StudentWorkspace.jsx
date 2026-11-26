@@ -9,6 +9,7 @@ const studentPages = {
   'student-quizzes': lazy(() => import('../../features/student/quizzes/PracticeQuizzesPage')),
   'student-materials': lazy(() => import('../../features/student/materials/StudentMaterialsPage')),
   'student-escalation': lazy(() => import('../../features/student/mentor-review/MentorReviewPage')),
+  'student-feedback': lazy(() => import('../../features/feedback/StudentFeedbackPage')),
 };
 
 function StudentPageFallback() {

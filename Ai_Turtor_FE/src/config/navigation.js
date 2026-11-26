@@ -17,6 +17,7 @@ import {
   House,
   RefreshCw,
   Database,
+  MessageSquareHeart,
 } from 'lucide-react';
 import { ACCOUNT_ROLES, getWorkspaceRole, normalizeAccountRole } from '../constants/roles';
 
@@ -60,6 +61,14 @@ const navigationItems = [
     label: 'Hỗ trợ từ giảng viên',
     description: 'Trao đổi câu hỏi khó và theo dõi câu trả lời chính thức.',
     icon: MessageCircle,
+  },
+  {
+    key: 'student-feedback',
+    workspace: 'student',
+    group: 'Hỗ trợ',
+    label: 'Góp ý trải nghiệm',
+    description: 'Khảo sát 2 phút về trải nghiệm dùng AI Tutor.',
+    icon: MessageSquareHeart,
   },
   {
     key: 'teacher-classes',
@@ -313,6 +322,15 @@ const navigationItems = [
     label: 'Cache câu trả lời AI',
     description: 'Quản lý cache semantic: duyệt, sửa, tắt hoặc xóa câu trả lời AI đã lưu.',
     icon: Database,
+  },
+  {
+    key: 'admin-feedback',
+    workspace: 'admin',
+    allowedAccountRoles: [ACCOUNT_ROLES.ADMIN],
+    group: 'Giám sát AI',
+    label: 'Góp ý trải nghiệm',
+    description: 'Kết quả khảo sát trải nghiệm của người dùng trong đợt test.',
+    icon: MessageSquareHeart,
   },
 ];
 
