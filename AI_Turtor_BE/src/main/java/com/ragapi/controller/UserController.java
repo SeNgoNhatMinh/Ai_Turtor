@@ -48,10 +48,11 @@ public class UserController {
     private JwtService jwtService;
     private RateLimiter rateLimiter;
 
-    // Password guessing: 10 failures per account or 50 per client address per 15 minutes.
+    // Password guessing: 10 failures per account, or 300 per client address (a whole class
+    // behind one school NAT shares an address), per 15 minutes.
     static final long LOGIN_WINDOW_MS = 15 * 60_000L;
     static final int LOGIN_FAILURES_PER_ACCOUNT = 10;
-    static final int LOGIN_FAILURES_PER_IP = 50;
+    static final int LOGIN_FAILURES_PER_IP = 300;
 
     @PostMapping("/register")
     @Operation(summary = "Register student account")
