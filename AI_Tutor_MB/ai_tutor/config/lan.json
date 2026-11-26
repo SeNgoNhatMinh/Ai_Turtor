@@ -1,0 +1,4 @@
+{
+  "API_BASE_URL": "http://192.168.2.195:8085",
+  "N8N_WEBHOOK": "http://192.168.2.195:5678/webhook"
+}

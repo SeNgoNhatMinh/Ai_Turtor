@@ -61,7 +61,9 @@ spring:
     time-zone: ${APP_TIMEZONE:Asia/Bangkok}
   mvc:
     async:
-      request-timeout: 300000
+      # -1 = no timeout for async requests (AI chat waits for slow local LLMs).
+      # Set SPRING_MVC_ASYNC_REQUEST_TIMEOUT (ms) to restore a cutoff.
+      request-timeout: ${SPRING_MVC_ASYNC_REQUEST_TIMEOUT:-1}
   servlet:
     multipart:
       max-file-size: 50MB

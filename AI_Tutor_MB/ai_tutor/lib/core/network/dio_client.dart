@@ -9,8 +9,10 @@ const defaultReceiveTimeout = Duration(seconds: 30);
 /// RAG / LLM (review, quiz, …) — chờ lâu hơn CRUD.
 const aiReceiveTimeout = Duration(seconds: 120);
 
-/// Student chat qua n8n — khớp BE `spring.mvc.async.request-timeout` (300s).
-const aiChatReceiveTimeout = Duration(seconds: 300);
+/// Chat AI: không giới hạn thời gian chờ (Duration.zero = tắt receive timeout
+/// trong dio). LLM local (Ollama trên LAN) có thể trả lời rất chậm; người dùng
+/// vẫn dừng được bằng CancelToken.
+const aiChatReceiveTimeout = Duration.zero;
 
 /// NVIDIA Magpie synthesis — khớp web `ttsApi.synthesize` timeout 180s.
 const ttsReceiveTimeout = Duration(seconds: 180);

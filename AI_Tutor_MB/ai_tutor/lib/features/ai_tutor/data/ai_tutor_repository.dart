@@ -611,7 +611,7 @@ class AiTutorRepository {
       },
       cancelToken: cancelToken,
       options: Options(
-        receiveTimeout: aiReceiveTimeout,
+        receiveTimeout: aiChatReceiveTimeout,
         headers: {'X-Student-Llm-Key': studentLlmKey},
       ),
     );
