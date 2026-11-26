@@ -7,6 +7,7 @@ import {
   ReloadOutlined,
   TrophyOutlined,
 } from '@ant-design/icons';
+import AssignedQuizzesPanel from './AssignedQuizzesPanel';
 import QuizGeneratePanel from './QuizGeneratePanel';
 import QuizHistoryPanel from './QuizHistoryPanel';
 import QuizStatCard from './QuizStatCard';
@@ -72,6 +73,20 @@ function PracticeQuizzesView({
       ),
     },
     {
+      key: 'assigned',
+      label: `Được giao${quiz.assigned.length ? ` (${quiz.assigned.length})` : ''}`,
+      children: (
+        <AssignedQuizzesPanel
+          assignments={quiz.assigned}
+          loadingKey={quiz.loadingKey}
+          hasContext={quiz.hasContext}
+          isLoading={quiz.isLoading}
+          onRefresh={quiz.loadQuizzes}
+          onStart={quiz.startAssignedQuiz}
+        />
+      ),
+    },
+    {
       key: 'history',
       label: `Lịch sử${quiz.history.length ? ` (${quiz.history.length})` : ''}`,
       children: (
@@ -123,7 +138,7 @@ function PracticeQuizzesView({
       />
 
       <div className="quiz-stat-grid">
-        <QuizStatCard icon={<BookOutlined />} label="Tổng quiz" value={quiz.quizStats.total} description="Đã tạo trong môn này" tone="blue" />
+        <QuizStatCard icon={<BookOutlined />} label="Được giao" value={quiz.quizStats.assigned} description="Từ giảng viên" tone="blue" />
         <QuizStatCard icon={<ClockCircleOutlined />} label="Đang làm" value={quiz.quizStats.inProgress} description="Có thể tiếp tục" tone="orange" />
         <QuizStatCard icon={<CheckCircleOutlined />} label="Đã nộp" value={quiz.quizStats.submitted} description="Đã gửi chấm" tone="green" />
         <QuizStatCard
