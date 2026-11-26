@@ -21,6 +21,14 @@ Bạn có thể bắt đầu bằng cách hỏi AI Tutor:
 Mẹo: Hãy chọn một chủ đề cụ thể.
 ''';
 
+const _repeatedCurriculumMarkdown = '''
+## Gợi ý học tập
+- Bài 1: Conditional execution || Conditional execution
+- Bài 2: Dictionaries || Dictionaries
+- Bài 3: Files || Binary files
+- Bài 1: Conditional execution
+''';
+
 void main() {
   test('extracts all web curriculum starters and removes duplicate text', () {
     final suggestions = parseCurriculumStudySuggestions(_curriculumMarkdown);
@@ -31,6 +39,22 @@ void main() {
     expect(display, contains('Nội dung chính'));
     expect(display, isNot(contains('Gợi ý học tập')));
     expect(display, isNot(contains('Mẹo:')));
+  });
+
+  test('removes only repeated curriculum titles around the double pipe', () {
+    final suggestions = parseCurriculumStudySuggestions(
+      _repeatedCurriculumMarkdown,
+    );
+
+    expect(suggestions.map((item) => item.title).toList(), [
+      'Bài 1: Conditional execution',
+      'Bài 2: Dictionaries',
+      'Bài 3: Files || Binary files',
+    ]);
+    expect(
+      suggestions.map((item) => item.suggestionText).toList(),
+      suggestions.map((item) => item.title).toList(),
+    );
   });
 
   test(

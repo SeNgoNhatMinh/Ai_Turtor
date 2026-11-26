@@ -3,6 +3,7 @@ import 'package:ai_tutor/core/theme/app_colors.dart';
 import 'package:ai_tutor/features/ai_tutor/data/understanding_check.dart';
 import 'package:ai_tutor/features/ai_tutor/presentation/widgets/understanding_check_quiz.dart';
 import 'package:ai_tutor/shared/models/ai_conversation.dart';
+import 'package:ai_tutor/shared/widgets/markdown_code_block.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -496,6 +497,44 @@ B. service()
     await tester.tap(find.text('init()'));
     await tester.pump();
     expect(locked, 'A');
+  });
+
+  testWidgets('formats fenced code in a quiz question at large text scale', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    const question =
+        'Xét đoạn mã sau: ```python def binarysum(S, start, stop): '
+        '"""Return the sum of the numbers in S[start:stop].""" ``` '
+        'Khi binarysum([5, 7, 3], 3, 3) được gọi, giá trị trả về là gì?';
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: SingleChildScrollView(
+              child: UnderstandingCheckQuiz(
+                quiz: UnderstandingQuiz(
+                  question: question,
+                  options: [
+                    UnderstandingOption(key: 'A', text: '5'),
+                    UnderstandingOption(key: 'B', text: '7'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(MarkdownCodeBlock), findsOneWidget);
+    expect(find.text('Python'), findsOneWidget);
+    expect(find.text(question), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('restored grade keeps correct and incorrect option colors', (

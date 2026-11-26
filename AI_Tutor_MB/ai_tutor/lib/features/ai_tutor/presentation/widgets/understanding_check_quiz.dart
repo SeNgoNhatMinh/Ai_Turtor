@@ -6,7 +6,26 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../../../shared/widgets/ai_markdown_body.dart';
 import '../../data/understanding_check.dart';
+
+String formatUnderstandingQuestionMarkdown(String value) {
+  final question = value.trim();
+  if (question.isEmpty) return question;
+
+  // Quiz payloads parsed from an AI response may have had all whitespace
+  // collapsed, leaving fenced code inline with the prose. Put the fences back
+  // on their own lines so the shared Markdown renderer can format the code.
+  return question.replaceAllMapped(
+    RegExp(r'(```|~~~)([a-zA-Z0-9_+#.-]*)\s+([\s\S]*?)\s*\1'),
+    (match) {
+      final fence = match[1]!;
+      final language = match[2] ?? '';
+      final code = (match[3] ?? '').trim();
+      return '\n\n$fence$language\n$code\n$fence\n\n';
+    },
+  );
+}
 
 class UnderstandingCheckQuiz extends StatefulWidget {
   const UnderstandingCheckQuiz({
@@ -162,13 +181,8 @@ class _UnderstandingCheckQuizState extends State<UnderstandingCheckQuiz> {
               ],
             ),
             const Gap(Insets.sm),
-            Text(
-              quiz.question,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-                height: 1.4,
-              ),
+            AiMarkdownBody(
+              data: formatUnderstandingQuestionMarkdown(quiz.question),
             ),
             const Gap(Insets.sm),
             for (final option in quiz.options)
