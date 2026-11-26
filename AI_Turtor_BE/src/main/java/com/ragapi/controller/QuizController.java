@@ -7,16 +7,11 @@ import static com.ragapi.util.ValidationUtils.requireText;
 
 import com.ragapi.dto.AiQueryResponse;
 import com.ragapi.dto.CourseRagAnswer;
-import com.ragapi.dto.CreateTeacherQuizRequest;
-import com.ragapi.dto.GenerateQuizAssignmentRequest;
 import com.ragapi.dto.GenerateQuizRequest;
 import com.ragapi.dto.LearnSuggestionRequest;
 import com.ragapi.dto.SuggestionRequest;
 import com.ragapi.dto.SuggestionResponse;
-import com.ragapi.dto.PublishQuizAssignmentRequest;
 import com.ragapi.dto.SubmitQuizRequest;
-import com.ragapi.dto.TeacherReviewQuizRequest;
-import com.ragapi.dto.UpdateQuizAssignmentRequest;
 import com.ragapi.service.chat.AiConversationService;
 import com.ragapi.harness.gateway.CourseAnswerGateway;
 import com.ragapi.harness.improve.ImproveSuggestionService;
@@ -30,14 +25,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
@@ -194,183 +186,6 @@ public class QuizController {
             return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
         }
     }
-
-    @PostMapping("/teachers/{teacherId}/courses/{courseId}/quiz-assignments/generate")
-    @Operation(summary = "Generate a draft quiz assignment for teacher review")
-    public ResponseEntity<?> generateQuizAssignment(
-            @PathVariable String teacherId,
-            @PathVariable String courseId,
-            @RequestBody GenerateQuizAssignmentRequest request
-    ) {
-        try {
-            return ResponseEntity.ok(quizService.generateAssignmentDraft(teacherId, courseId, request));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(quizErrorBody(ex));
-        } catch (Exception ex) {
-            log.error("Generate quiz assignment failed", ex);
-            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
-        }
-    }
-
-    @PutMapping("/quiz-assignments/{assignmentId}")
-    @Operation(summary = "Update draft quiz assignment before publishing")
-    public ResponseEntity<?> updateQuizAssignment(
-            @PathVariable String assignmentId,
-            @RequestBody UpdateQuizAssignmentRequest request
-    ) {
-        try {
-            return ResponseEntity.ok(quizService.updateAssignment(assignmentId, request));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(quizErrorBody(ex));
-        } catch (Exception ex) {
-            log.error("Update quiz assignment failed", ex);
-            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
-        }
-    }
-
-    @DeleteMapping("/quiz-assignments/{assignmentId}")
-    @Operation(summary = "Delete draft quiz assignment")
-    public ResponseEntity<?> deleteQuizAssignment(@PathVariable String assignmentId) {
-        try {
-            quizService.deleteAssignment(assignmentId);
-            return ResponseEntity.ok(Map.of("status", "DELETED", "assignmentId", assignmentId));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(quizErrorBody(ex));
-        } catch (Exception ex) {
-            log.error("Delete quiz assignment failed", ex);
-            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
-        }
-    }
-
-    @PostMapping("/quiz-assignments/{assignmentId}/publish")
-    @Operation(summary = "Publish quiz assignment to whole class or selected students")
-    public ResponseEntity<?> publishQuizAssignment(
-            @PathVariable String assignmentId,
-            @RequestBody PublishQuizAssignmentRequest request
-    ) {
-        try {
-            return ResponseEntity.ok(quizService.publishAssignment(assignmentId, request));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(quizErrorBody(ex));
-        } catch (Exception ex) {
-            log.error("Publish quiz assignment failed", ex);
-            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
-        }
-    }
-
-    @GetMapping("/teachers/{teacherId}/quiz-assignments")
-    @Operation(summary = "List quiz assignments created by a teacher")
-    public ResponseEntity<?> listTeacherQuizAssignments(@PathVariable String teacherId) {
-        try {
-            var assignments = quizService.listTeacherAssignments(teacherId);
-            return ResponseEntity.ok(Map.of("teacherId", teacherId, "count", assignments.size(), "assignments", assignments));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(quizErrorBody(ex));
-        } catch (Exception ex) {
-            log.error("List teacher quiz assignments failed", ex);
-            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
-        }
-    }
-
-    @GetMapping("/teachers/{teacherId}/quiz-attempts")
-    @Operation(summary = "List assigned quiz attempts for teacher review")
-    public ResponseEntity<?> listTeacherQuizAttempts(
-            @PathVariable String teacherId,
-            @RequestParam(value = "status", required = false) String status,
-            @RequestParam(value = "reviewStatus", required = false) String reviewStatus,
-            @RequestParam(value = "courseId", required = false) String courseId,
-            @RequestParam(value = "classId", required = false) String classId,
-            @RequestParam(value = "assignmentId", required = false) String assignmentId,
-            @RequestParam(value = "studentId", required = false) String studentId,
-            @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "20") int size,
-            Authentication authentication) {
-        try {
-            return ResponseEntity.ok(quizService.listTeacherQuizAttempts(
-                    teacherId, authenticatedUserId(authentication), authenticatedRole(authentication),
-                    status, reviewStatus, courseId, classId, assignmentId, studentId, page, size));
-        } catch (SecurityException ex) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ex.getMessage()));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(quizErrorBody(ex));
-        } catch (Exception ex) {
-            log.error("List teacher quiz attempts failed", ex);
-            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
-        }
-    }
-
-    @PostMapping("/teachers/{teacherId}/courses/{courseId}/quiz-assignments/manual")
-    @Operation(summary = "Create an online teacher-authored quiz draft without AI generation")
-    public ResponseEntity<?> createManualTeacherQuiz(
-            @PathVariable String teacherId,
-            @PathVariable String courseId,
-            @RequestBody CreateTeacherQuizRequest request
-    ) {
-        try {
-            return ResponseEntity.ok(quizService.createTeacherQuizDraft(teacherId, courseId, request));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(quizErrorBody(ex));
-        } catch (Exception ex) {
-            log.error("Create manual teacher quiz failed", ex);
-            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
-        }
-    }
-
-    @GetMapping("/students/{studentId}/courses/{courseId}/quiz-assignments")
-    @Operation(summary = "List published quiz assignments available to a student")
-    public ResponseEntity<?> listStudentQuizAssignments(
-            @PathVariable String studentId,
-            @PathVariable String courseId,
-            @RequestParam(value = "classId", required = false) String classId
-    ) {
-        try {
-            var assignments = quizService.listPublishedAssignmentsForStudent(studentId, courseId, classId);
-            return ResponseEntity.ok(Map.of("studentId", studentId, "courseId", courseId, "count", assignments.size(), "assignments", assignments));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(quizErrorBody(ex));
-        } catch (Exception ex) {
-            log.error("List student quiz assignments failed", ex);
-            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
-        }
-    }
-
-    @PostMapping("/quiz-assignments/{assignmentId}/attempts")
-    @Operation(summary = "Start an attempt for an assigned quiz")
-    public ResponseEntity<?> startAssignedQuiz(
-            @PathVariable String assignmentId,
-            @RequestParam String studentId
-    ) {
-        try {
-            return ResponseEntity.ok(quizService.toStudentView(quizService.startAssignmentAttempt(assignmentId, studentId)));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(quizErrorBody(ex));
-        } catch (Exception ex) {
-            log.error("Start assigned quiz failed", ex);
-            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
-        }
-    }
-
-    @PutMapping("/quizzes/{quizSessionId}/teacher-review")
-    @Operation(summary = "Teacher reviews AI-scored quiz result")
-    public ResponseEntity<?> teacherReviewQuiz(
-            @PathVariable String quizSessionId,
-            @RequestBody TeacherReviewQuizRequest request,
-            Authentication authentication
-    ) {
-        try {
-            return ResponseEntity.ok(quizService.teacherReviewQuiz(
-                    quizSessionId, request,
-                    authenticatedUserId(authentication), authenticatedRole(authentication)));
-        } catch (SecurityException ex) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ex.getMessage()));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(quizErrorBody(ex));
-        } catch (Exception ex) {
-            log.error("Teacher review quiz failed", ex);
-            return ResponseEntity.status(ErrorStatus.of(ex)).body(Map.of("error", "Server error: " + ex.getMessage()));
-        }
-    }
-
 
     private String authenticatedUserId(Authentication authentication) {
         if (authentication == null || authentication.getName() == null) {
