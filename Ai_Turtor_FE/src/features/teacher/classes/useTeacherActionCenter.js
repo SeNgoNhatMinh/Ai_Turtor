@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../app/queryKeys';
 import { materialsApi } from '../../../services/materialsApi';
-import { quizApi } from '../../../services/quizApi';
 import { teacherReviewApi } from '../../../services/teacherReviewApi';
 import { asArray } from '../../../services/normalizers';
 import { canReviewKnowledge } from '../../../utils/permissions';
@@ -18,14 +17,6 @@ const loadActionItems = async ({ teacherId, role, courseId, classId, signal }) =
     ? teacherReviewApi.getSeniorPendingAnswerReviews(courseId, { signal })
     : teacherReviewApi.getMentorPendingAnswerReviews(courseId, { signal });
   const results = await Promise.allSettled([
-    quizApi.getTeacherQuizAttempts(teacherId, {
-      courseId,
-      classId,
-      status: 'SUBMITTED',
-      reviewStatus: 'PENDING',
-      page: 0,
-      size: 1,
-    }, { signal }),
     teacherReviewApi.getTeacherEscalations(teacherId, { courseId, classId }, { signal }),
     reviewLoader,
     materialsApi.getCourseMaterials(courseId, classId, { signal }),
@@ -35,22 +26,14 @@ const loadActionItems = async ({ teacherId, role, courseId, classId, signal }) =
     throw new Error('Không thể tải hàng chờ công việc. Hãy thử làm mới sau.');
   }
   const value = (index) => results[index].status === 'fulfilled' ? results[index].value : null;
-  const quizCount = Number(value(0)?.totalElements || value(0)?.attempts?.length || 0);
-  const escalations = asArray(value(1), 'escalations', 'inbox', 'content').filter((item) => !isClosed(item.status));
-  const reviews = Array.isArray(value(2)) ? value(2) : [];
-  const failedMaterials = asArray(value(3), 'materials', 'content').filter((item) => {
+  const escalations = asArray(value(0), 'escalations', 'inbox', 'content').filter((item) => !isClosed(item.status));
+  const reviews = Array.isArray(value(1)) ? value(1) : [];
+  const failedMaterials = asArray(value(2), 'materials', 'content').filter((item) => {
     const status = String(item.indexingStatus || item.status || '').toUpperCase();
     return status === 'FAILED' || status === 'INDEXING_FAILED' || status === 'ERROR';
   });
 
   return [
-    quizCount && {
-      key: 'quiz-review',
-      title: `${quizCount} bài quiz chờ duyệt điểm`,
-      description: 'Kiểm tra điểm tự động và xác nhận điểm cuối.',
-      status: 'PENDING_REVIEW',
-      tab: 'teacher-grading',
-    },
     escalations.length && {
       key: 'escalations',
       title: `${escalations.length} yêu cầu hỗ trợ đang mở`,

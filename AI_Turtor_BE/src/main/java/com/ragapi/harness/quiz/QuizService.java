@@ -15,17 +15,9 @@ import com.ragapi.harness.retrieval.CourseMaterialTextSearchService;
 import com.ragapi.harness.retrieval.CourseSearchResultRankingService;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ragapi.dto.GenerateQuizAssignmentRequest;
 import com.ragapi.dto.GenerateQuizRequest;
-import com.ragapi.dto.QuizAttemptPageResponse;
-import com.ragapi.dto.QuizAttemptSummary;
-import com.ragapi.dto.PublishQuizAssignmentRequest;
 import com.ragapi.dto.SubmitQuizRequest;
-import com.ragapi.dto.TeacherReviewQuizRequest;
-import com.ragapi.dto.UpdateQuizAssignmentRequest;
-import com.ragapi.harness.entity.QuizAssignment;
 import com.ragapi.harness.entity.QuizSession;
-import com.ragapi.harness.repository.QuizAssignmentRepository;
 import com.ragapi.harness.repository.QuizSessionRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -56,11 +48,8 @@ public class QuizService {
     private static final int MAX_QUESTION_COUNT = 10;
     private static final String STATUS_GENERATED = "GENERATED";
     private static final String STATUS_SUBMITTED = "SUBMITTED";
-    private static final String ASSIGNMENT_DRAFT = "DRAFT";
-    private static final String ASSIGNMENT_PUBLISHED = "PUBLISHED";
 
     private final QuizSessionRepository quizSessionRepository;
-    private final QuizAssignmentRepository quizAssignmentRepository;
     private final CourseKnowledgeSearchGateway vectorService;
     private final CourseMaterialTextSearchService fallbackSearchService;
     private final CourseSearchResultRankingService rerankService;
@@ -154,259 +143,6 @@ public class QuizService {
         return quizSessionRepository.save(session);
     }
 
-    public QuizAssignment generateAssignmentDraft(String teacherId, String courseId, GenerateQuizAssignmentRequest request) throws IOException {
-        String safeTeacherId = requireText(teacherId, "teacherId");
-        if (request == null) {
-            throw new IllegalArgumentException("request body is required");
-        }
-        GenerateQuizRequest quizRequest = new GenerateQuizRequest(
-                request.getClassId(),
-                request.getTopic(),
-                request.getSuggestionText(),
-                request.getQuestionCount()
-        );
-        QuizSession generated = generateQuiz(safeTeacherId, courseId, quizRequest);
-        quizSessionRepository.deleteById(generated.getId());
-
-        LocalDateTime now = LocalDateTime.now();
-        QuizAssignment assignment = QuizAssignment.builder()
-                .id(UUID.randomUUID().toString())
-                .teacherId(safeTeacherId)
-                .courseId(requireText(courseId, "courseId"))
-                .classId(normalize(request.getClassId()))
-                .title(resolveAssignmentTitle(request))
-                .topic(generated.getTopic())
-                .suggestionText(normalize(request.getSuggestionText()))
-                .gradingMode("AUTO")
-                .status(ASSIGNMENT_DRAFT)
-                .targetType("CLASS")
-                .questions(generated.getQuestions())
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-        return quizAssignmentRepository.save(assignment);
-    }
-
-    public QuizAssignment createTeacherQuizDraft(String teacherId, String courseId, com.ragapi.dto.CreateTeacherQuizRequest request) {
-        String safeTeacherId = requireText(teacherId, "teacherId");
-        if (request == null) throw new IllegalArgumentException("request body is required");
-        if (request.getQuestions() == null || request.getQuestions().isEmpty()) {
-            throw new IllegalArgumentException("questions are required");
-        }
-        String gradingMode = request.getGradingMode() == null || request.getGradingMode().isBlank()
-                ? "TEACHER_MANUAL" : request.getGradingMode().trim().toUpperCase(Locale.ROOT);
-        if (!List.of("TEACHER_MANUAL", "AI_ASSISTED").contains(gradingMode)) {
-            throw new IllegalArgumentException("gradingMode must be TEACHER_MANUAL or AI_ASSISTED");
-        }
-        List<QuizSession.QuizQuestion> questions = copyQuestions(request.getQuestions());
-        for (QuizSession.QuizQuestion question : questions) {
-            requireText(question.getQuestionText(), "questionText");
-            requireText(question.getCorrectAnswer(), "correctAnswer");
-            if (question.getOptions() == null || question.getOptions().size() < 2) {
-                throw new IllegalArgumentException("Each teacher quiz question requires at least two options");
-            }
-            if (question.getQuestionId() == null || question.getQuestionId().isBlank()) {
-                question.setQuestionId(UUID.randomUUID().toString());
-            }
-            question.setType("MULTIPLE_CHOICE");
-        }
-        LocalDateTime now = LocalDateTime.now();
-        return quizAssignmentRepository.save(QuizAssignment.builder()
-                .id(UUID.randomUUID().toString())
-                .teacherId(safeTeacherId)
-                .courseId(requireText(courseId, "courseId"))
-                .classId(normalize(request.getClassId()))
-                .title(requireMaxLength(request.getTitle(), "title", SHORT_TEXT_MAX_LENGTH))
-                .topic(requireMaxLength(request.getTopic(), "topic", SHORT_TEXT_MAX_LENGTH))
-                .gradingMode(gradingMode)
-                .status(ASSIGNMENT_DRAFT)
-                .targetType("CLASS")
-                .questions(questions)
-                .createdAt(now)
-                .updatedAt(now)
-                .build());
-    }
-
-    public QuizAssignment updateAssignment(String assignmentId, UpdateQuizAssignmentRequest request) {
-        QuizAssignment assignment = requireAssignment(assignmentId);
-        if (ASSIGNMENT_PUBLISHED.equalsIgnoreCase(assignment.getStatus())) {
-            throw new IllegalArgumentException("Published quiz assignment cannot be edited");
-        }
-        if (request == null) {
-            throw new IllegalArgumentException("request body is required");
-        }
-        if (request.getTitle() != null) assignment.setTitle(requireMaxLength(request.getTitle(), "title", SHORT_TEXT_MAX_LENGTH));
-        if (request.getTopic() != null) assignment.setTopic(requireMaxLength(request.getTopic(), "topic", SHORT_TEXT_MAX_LENGTH));
-        if (request.getSuggestionText() != null) assignment.setSuggestionText(requireMaxLength(request.getSuggestionText(), "suggestionText", SHORT_TEXT_MAX_LENGTH));
-        if (request.getQuestions() != null) assignment.setQuestions(request.getQuestions());
-        assignment.setUpdatedAt(LocalDateTime.now());
-        return quizAssignmentRepository.save(assignment);
-    }
-
-    public void deleteAssignment(String assignmentId) {
-        QuizAssignment assignment = requireAssignment(assignmentId);
-        if (ASSIGNMENT_PUBLISHED.equalsIgnoreCase(assignment.getStatus())) {
-            throw new IllegalArgumentException("Published quiz assignment cannot be deleted");
-        }
-        quizAssignmentRepository.deleteById(assignment.getId());
-    }
-
-    public QuizAssignment publishAssignment(String assignmentId, PublishQuizAssignmentRequest request) {
-        QuizAssignment assignment = requireAssignment(assignmentId);
-        if (assignment.getQuestions() == null || assignment.getQuestions().isEmpty()) {
-            throw new IllegalArgumentException("Quiz assignment has no questions");
-        }
-        String targetType = request == null || request.getTargetType() == null || request.getTargetType().isBlank()
-                ? "CLASS"
-                : request.getTargetType().trim().toUpperCase(Locale.ROOT);
-        if (!"CLASS".equals(targetType) && !"SELECTED_STUDENTS".equals(targetType)) {
-            throw new IllegalArgumentException("targetType must be CLASS or SELECTED_STUDENTS");
-        }
-        List<String> targetStudentIds = request == null || request.getTargetStudentIds() == null
-                ? List.of()
-                : request.getTargetStudentIds().stream()
-                        .map(this::normalize)
-                        .filter(value -> value != null)
-                        .distinct()
-                        .toList();
-        if ("SELECTED_STUDENTS".equals(targetType) && targetStudentIds.isEmpty()) {
-            throw new IllegalArgumentException("targetStudentIds is required when targetType is SELECTED_STUDENTS");
-        }
-        LocalDateTime now = LocalDateTime.now();
-        assignment.setTargetType(targetType);
-        assignment.setTargetStudentIds(targetStudentIds);
-        assignment.setStatus(ASSIGNMENT_PUBLISHED);
-        assignment.setPublishedAt(now);
-        assignment.setUpdatedAt(now);
-        return quizAssignmentRepository.save(assignment);
-    }
-
-    public List<QuizAssignment> listTeacherAssignments(String teacherId) {
-        return quizAssignmentRepository.findByTeacherIdOrderByCreatedAtDesc(requireText(teacherId, "teacherId"));
-    }
-
-    public List<QuizAssignment> listPublishedAssignmentsForStudent(String studentId, String courseId, String classId) {
-        String safeStudentId = requireText(studentId, "studentId");
-        String safeCourseId = requireText(courseId, "courseId");
-        List<QuizAssignment> assignments = classId == null || classId.isBlank()
-                ? quizAssignmentRepository.findByCourseIdAndStatusOrderByPublishedAtDesc(safeCourseId, ASSIGNMENT_PUBLISHED)
-                : quizAssignmentRepository.findByCourseIdAndClassIdAndStatusOrderByPublishedAtDesc(safeCourseId, classId.trim(), ASSIGNMENT_PUBLISHED);
-        return assignments.stream()
-                .filter(assignment -> isAssignedToStudent(assignment, safeStudentId))
-                .toList();
-    }
-
-    public QuizSession startAssignmentAttempt(String assignmentId, String studentId) {
-        QuizAssignment assignment = requireAssignment(assignmentId);
-        if (!ASSIGNMENT_PUBLISHED.equalsIgnoreCase(assignment.getStatus())) {
-            throw new IllegalArgumentException("Quiz assignment is not published");
-        }
-        String safeStudentId = requireText(studentId, "studentId");
-        if (!isAssignedToStudent(assignment, safeStudentId)) {
-            throw new IllegalArgumentException("Quiz assignment is not assigned to this student");
-        }
-        LocalDateTime now = LocalDateTime.now();
-        QuizSession session = QuizSession.builder()
-                .id(UUID.randomUUID().toString())
-                .studentId(safeStudentId)
-                .courseId(assignment.getCourseId())
-                .classId(assignment.getClassId())
-                .topic(assignment.getTopic())
-                .suggestionText(assignment.getSuggestionText())
-                .assignmentId(assignment.getId())
-                .quizType("ASSIGNED")
-                .teacherId(assignment.getTeacherId())
-                .gradingMode(assignment.getGradingMode())
-                .status(STATUS_GENERATED)
-                .score(0)
-                .maxScore(assignment.getQuestions().size())
-                .percentage(0.0)
-                .questions(copyQuestions(assignment.getQuestions()))
-                .answers(new ArrayList<>())
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-        return quizSessionRepository.save(session);
-    }
-
-    public QuizSession teacherReviewQuiz(String quizSessionId, TeacherReviewQuizRequest request,
-                                         String requesterId, String requesterRole) {
-        QuizSession session = getQuiz(quizSessionId);
-        if (request == null) {
-            throw new IllegalArgumentException("request body is required");
-        }
-        if (!"ASSIGNED".equalsIgnoreCase(session.getQuizType())) {
-            throw new IllegalArgumentException("Only assigned quiz attempts require teacher review");
-        }
-        if (!STATUS_SUBMITTED.equalsIgnoreCase(session.getStatus())) {
-            throw new IllegalArgumentException("Quiz attempt must be submitted before teacher review");
-        }
-        requireTeacherOwnership(session.getTeacherId(), requesterId, requesterRole);
-        if (!"PENDING".equalsIgnoreCase(effectiveReviewStatus(session))) {
-            throw new IllegalArgumentException("Only pending quiz attempts can be reviewed");
-        }
-        Integer reviewedScore = request.getReviewedScore();
-        if (reviewedScore == null || reviewedScore < 0 || reviewedScore > session.getMaxScore()) {
-            throw new IllegalArgumentException("reviewedScore must be between 0 and maxScore");
-        }
-        session.setTeacherReviewedScore(reviewedScore);
-        session.setTeacherFeedback(normalize(request.getFeedback()));
-        session.setTeacherReviewStatus("REVIEWED");
-        session.setTeacherReviewedAt(LocalDateTime.now());
-        session.setUpdatedAt(LocalDateTime.now());
-        QuizSession saved = quizSessionRepository.save(session);
-        try {
-            learningEvidenceService.recordEligibleQuizSubmission(saved);
-        } catch (Exception error) {
-            log.warn("Could not refresh learning evidence after teacher review for quiz {}: {}",
-                    saved.getId(), error.getMessage());
-        }
-        return saved;
-    }
-
-    public QuizAttemptPageResponse listTeacherQuizAttempts(
-            String teacherId,
-            String requesterId,
-            String requesterRole,
-            String status,
-            String reviewStatus,
-            String courseId,
-            String classId,
-            String assignmentId,
-            String studentId,
-            int page,
-            int size
-    ) {
-        String safeTeacherId = requireText(teacherId, "teacherId");
-        requireTeacherOwnership(safeTeacherId, requesterId, requesterRole);
-        int safePage = Math.max(0, page);
-        int safeSize = Math.min(100, Math.max(1, size));
-
-        List<QuizSession> filtered = quizSessionRepository.findByTeacherIdOrderBySubmittedAtDesc(safeTeacherId).stream()
-                .filter(session -> "ASSIGNED".equalsIgnoreCase(session.getQuizType()))
-                .filter(session -> matches(status, session.getStatus()))
-                .filter(session -> matches(reviewStatus, effectiveReviewStatus(session)))
-                .filter(session -> matches(courseId, session.getCourseId()))
-                .filter(session -> matches(classId, session.getClassId()))
-                .filter(session -> matches(assignmentId, session.getAssignmentId()))
-                .filter(session -> matches(studentId, session.getStudentId()))
-                .toList();
-
-        int from = Math.min(filtered.size(), safePage * safeSize);
-        int to = Math.min(filtered.size(), from + safeSize);
-        List<QuizAttemptSummary> attempts = filtered.subList(from, to).stream()
-                .map(this::toAttemptSummary)
-                .toList();
-        int totalPages = filtered.isEmpty() ? 0 : (int) Math.ceil(filtered.size() / (double) safeSize);
-        return QuizAttemptPageResponse.builder()
-                .teacherId(safeTeacherId)
-                .page(safePage)
-                .size(safeSize)
-                .totalElements(filtered.size())
-                .totalPages(totalPages)
-                .attempts(attempts)
-                .build();
-    }
     public QuizSession submitQuiz(String quizSessionId, SubmitQuizRequest request) {
         String safeQuizId = requireText(quizSessionId, "quizSessionId");
         if (request == null || request.getAnswers() == null || request.getAnswers().isEmpty()) {
@@ -453,7 +189,8 @@ public class QuizService {
         session.setMaxScore(maxScore);
         session.setPercentage(manual ? null : percentage);
         session.setStatus(STATUS_SUBMITTED);
-        session.setTeacherReviewStatus("ASSIGNED".equalsIgnoreCase(session.getQuizType()) ? "PENDING" : "NOT_REQUIRED");
+        // Teacher-assigned quizzes and their manual review were removed; nothing waits for a teacher.
+        session.setTeacherReviewStatus("NOT_REQUIRED");
         session.setSubmittedAt(now);
         session.setUpdatedAt(now);
 
@@ -474,62 +211,6 @@ public class QuizService {
         return saved;
     }
 
-    private QuizAttemptSummary toAttemptSummary(QuizSession session) {
-        boolean reviewed = "REVIEWED".equalsIgnoreCase(session.getTeacherReviewStatus())
-                && session.getTeacherReviewedScore() != null;
-        int finalScore = reviewed ? session.getTeacherReviewedScore() : value(session.getScore());
-        int maxScore = value(session.getMaxScore());
-        double finalPercentage = maxScore == 0 ? 0.0 : Math.round(finalScore * 10000.0 / maxScore) / 100.0;
-        return QuizAttemptSummary.builder()
-                .quizSessionId(session.getId())
-                .assignmentId(session.getAssignmentId())
-                .studentId(session.getStudentId())
-                .teacherId(session.getTeacherId())
-                .courseId(session.getCourseId())
-                .classId(session.getClassId())
-                .topic(session.getTopic())
-                .quizType(session.getQuizType())
-                .status(session.getStatus())
-                .teacherReviewStatus(effectiveReviewStatus(session))
-                .autoScore(session.getScore())
-                .teacherReviewedScore(session.getTeacherReviewedScore())
-                .finalScore(finalScore)
-                .maxScore(session.getMaxScore())
-                .autoPercentage(session.getPercentage())
-                .finalPercentage(finalPercentage)
-                .teacherFeedback(session.getTeacherFeedback())
-                .createdAt(session.getCreatedAt())
-                .submittedAt(session.getSubmittedAt())
-                .teacherReviewedAt(session.getTeacherReviewedAt())
-                .build();
-    }
-
-    private void requireTeacherOwnership(String ownerTeacherId, String requesterId, String requesterRole) {
-        if ("ADMIN".equalsIgnoreCase(requesterRole)) return;
-        if (requesterId == null || !requesterId.equals(ownerTeacherId)) {
-            throw new SecurityException("Teacher is not allowed to access this quiz attempt");
-        }
-    }
-
-    private boolean matches(String filter, String value) {
-        return filter == null || filter.isBlank() || filter.trim().equalsIgnoreCase(value == null ? "" : value);
-    }
-
-    private String effectiveReviewStatus(QuizSession session) {
-        if (session.getTeacherReviewStatus() != null && !session.getTeacherReviewStatus().isBlank()) {
-            return session.getTeacherReviewStatus();
-        }
-        if ("ASSIGNED".equalsIgnoreCase(session.getQuizType())
-                && STATUS_SUBMITTED.equalsIgnoreCase(session.getStatus())) {
-            return "PENDING";
-        }
-        return session.getTeacherReviewStatus();
-    }
-
-    private int value(Integer number) {
-        return number == null ? 0 : number;
-    }
-
     public QuizSession getQuiz(String quizSessionId) {
         return quizSessionRepository.findById(requireText(quizSessionId, "quizSessionId"))
                 .orElseThrow(() -> new IllegalArgumentException("Quiz session not found"));
@@ -542,45 +223,6 @@ public class QuizService {
         );
     }
 
-    private QuizAssignment requireAssignment(String assignmentId) {
-        return quizAssignmentRepository.findById(requireText(assignmentId, "assignmentId"))
-                .orElseThrow(() -> new IllegalArgumentException("Quiz assignment not found"));
-    }
-
-    private String resolveAssignmentTitle(GenerateQuizAssignmentRequest request) {
-        String title = normalize(request.getTitle());
-        if (title != null) {
-            return requireMaxLength(title, "title", SHORT_TEXT_MAX_LENGTH);
-        }
-        return "Quiz: " + resolveTopic(new GenerateQuizRequest(
-                request.getClassId(), request.getTopic(), request.getSuggestionText(), request.getQuestionCount()
-        ));
-    }
-
-    private boolean isAssignedToStudent(QuizAssignment assignment, String studentId) {
-        if ("SELECTED_STUDENTS".equalsIgnoreCase(assignment.getTargetType())) {
-            return assignment.getTargetStudentIds() != null
-                    && assignment.getTargetStudentIds().stream().anyMatch(id -> id.equalsIgnoreCase(studentId));
-        }
-        return true;
-    }
-
-    private List<QuizSession.QuizQuestion> copyQuestions(List<QuizSession.QuizQuestion> questions) {
-        if (questions == null) {
-            return new ArrayList<>();
-        }
-        return questions.stream()
-                .map(question -> QuizSession.QuizQuestion.builder()
-                        .questionId(UUID.randomUUID().toString())
-                        .type(question.getType())
-                        .questionText(question.getQuestionText())
-                        .options(question.getOptions() == null ? List.of() : new ArrayList<>(question.getOptions()))
-                        .correctAnswer(question.getCorrectAnswer())
-                        .explanation(question.getExplanation())
-                        .sourceMaterialIds(question.getSourceMaterialIds() == null ? List.of() : new ArrayList<>(question.getSourceMaterialIds()))
-                        .build())
-                .toList();
-    }
     private String resolveTopic(GenerateQuizRequest request) {
         String topic = normalize(request == null ? null : request.getTopic());
         if (topic != null) {
@@ -611,10 +253,10 @@ public class QuizService {
             return session;
         }
 
-        boolean hideKey = STATUS_GENERATED.equalsIgnoreCase(session.getStatus())
-                || (("TEACHER_MANUAL".equalsIgnoreCase(session.getGradingMode())
-                || "AI_ASSISTED".equalsIgnoreCase(session.getGradingMode()))
-                && !"REVIEWED".equalsIgnoreCase(session.getTeacherReviewStatus()));
+        // The key stays hidden only until the student submits. Answers used to wait for a
+        // teacher review on assigned quizzes; that review no longer exists, so older
+        // assigned attempts would otherwise never show their answers.
+        boolean hideKey = STATUS_GENERATED.equalsIgnoreCase(session.getStatus());
         if (!hideKey) return session;
 
         List<QuizSession.QuizQuestion> safeQuestions = new ArrayList<>();
