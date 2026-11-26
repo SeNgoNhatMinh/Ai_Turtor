@@ -42,6 +42,7 @@ public class ChapterOutlineService {
     static final int FULL_SECTION_EXCERPT_LIMIT = 250_000;
     static final String DETECTED_FROM_MATERIAL = "MATERIAL_TITLE";
     static final String DETECTED_FROM_BOOKMARK = "PDF_BOOKMARK";
+    static final String DETECTED_FROM_TEXT_HEADING = "TEXT_HEADING";
     static final String DETECTED_FROM_HTML_SECTION = "HTML_SECTION";
     static final String DETECTED_FROM_MANUAL = "MANUAL";
 
@@ -616,7 +617,8 @@ public class ChapterOutlineService {
             boolean legacyHeading = "HEADING".equalsIgnoreCase(existing.getDetectedFrom());
             boolean skipNoiseFilter = DETECTED_FROM_MATERIAL.equalsIgnoreCase(existing.getDetectedFrom())
                     || DETECTED_FROM_HTML_SECTION.equalsIgnoreCase(existing.getDetectedFrom())
-                    || DETECTED_FROM_BOOKMARK.equalsIgnoreCase(existing.getDetectedFrom());
+                    || DETECTED_FROM_BOOKMARK.equalsIgnoreCase(existing.getDetectedFrom())
+                    || DETECTED_FROM_TEXT_HEADING.equalsIgnoreCase(existing.getDetectedFrom());
             boolean noise = legacyHeading
                     || (!skipNoiseFilter && !ChapterHeadingUtils.isPlausibleChapterTitle(existing.getTitle()));
             if (stale || noise) {
@@ -689,6 +691,7 @@ public class ChapterOutlineService {
     private static boolean isIndexedMaterialSource(String detectedFrom) {
         return DETECTED_FROM_MATERIAL.equalsIgnoreCase(detectedFrom)
                 || DETECTED_FROM_BOOKMARK.equalsIgnoreCase(detectedFrom)
+                || DETECTED_FROM_TEXT_HEADING.equalsIgnoreCase(detectedFrom)
                 || DETECTED_FROM_HTML_SECTION.equalsIgnoreCase(detectedFrom);
     }
 

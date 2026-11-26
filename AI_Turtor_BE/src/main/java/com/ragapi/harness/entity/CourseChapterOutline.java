@@ -26,7 +26,7 @@ public class CourseChapterOutline {
     private String title;
     /** SUGGESTED, CONFIRMED, IGNORED */
     private String status;
-    /** HEADING, PDF_BOOKMARK, MATERIAL_TITLE, CATEGORY, MANUAL */
+    /** HEADING, PDF_BOOKMARK, TEXT_HEADING, MATERIAL_TITLE, CATEGORY, MANUAL */
     private String detectedFrom;
     @Builder.Default
     private List<String> sourceMaterialIds = new ArrayList<>();
