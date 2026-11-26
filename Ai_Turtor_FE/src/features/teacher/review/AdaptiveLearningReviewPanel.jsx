@@ -797,7 +797,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
               type="info"
               showIcon
               message={`AI đánh giá sau mỗi ${selectedStudent.cycleSize ?? 5} câu hỏi, hoặc sớm hơn khi sai lặp lại hay làm đúng liên tục`}
-              description={`Sinh viên đã hỏi ${selectedStudent.totalQuestions ?? 0} câu trong môn này, trong đó ${selectedStudent.questionsInCurrentCycle ?? 0}/${selectedStudent.cycleSize ?? 5} câu thuộc chu kỳ hiện tại. AI đọc lại cuộc trò chuyện và kết quả câu kiểm tra để đề xuất mức hỗ trợ: tăng hỗ trợ khi sai lặp lại (từ 3 câu, hoặc 2 câu cùng khái niệm), giảm hỗ trợ khi làm đúng liên tục (ít nhất 3 câu được chấm, đúng từ 70%). Mức mới được áp ngay, mỗi lần đổi 1 bậc; giảng viên xem lại tại đây và có thể sửa hoặc thu hồi.`}
+              description={`Sinh viên đã hỏi ${selectedStudent.totalQuestions ?? 0} câu trong môn này, trong đó ${selectedStudent.questionsInCurrentCycle ?? 0}/${selectedStudent.cycleSize ?? 5} câu thuộc chu kỳ hiện tại. AI đọc lại cuộc trò chuyện và kết quả câu kiểm tra để đề xuất mức hỗ trợ: tăng hỗ trợ khi sai lặp lại (từ 3 câu, hoặc 2 câu cùng khái niệm), giảm hỗ trợ khi làm đúng liên tục (ít nhất 3 câu được chấm, đúng từ 70%). Giảng viên duyệt hoặc chỉnh mức đề xuất trước khi áp dụng.`}
             />
             <div className="adaptive-review-levels">
               <div><small>Mức hỗ trợ hiện tại</small><strong>{LEVEL_LABELS[selectedStudent.currentSupportLevel] || selectedStudent.currentSupportLevel || 'Tiêu chuẩn'}</strong></div>

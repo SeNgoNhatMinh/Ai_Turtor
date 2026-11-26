@@ -194,54 +194,41 @@ class AdaptiveLearningReviewServiceTest {
     }
 
     @Test
-    void autoAppliesSuggestedLevelImmediatelyWhenItChanges() {
+    void savesChangedSupportLevelAsPendingTeacherApproval() {
         stubCourseConversations(COURSE, conversations(COURSE, 2));
         stubQuestionCycle(10, withCorrectAnswers(cycleMessages(10, SUBSTANTIVE_ANSWER), 4));
         when(chatService.generateUtility(anyString()))
                 .thenReturn(assessmentJson(90, 88, 85, 92, "CHALLENGE"));
-        PedagogicalDirective directive = new PedagogicalDirective();
-        directive.setId("dir-auto");
-        when(directiveService.createDraft(any(PedagogicalDirectiveRequest.class), eq("AI_TUTOR"), anyString()))
-                .thenReturn(directive);
-        when(directiveService.confirm("dir-auto", "AI_TUTOR")).thenReturn(directive);
-
         service.onStudentQuestionAnswered(STUDENT, COURSE, CLASS);
 
         ArgumentCaptor<AdaptiveLearningReview> captor = ArgumentCaptor.forClass(AdaptiveLearningReview.class);
-        verify(reviewRepository, org.mockito.Mockito.times(2)).save(captor.capture());
-        AdaptiveLearningReview applied = captor.getAllValues().get(1);
-        assertThat(applied.getAppliedDirectiveId()).isEqualTo("dir-auto");
-        ArgumentCaptor<PedagogicalDirectiveRequest> requestCaptor =
-                ArgumentCaptor.forClass(PedagogicalDirectiveRequest.class);
-        verify(directiveService).createDraft(requestCaptor.capture(), eq("AI_TUTOR"), anyString());
-        assertThat(requestCaptor.getValue().getSupportLevel()).isEqualTo("CHALLENGE");
-        assertThat(requestCaptor.getValue().getStudentId()).isEqualTo(STUDENT);
-        verify(directiveService).confirm("dir-auto", "AI_TUTOR");
-        // The student is notified in real time about the new level.
-        verify(realtimeEvents).publishToUser(eq(STUDENT), eq("SUPPORT_LEVEL_CHANGED"),
-                anyString(), anyString(), eq("CHALLENGE"), any());
+        verify(reviewRepository).save(captor.capture());
+        AdaptiveLearningReview pending = captor.getValue();
+        assertThat(pending.getStudentId()).isEqualTo(STUDENT);
+        assertThat(pending.getStatus()).isEqualTo("PENDING");
+        assertThat(pending.getSuggestedSupportLevel()).isEqualTo("CHALLENGE");
+        assertThat(pending.getAppliedDirectiveId()).isNull();
+        verify(realtimeEvents, never()).publishToUser(eq(STUDENT), eq("SUPPORT_LEVEL_CHANGED"),
+                anyString(), anyString(), anyString(), any());
     }
 
     @Test
-    void autoApplyRunsEvenWhenTeacherDirectiveExists() {
+    void pendingReviewLeavesTheCurrentTeacherDirectiveInPlace() {
         stubCourseConversations(COURSE, conversations(COURSE, 2));
         stubQuestionCycle(10, withCorrectAnswers(cycleMessages(10, SUBSTANTIVE_ANSWER), 4));
         when(chatService.generateUtility(anyString()))
                 .thenReturn(assessmentJson(90, 88, 85, 92, "CHALLENGE"));
-        PedagogicalDirective directive = new PedagogicalDirective();
-        directive.setId("dir-auto");
-        when(directiveService.createDraft(any(PedagogicalDirectiveRequest.class), eq("AI_TUTOR"), anyString()))
-                .thenReturn(directive);
-        when(directiveService.confirm("dir-auto", "AI_TUTOR")).thenReturn(directive);
+        when(directiveService.resolveSupportLevel(STUDENT, COURSE, CLASS)).thenReturn("HIGH_SUPPORT");
 
         service.onStudentQuestionAnswered(STUDENT, COURSE, CLASS);
 
-        // AI changes the level automatically; previous AI directives are cleaned up first.
-        verify(directiveService).archiveAutoAppliedDirectives(STUDENT, COURSE, CLASS);
-        verify(directiveService).createDraft(any(PedagogicalDirectiveRequest.class), eq("AI_TUTOR"), anyString());
+        verify(directiveService, never()).archiveAutoAppliedDirectives(STUDENT, COURSE, CLASS);
+        verify(directiveService, never()).createDraft(any(PedagogicalDirectiveRequest.class), anyString(), anyString());
         ArgumentCaptor<AdaptiveLearningReview> captor = ArgumentCaptor.forClass(AdaptiveLearningReview.class);
-        verify(reviewRepository, org.mockito.Mockito.times(2)).save(captor.capture());
-        assertThat(captor.getAllValues().get(1).getAppliedDirectiveId()).isEqualTo("dir-auto");
+        verify(reviewRepository).save(captor.capture());
+        assertThat(captor.getValue().getCurrentSupportLevel()).isEqualTo("HIGH_SUPPORT");
+        assertThat(captor.getValue().getSuggestedSupportLevel()).isEqualTo("STANDARD");
+        assertThat(captor.getValue().getAppliedDirectiveId()).isNull();
     }
 
     @Test

@@ -157,7 +157,7 @@ class TeachingBehaviorServiceTest {
         request.setScope("global");
         request.setInstruction("  khen ngợi   khi làm đúng ");
 
-        TeachingBehavior saved = service.create(request, TEACHER);
+        TeachingBehavior saved = service.create(request, new BehaviorActor("admin-1", "Admin", "ADMIN"));
 
         assertThat(saved.getId()).isEqualTo("g-1");
         assertThat(saved.getUseCount()).isEqualTo(4);

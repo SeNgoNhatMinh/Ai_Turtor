@@ -21,6 +21,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -94,8 +95,7 @@ class CourseAnswerGenerationStageServiceTest {
         when(generationService.generateGroundedQualityFallbackAnswer(
                 anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean()))
                 .thenReturn("Lệnh continue bỏ qua phần còn lại của lần lặp hiện tại và chuyển sang lần lặp kế tiếp.");
-        when(evidenceService.selectAnswerEvidenceChunks(List.of(), request.question(),
-                "Lệnh continue bỏ qua phần còn lại của lần lặp hiện tại và chuyển sang lần lặp kế tiếp."))
+        when(evidenceService.selectAnswerEvidenceChunks(eq(List.of()), eq(request.question()), anyString()))
                 .thenReturn(List.of());
         when(evidenceService.buildSourceLabels(eq(List.of()), eq(Map.of()))).thenReturn(List.of());
         when(evidenceService.buildSourceEvidence(eq(List.of()), eq("PFP191"), eq(Map.of()), anyString()))
@@ -104,8 +104,9 @@ class CourseAnswerGenerationStageServiceTest {
         CourseRagAnswer result = service.generate(prepared);
 
         assertEquals(false, result.getEscalationRecommended());
-        assertEquals("Lệnh continue bỏ qua phần còn lại của lần lặp hiện tại và chuyển sang lần lặp kế tiếp.",
-                result.getAnswer());
+        assertTrue(result.getAnswer().startsWith(
+                "Lệnh continue bỏ qua phần còn lại của lần lặp hiện tại và chuyển sang lần lặp kế tiếp.\n"));
+        assertTrue(result.getAnswer().contains("Bài tập có hướng dẫn"));
         verify(generationService, times(1)).generateWorker1GroundedAnswer(
                 anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean());
         verify(generationService, times(1)).generateGroundedQualityFallbackAnswer(
@@ -206,17 +207,17 @@ class CourseAnswerGenerationStageServiceTest {
         when(generationService.generateWorker1GroundedAnswer(
                 anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null), anyBoolean()))
                 .thenReturn(firstAnswer);
-        when(evidenceService.selectAnswerEvidenceChunks(List.of(), request.question(), firstAnswer))
+        when(evidenceService.selectAnswerEvidenceChunks(eq(List.of()), eq(request.question()), anyString()))
                 .thenReturn(List.of());
         when(evidenceService.buildSourceLabels(eq(List.of()), eq(Map.of()))).thenReturn(List.of());
-        when(evidenceService.buildSourceEvidence(eq(List.of()), eq("PRJ301"), eq(Map.of()), eq(firstAnswer)))
+        when(evidenceService.buildSourceEvidence(eq(List.of()), eq("PRJ301"), eq(Map.of()), anyString()))
                 .thenReturn(List.of());
 
         CourseRagAnswer result = service.generate(prepared);
 
-        assertEquals(
-                "## 1. Explanation\nExpression Language reads scoped values without embedding Java code.",
-                result.getAnswer());
+        assertTrue(result.getAnswer().startsWith(
+                "## 1. Explanation\nExpression Language reads scoped values without embedding Java code.\n"));
+        assertTrue(result.getAnswer().contains("Bài tập có hướng dẫn"));
         verify(generationService, never()).generateGroundedQualityFallbackAnswer(
                 anyString(), anyString(), anyString(), anyString(), anyString(), anyBoolean());
     }

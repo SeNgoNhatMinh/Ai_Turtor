@@ -26,14 +26,16 @@ export default function GuidedPracticeFill({
   const stored = reviewer ? null : readGuidedPracticeDraft(attemptId);
   const [values, setValues] = useState(() => (reviewer ? Array(inputCount).fill('') : initialValues(attemptId, inputCount)));
   const [savedText, setSavedText] = useState(() => (reviewer ? '' : String(stored?.text || '')));
-  const [locked, setLocked] = useState(() => Boolean(stored?.locked));
+  const [draftLocked, setDraftLocked] = useState(() => Boolean(stored?.locked));
+  const completedByQuiz = !reviewer && quizFinished && Boolean(savedText);
+  const locked = draftLocked || completedByQuiz;
 
   useEffect(() => {
     if (reviewer || !attemptId) return undefined;
     const sync = (event) => {
       if (String(event?.detail?.attemptId || '') !== String(attemptId)) return;
       const next = readGuidedPracticeDraft(attemptId);
-      if (next?.locked) setLocked(true);
+      if (next?.locked) setDraftLocked(true);
     };
     window.addEventListener('guided-practice-draft', sync);
     return () => window.removeEventListener('guided-practice-draft', sync);
@@ -53,12 +55,12 @@ export default function GuidedPracticeFill({
     const finished = !waitsForQuiz || quizFinished;
     writeGuidedPracticeDraft(attemptId, { values: filledValues, text, locked: finished });
     setSavedText(text);
-    setLocked(finished);
+    setDraftLocked(finished);
     onSaved?.();
   };
 
   useEffect(() => {
-    if (reviewer || locked || !quizFinished || !savedText) return;
+    if (draftLocked || !completedByQuiz) return;
     const storedDraft = readGuidedPracticeDraft(attemptId) || {};
     writeGuidedPracticeDraft(attemptId, {
       ...storedDraft,
@@ -66,8 +68,7 @@ export default function GuidedPracticeFill({
       text: savedText,
       locked: true,
     });
-    setLocked(true);
-  }, [attemptId, locked, quizFinished, reviewer, savedText]);
+  }, [attemptId, completedByQuiz, draftLocked, savedText]);
 
   const focusSibling = (input, offset) => {
     const inputs = [...(input?.parentElement?.querySelectorAll('input') || [])];

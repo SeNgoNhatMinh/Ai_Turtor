@@ -50,7 +50,8 @@ class StudentOverviewStatsServiceTest {
 
     @Test
     void overviewCountsQuestionsQuizzesImprovementAndStudyDays() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = LocalDate.of(2026, 11, 27);
+        LocalDateTime now = today.atTime(10, 0);
         StudentOverviewStatsService service = new StudentOverviewStatsService(
                 conversationRepository,
                 messageRepository,
@@ -91,12 +92,12 @@ class StudentOverviewStatsServiceTest {
                 StudentDailyQuestionUsage.builder()
                         .studentId("student-1")
                         .courseId("PRJ301")
-                        .usageDate(LocalDate.now().minusDays(1))
+                        .usageDate(today.minusDays(1))
                         .questionCount(2)
                         .build()
         ));
 
-        Map<String, Object> stats = service.build("student-1");
+        Map<String, Object> stats = service.build("student-1", today);
         @SuppressWarnings("unchecked")
         Map<String, Object> summary = (Map<String, Object>) stats.get("summary");
         @SuppressWarnings("unchecked")

@@ -105,7 +105,7 @@ describe('AdaptiveLearningReviewPanel', () => {
     expect(screen.getByText('90%')).toBeInTheDocument();
     expect(screen.getByText('Thử thách')).toBeInTheDocument();
     expect(screen.getByText('Sinh viên hiểu tốt OOP và tự làm được bài tập.')).toBeInTheDocument();
-    expect(screen.getByText(/1 mục · \d+ câu trả lời sai/)).toBeInTheDocument();
+    expect(screen.getByText(/1 mục · 0 câu sai/)).toBeInTheDocument();
     expect(teacherReviewApi.getAdaptiveLearningReviews).toHaveBeenCalledWith(
       'PRO192', 'SE1833', expect.objectContaining({ signal: expect.anything() }),
     );
@@ -132,19 +132,20 @@ describe('AdaptiveLearningReviewPanel', () => {
     expect(screen.getByText('AI đánh giá sau mỗi 5 câu hỏi, hoặc sớm hơn khi sai lặp lại hay làm đúng liên tục')).toBeInTheDocument();
   });
 
-  it('requires teacher feedback before approving', async () => {
+  it('lets the teacher approve without an optional note', async () => {
     teacherReviewApi.getAdaptiveLearningReviews.mockResolvedValue([pendingReview]);
     teacherReviewApi.getAdaptiveStudentRoster.mockResolvedValue([labeledStudent]);
+    teacherReviewApi.decideAdaptiveLearningReview.mockResolvedValue({ ...pendingReview, status: 'APPROVED' });
     const triggerToast = vi.fn();
 
     renderPanel(triggerToast);
     await screen.findAllByText('Nguyen Van A');
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu nhận xét và quyết định' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Đã đọc · Đồng ý' }));
 
-    expect(teacherReviewApi.decideAdaptiveLearningReview).not.toHaveBeenCalled();
-    expect(triggerToast).toHaveBeenCalledWith(
-      'Hãy nhập nhận xét hoặc chỉ dẫn giảng dạy trước khi duyệt.',
-    );
+    await waitFor(() => expect(teacherReviewApi.decideAdaptiveLearningReview).toHaveBeenCalledWith(
+      'rev-1',
+      expect.objectContaining({ decision: 'APPROVE', teacherFeedback: '' }),
+    ));
   });
 
   it('submits the approve decision with feedback and suggested level', async () => {
@@ -160,18 +161,18 @@ describe('AdaptiveLearningReviewPanel', () => {
     renderPanel(triggerToast);
     await screen.findAllByText('Nguyen Van A');
     fireEvent.change(
-      screen.getByPlaceholderText('Nhập nhận xét, hướng dẫn cách giảng hoặc mục tiêu cần ưu tiên...'),
+      screen.getByPlaceholderText('Ghi chú thêm (không bắt buộc)…'),
       { target: { value: 'Tiếp tục thử thách với bài tập đa hình.' } },
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu nhận xét và quyết định' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Đã đọc · Đồng ý' }));
 
     await waitFor(() => expect(teacherReviewApi.decideAdaptiveLearningReview).toHaveBeenCalledWith(
       'rev-1',
-      {
+      expect.objectContaining({
         decision: 'APPROVE',
         teacherFeedback: 'Tiếp tục thử thách với bài tập đa hình.',
         supportLevel: 'CHALLENGE',
-      },
+      }),
     ));
     await waitFor(() => expect(triggerToast).toHaveBeenCalledWith(
       'Đã lưu quyết định và nhận xét của giảng viên.',

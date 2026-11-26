@@ -162,7 +162,7 @@ ${chapters.map((title) => `- ${title}`).join('\n')}
     expect(screen.queryByRole('button', { name: /Học ngay/ })).not.toBeInTheDocument();
   });
 
-  it('shows the completed lesson as Đã học beside the next suggestions', () => {
+  it('marks completed lessons as Đã học in the welcome curriculum', () => {
     const learned = { key: 'text:học servlet', text: 'Học Servlet' };
     render(
       <ChatMessageList
@@ -170,12 +170,9 @@ ${chapters.map((title) => `- ${title}`).join('\n')}
         onStudySuggestion={vi.fn()}
         learnedSuggestions={[learned]}
         messages={[{
-          id: 'turn-1',
-          question: 'Học Servlet',
-          clickedSuggestion: 'Học Servlet',
-          studySuggestionKey: 'text:học servlet',
-          answer: 'Servlet chạy trên máy chủ.',
-          nextImproveSuggestions: [{ text: 'Học tiếp JSP' }],
+          id: 'welcome-1',
+          question: '',
+          answer: '## 4. Gợi ý học tập\n\n- Học Servlet\n- Học tiếp JSP',
         }]}
       />,
     );
@@ -184,7 +181,7 @@ ${chapters.map((title) => `- ${title}`).join('\n')}
     expect(screen.getByRole('button', { name: /Học ngay/ })).toBeVisible();
   });
 
-  it('uses curriculum lessons as next suggestions when the AI response omits them', () => {
+  it('keeps curriculum starter suggestions on the welcome turn', () => {
     render(
       <ChatMessageList
         {...baseProps}
@@ -203,9 +200,9 @@ ${chapters.map((title) => `- ${title}`).join('\n')}
       />,
     );
 
-    expect(screen.getByText('Học Servlet và JSP')).toBeVisible();
-    expect(screen.getByText('Học chương MVC')).toBeVisible();
-    expect(screen.getAllByRole('button', { name: /Học ngay/ })).toHaveLength(2);
+    expect(screen.getByText('Servlet là gì?')).toBeVisible();
+    expect(screen.queryByText('Học Servlet và JSP')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Học ngay/ })).not.toBeInTheDocument();
   });
 
   it('does not show study suggestions for an escalated response', () => {

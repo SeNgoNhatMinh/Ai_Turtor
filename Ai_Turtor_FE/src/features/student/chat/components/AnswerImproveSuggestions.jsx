@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BookOpenCheck, CheckCircle2, ClipboardList, Search, ChevronUp } from 'lucide-react';
 import {
   getStudySuggestionKey,
@@ -28,17 +28,15 @@ function AnswerImproveSuggestions({
       .map((key) => String(key || '').trim())
       .filter(Boolean),
   ), [learnedSuggestionKeys]);
-  const candidates = currentLearnedSuggestion
-    ? [currentLearnedSuggestion, ...(Array.isArray(suggestions) ? suggestions : [])]
-    : suggestions;
-  const uniqueSuggestions = useMemo(() => [...new Map(
-    (Array.isArray(candidates) ? candidates : [])
+  const uniqueSuggestions = useMemo(() => {
+    const items = Array.isArray(suggestions) ? suggestions : [];
+    const candidates = currentLearnedSuggestion ? [currentLearnedSuggestion, ...items] : items;
+    return [...new Map(candidates
       .map((suggestion) => [getStudySuggestionText(suggestion).normalize('NFKC').trim().toLowerCase(), suggestion])
-      .filter(([key]) => key),
-  ).values()], [candidates]);
+      .filter(([key]) => key)).values()];
+  }, [currentLearnedSuggestion, suggestions]);
 
   const step = Math.max(1, Number(pageSize) || 8);
-  const [visibleCount, setVisibleCount] = useState(Math.min(step, uniqueSuggestions.length));
   const [query, setQuery] = useState('');
 
   const filteredSuggestions = useMemo(() => {
@@ -49,9 +47,12 @@ function AnswerImproveSuggestions({
     ));
   }, [query, uniqueSuggestions]);
 
-  useEffect(() => {
-    setVisibleCount(Math.min(step, filteredSuggestions.length));
-  }, [step, filteredSuggestions.length, heading, query]);
+  const paginationKey = JSON.stringify([step, filteredSuggestions.length, heading, query]);
+  const [pagination, setPagination] = useState(() => ({ key: paginationKey, limit: step }));
+  if (pagination.key !== paginationKey) {
+    setPagination({ key: paginationKey, limit: step });
+  }
+  const visibleCount = Math.min(pagination.key === paginationKey ? pagination.limit : step, filteredSuggestions.length);
 
   if (uniqueSuggestions.length === 0) return null;
 
@@ -130,7 +131,7 @@ function AnswerImproveSuggestions({
             <button
               type="button"
               className="answer-improve-suggestions__more"
-              onClick={() => setVisibleCount((count) => Math.min(count + step, filteredSuggestions.length))}
+              onClick={() => setPagination({ key: paginationKey, limit: visibleCount + step })}
             >
               {showMoreLabel} ({Math.min(step, filteredSuggestions.length - visibleCount)})
             </button>
@@ -139,7 +140,7 @@ function AnswerImproveSuggestions({
             <button
               type="button"
               className="answer-improve-suggestions__collapse"
-              onClick={() => setVisibleCount(step)}
+              onClick={() => setPagination({ key: paginationKey, limit: step })}
             >
               <ChevronUp size={13} aria-hidden="true" />
               {collapseLabel}

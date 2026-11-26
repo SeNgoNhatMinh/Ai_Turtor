@@ -244,7 +244,8 @@ class CourseAnswerServiceTextbookTest {
 
         CourseRagAnswer answer = service.askWithConfidence("Java EE vs Java SE", "PRJ301", null);
 
-        assertEquals("Theo giao trinh, Java EE xay tren Java SE.", answer.getAnswer());
+        assertTrue(answer.getAnswer().startsWith("Theo giao trinh, Java EE xay tren Java SE.\n"));
+        assertTrue(answer.getAnswer().contains("Bài tập có hướng dẫn"));
         verify(vectorService).searchTextbookWithScores(anyString(), eq("PRJ301"), isNull());
         verify(vectorService).searchGoldQaTeachingNotesWithScores(anyString(), eq("PRJ301"), isNull(), eq(2));
         verify(vectorService, never()).searchWithScores(anyString(), anyString(), any());
@@ -495,7 +496,8 @@ class CourseAnswerServiceTextbookTest {
 
         CourseRagAnswer answer = service.askWithConfidence(followUp, "PRJ301", null, "EXPLAIN_CONCEPT", previous);
 
-        assertEquals("Servlet Specification quy định init, service, destroy.", answer.getAnswer());
+        assertTrue(answer.getAnswer().startsWith("Servlet Specification quy định init, service, destroy.\n"));
+        assertTrue(answer.getAnswer().contains("Bài tập có hướng dẫn"));
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(chatService).generate(promptCaptor.capture(), eq(followUp));
         assertTrue(promptCaptor.getValue().contains(specChunk.content()));

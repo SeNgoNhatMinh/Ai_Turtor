@@ -230,7 +230,7 @@ class LearningPathGroundingServiceTest {
     }
 
     @Test
-    void duplicatePartHeadingDoesNotConsumeASecondLesson() {
+    void bookPartDividersAreNotTaughtAsLessons() {
         when(chapterOutlineService.suggestChapters("PRJ301")).thenReturn(List.of(
                 chapter("part-roman", "Part III: Persisting Data with JPA and Hibernate ORM", 540, "book"),
                 chapter("part-digit", "Part 3: Persisting Data with JPA and Hibernate ORM", 541, "book"),
@@ -247,15 +247,9 @@ class LearningPathGroundingServiceTest {
         );
 
         assertThat(result).extracting(SuggestionItem::getChapterTitle)
-                .containsExactly(
-                        "Part III: Persisting Data with JPA and Hibernate ORM",
-                        "Chapter 19: Introducing Java Persistence API and Hibernate ORM"
-                );
+                .containsExactly("Chapter 19: Introducing Java Persistence API and Hibernate ORM");
         assertThat(result).extracting(SuggestionItem::getTitle)
-                .containsExactly(
-                        "Bắt đầu bài 1: Persisting Data with JPA and Hibernate ORM",
-                        "Bắt đầu bài 2: Java Persistence API and Hibernate ORM"
-                );
+                .containsExactly("Bắt đầu bài 1: Java Persistence API and Hibernate ORM");
         assertThat(service.pathAnswer(result))
                 .contains("Mục trong tài liệu: Chapter 19: Introducing Java Persistence API and Hibernate ORM");
     }

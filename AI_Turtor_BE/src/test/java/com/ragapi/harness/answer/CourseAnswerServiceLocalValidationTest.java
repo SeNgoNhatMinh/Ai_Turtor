@@ -58,7 +58,7 @@ class CourseAnswerServiceLocalValidationTest {
                 ""
         );
 
-        assertTrue(answer.getAnswer().contains("không sử dụng API AI bên ngoài"));
+        assertTrue(answer.getAnswer().contains("chỉ nhận câu hỏi học thuật của môn DBI202"));
         verifyNoInteractions(generationService, pipelineService);
     }
 }

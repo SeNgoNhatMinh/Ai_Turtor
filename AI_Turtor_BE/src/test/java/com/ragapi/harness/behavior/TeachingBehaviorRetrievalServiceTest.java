@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -106,8 +107,8 @@ class TeachingBehaviorRetrievalServiceTest {
         AppliedTeachingBehavior mine = AppliedTeachingBehavior.builder()
                 .id("as-1").behaviorId("c-1").courseId(COURSE).studentId(STUDENT)
                 .customizedInstructions("Ví dụ thực tế: dùng ví dụ máy tính tiền").status("ACTIVE").build();
-        when(appliedService.activeFor(STUDENT, COURSE, any())).thenReturn(List.of(mine));
-        when(appliedService.activeFor(OTHER_STUDENT, COURSE, any())).thenReturn(List.of());
+        when(appliedService.activeFor(eq(STUDENT), eq(COURSE), any(LocalDateTime.class))).thenReturn(List.of(mine));
+        when(appliedService.activeFor(eq(OTHER_STUDENT), eq(COURSE), any(LocalDateTime.class))).thenReturn(List.of());
         when(repository.findById("c-1")).thenReturn(Optional.of(template));
         when(repository.findByScopeAndStudentIdAndCourseIdAndStatusIn(eq(SCOPE_STUDENT), eq(OTHER_STUDENT), eq(COURSE), anyCollection()))
                 .thenReturn(List.of());

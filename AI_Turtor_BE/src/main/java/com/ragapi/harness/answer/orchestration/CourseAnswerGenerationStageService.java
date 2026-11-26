@@ -267,6 +267,9 @@ public class CourseAnswerGenerationStageService {
 
     private boolean requiresGuidedPractice(CourseAnswerRequest request, CourseAnswerPreparation prepared,
                                            boolean workReview, String answerBody) {
+        if (request != null && request.textbookOnly()) {
+            return false;
+        }
         // Every review round ends with practice on the same concept (re-teaching has no limit).
         if (workReview) {
             return true;

@@ -56,11 +56,14 @@ public class StudentOverviewStatsService {
     }
 
     public Map<String, Object> build(String studentId) {
+        return build(studentId, LocalDate.now(zoneId));
+    }
+
+    Map<String, Object> build(String studentId, LocalDate today) {
         if (studentId == null || studentId.isBlank()) {
             throw new IllegalArgumentException("Student ID is required");
         }
         String safeStudentId = studentId.trim();
-        LocalDate today = LocalDate.now(zoneId);
         Activity total = new Activity();
         Map<String, Activity> courses = new HashMap<>();
 
