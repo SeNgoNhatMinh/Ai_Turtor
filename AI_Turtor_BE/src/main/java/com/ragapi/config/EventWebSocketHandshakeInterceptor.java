@@ -1,5 +1,6 @@
 package com.ragapi.config;
 
+import com.ragapi.service.auth.ActiveSessionService;
 import com.ragapi.service.auth.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.server.ServerHttpRequest;
@@ -16,13 +17,18 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class EventWebSocketHandshakeInterceptor implements HandshakeInterceptor {
     private final JwtService jwtService;
+    private final ActiveSessionService activeSessionService;
 
     @Override
     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
                                    WebSocketHandler wsHandler, Map<String, Object> attributes) {
         MultiValueMap<String, String> query = UriComponentsBuilder.fromUri(request.getURI()).build().getQueryParams();
         Map<String, Object> claims = jwtService.validateAndParse(query.getFirst("token"));
-        attributes.put("userId", String.valueOf(claims.get("userId")));
+        String userId = String.valueOf(claims.get("userId"));
+        if (!activeSessionService.isActive(userId, claims.get("sid") == null ? null : String.valueOf(claims.get("sid")))) {
+            return false; // signed in on another device
+        }
+        attributes.put("userId", userId);
         attributes.put("role", String.valueOf(claims.getOrDefault("role", "STUDENT")).toUpperCase());
         return true;
     }

@@ -165,6 +165,12 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.setContentType("application/json;charset=UTF-8");
+                            if (JwtAuthenticationFilter.SESSION_REPLACED.equals(
+                                    request.getAttribute(JwtAuthenticationFilter.AUTH_ERROR_ATTRIBUTE))) {
+                                response.getWriter().write("{\"error\":\"Tài khoản đã đăng nhập trên thiết bị khác\","
+                                        + "\"code\":\"SESSION_REPLACED\"}");
+                                return;
+                            }
                             response.getWriter().write("{\"error\":\"Unauthorized\"}");
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {

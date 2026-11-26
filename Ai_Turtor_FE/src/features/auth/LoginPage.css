@@ -217,6 +217,18 @@
     margin-top: -2px;
 }
 
+.login-form-notice {
+    margin: 0 0 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #92400e;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
 .login-form-error {
     margin: 0 0 8px;
     padding: 10px 14px;

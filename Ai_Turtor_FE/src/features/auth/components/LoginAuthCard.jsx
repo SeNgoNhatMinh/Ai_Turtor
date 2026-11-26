@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { ArrowRight, Lock, Mail } from 'lucide-react';
+import { takeAuthNotice } from '../services/sessionNotice';
 import TutorMascot from '../../../components/common/TutorMascot';
 import FptWordmark from './FptWordmark';
 
@@ -22,6 +24,7 @@ function LoginAuthCard({
   setEmail,
   setPassword,
 }) {
+  const [notice] = useState(takeAuthNotice);
   return (
     <section className="login-auth-card" aria-label="Biểu mẫu đăng nhập">
       <div className="login-card-header">
@@ -40,6 +43,10 @@ function LoginAuthCard({
         <h2>Chào mừng bạn quay lại</h2>
         <p>Đăng nhập để tiếp tục phiên học của bạn.</p>
       </div>
+
+      {notice && !fieldErrors.form && (
+        <p className="login-form-notice" role="status">{notice}</p>
+      )}
 
       {fieldErrors.form && (
         <p className="login-form-error" role="alert">{fieldErrors.form}</p>

@@ -2,6 +2,7 @@ import { env } from '../config/env';
 import { getUserFacingError, httpClient, httpRequest, ApiError } from './httpClient';
 import { clearAuthToken, getAuthToken } from '../features/auth/services/tokenStorage';
 import { refreshAccessToken } from '../features/auth/services/tokenRefresh';
+import { rememberSessionReplaced } from '../features/auth/services/sessionNotice';
 import { APP_SESSION_USER_KEY, clearLastPath, removeJsonStorage } from '../utils/storage';
 
 export const API_BASE_URL = env.apiBaseUrl;
@@ -42,6 +43,7 @@ let unauthorizedRedirectStarted = false;
 function handleUnauthorized(error) {
   if (!(error instanceof ApiError) || error.status !== 401 || unauthorizedRedirectStarted) return;
   unauthorizedRedirectStarted = true;
+  if (error.code === 'SESSION_REPLACED') rememberSessionReplaced();
   clearAuthToken();
   if (typeof window !== 'undefined') {
     removeJsonStorage(APP_SESSION_USER_KEY);

@@ -31,6 +31,7 @@ public class RefreshTokenService {
     private final MentorRepository mentorRepository;
     private final JwtService jwtService;
     private final MongoTemplate mongoTemplate;
+    private final ActiveSessionService activeSessionService;
     private final Duration lifetime;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -40,6 +41,7 @@ public class RefreshTokenService {
             MentorRepository mentorRepository,
             JwtService jwtService,
             MongoTemplate mongoTemplate,
+            ActiveSessionService activeSessionService,
             @Value("${security.refresh-token.expiration-days:30}") long expirationDays
     ) {
         this.refreshTokenRepository = refreshTokenRepository;
@@ -47,15 +49,22 @@ public class RefreshTokenService {
         this.mentorRepository = mentorRepository;
         this.jwtService = jwtService;
         this.mongoTemplate = mongoTemplate;
+        this.activeSessionService = activeSessionService;
         this.lifetime = Duration.ofDays(Math.max(1, expirationDays));
     }
 
-    public IssuedRefreshToken issue(String userId) {
+    /**
+     * New sign-in: replaces the account's session (one device per account), revokes
+     * every refresh token of the previous device and issues one for this session.
+     */
+    public SignedInSession startSession(String userId) {
         if (userId == null || userId.isBlank()) {
             throw new IllegalArgumentException("userId is required");
         }
         refreshTokenRepository.deleteAllByExpiresAtBefore(Instant.now());
-        return createAndSave(userId, Instant.now());
+        String sessionId = activeSessionService.startNewSession(userId);
+        refreshTokenRepository.deleteAllByUserId(userId);
+        return new SignedInSession(sessionId, createAndSave(userId, sessionId, Instant.now()));
     }
 
     public RefreshedSession rotate(String rawToken) {
@@ -64,12 +73,12 @@ public class RefreshTokenService {
                 Query.query(Criteria.where("tokenHash").is(hash(rawToken)).and("expiresAt").gt(now)),
                 AuthRefreshToken.class
         );
-        if (consumed == null) {
+        if (consumed == null || !activeSessionService.isActive(consumed.getUserId(), consumed.getSessionId())) {
             throw new InvalidRefreshTokenException();
         }
 
-        UserLoginResponse response = createCurrentLoginResponse(consumed.getUserId());
-        IssuedRefreshToken replacement = createAndSave(consumed.getUserId(), now);
+        UserLoginResponse response = createCurrentLoginResponse(consumed.getUserId(), consumed.getSessionId());
+        IssuedRefreshToken replacement = createAndSave(consumed.getUserId(), consumed.getSessionId(), now);
         return new RefreshedSession(response, replacement);
     }
 
@@ -86,7 +95,7 @@ public class RefreshTokenService {
         refreshTokenRepository.deleteAllByUserId(userId);
     }
 
-    private IssuedRefreshToken createAndSave(String userId, Instant now) {
+    private IssuedRefreshToken createAndSave(String userId, String sessionId, Instant now) {
         byte[] bytes = new byte[TOKEN_BYTES];
         secureRandom.nextBytes(bytes);
         String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -94,13 +103,14 @@ public class RefreshTokenService {
         refreshTokenRepository.save(AuthRefreshToken.builder()
                 .tokenHash(hash(rawToken))
                 .userId(userId)
+                .sessionId(sessionId)
                 .createdAt(now)
                 .expiresAt(expiresAt)
                 .build());
         return new IssuedRefreshToken(rawToken, expiresAt);
     }
 
-    private UserLoginResponse createCurrentLoginResponse(String userId) {
+    private UserLoginResponse createCurrentLoginResponse(String userId, String sessionId) {
         User user = userRepository.findById(userId)
                 .filter(candidate -> candidate.getIsActive() == null || candidate.getIsActive())
                 .orElse(null);
@@ -111,7 +121,8 @@ public class RefreshTokenService {
                     .fullName(user.getFullName())
                     .avatarUrl(user.getAvatarUrl())
                     .role(user.getRole())
-                    .token(jwtService.generateToken(user))
+                    .token(jwtService.generateToken(
+                            user.getId(), user.getEmail(), user.getFullName(), user.getRole(), sessionId))
                     .message("Làm mới phiên đăng nhập thành công")
                     .build();
         }
@@ -126,7 +137,7 @@ public class RefreshTokenService {
                 .avatarUrl(mentor.getAvatarUrl())
                 .role("TEACHER")
                 .token(jwtService.generateToken(
-                        mentor.getId(), mentor.getEmail(), mentor.getMentorName(), "TEACHER"
+                        mentor.getId(), mentor.getEmail(), mentor.getMentorName(), "TEACHER", sessionId
                 ))
                 .message("Làm mới phiên đăng nhập thành công")
                 .build();
@@ -148,4 +159,6 @@ public class RefreshTokenService {
     public record IssuedRefreshToken(String value, Instant expiresAt) {}
 
     public record RefreshedSession(UserLoginResponse response, IssuedRefreshToken refreshToken) {}
+
+    public record SignedInSession(String sessionId, IssuedRefreshToken refreshToken) {}
 }

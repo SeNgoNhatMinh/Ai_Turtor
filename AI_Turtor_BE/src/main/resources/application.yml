@@ -200,7 +200,7 @@ security:
   jwt:
     # The real secret comes from config/application-local.yml or JWT_SECRET.
     secret: ${JWT_SECRET:}
-    expiration-minutes: ${JWT_EXPIRATION_MINUTES:15}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:20}
   refresh-token:
     expiration-days: ${REFRESH_TOKEN_EXPIRATION_DAYS:30}
     cookie-secure: ${REFRESH_TOKEN_COOKIE_SECURE:false}

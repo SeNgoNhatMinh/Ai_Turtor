@@ -1,6 +1,7 @@
 package com.ragapi.config;
 
 import com.ragapi.service.chat.ChatService;
+import com.ragapi.service.auth.ActiveSessionService;
 import com.ragapi.service.auth.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.server.ServerHttpRequest;
@@ -18,6 +19,7 @@ import java.util.Map;
 public class ChatWebSocketHandshakeInterceptor implements HandshakeInterceptor {
 
     private final JwtService jwtService;
+    private final ActiveSessionService activeSessionService;
     private final ChatService chatService;
 
     @Override
@@ -28,6 +30,9 @@ public class ChatWebSocketHandshakeInterceptor implements HandshakeInterceptor {
         String chatRoomId = query.getFirst("chatRoomId");
         Map<String, Object> claims = jwtService.validateAndParse(token);
         String userId = String.valueOf(claims.get("userId"));
+        if (!activeSessionService.isActive(userId, claims.get("sid") == null ? null : String.valueOf(claims.get("sid")))) {
+            return false; // signed in on another device
+        }
         String role = String.valueOf(claims.getOrDefault("role", "STUDENT")).toUpperCase();
         chatService.requireAccessibleRoom(chatRoomId, userId, role);
         attributes.put("userId", userId);

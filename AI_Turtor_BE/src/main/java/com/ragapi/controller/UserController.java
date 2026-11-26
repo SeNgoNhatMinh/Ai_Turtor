@@ -10,6 +10,7 @@ import com.ragapi.entity.User;
 import com.ragapi.service.student.UserService;
 import com.ragapi.service.notification.RealtimeEventService;
 import com.ragapi.service.auth.RefreshTokenCookieService;
+import com.ragapi.service.auth.JwtService;
 import com.ragapi.service.auth.RefreshTokenService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,6 +43,7 @@ public class UserController {
     private RealtimeEventService realtimeEventService;
     private RefreshTokenService refreshTokenService;
     private RefreshTokenCookieService refreshTokenCookieService;
+    private JwtService jwtService;
 
     @PostMapping("/register")
     @Operation(summary = "Register student account")
@@ -52,7 +54,10 @@ public class UserController {
         try {
             UserRegisterResponse response = userService.register(request);
             refreshTokenService.revoke(existingRefreshToken);
-            RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(response.getUserId());
+            RefreshTokenService.SignedInSession session = refreshTokenService.startSession(response.getUserId());
+            response.setToken(jwtService.generateToken(response.getUserId(), response.getEmail(),
+                    response.getFullName(), response.getRole(), session.sessionId()));
+            RefreshTokenService.IssuedRefreshToken refreshToken = session.refreshToken();
             return ResponseEntity.status(HttpStatus.CREATED)
                     .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.create(refreshToken.value()).toString())
                     .body(response);
@@ -72,7 +77,11 @@ public class UserController {
         try {
             UserLoginResponse response = userService.login(request);
             refreshTokenService.revoke(existingRefreshToken);
-            RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(response.getUserId());
+            // One device per account: this sign-in replaces any other device's session.
+            RefreshTokenService.SignedInSession session = refreshTokenService.startSession(response.getUserId());
+            response.setToken(jwtService.generateToken(response.getUserId(), response.getEmail(),
+                    response.getFullName(), response.getRole(), session.sessionId()));
+            RefreshTokenService.IssuedRefreshToken refreshToken = session.refreshToken();
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.create(refreshToken.value()).toString())
                     .body(response);

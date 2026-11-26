@@ -26,7 +26,7 @@ public class JwtService {
     public JwtService(
             ObjectMapper objectMapper,
             @Value("${security.jwt.secret}") String secret,
-            @Value("${security.jwt.expiration-minutes:15}") long expirationMinutes
+            @Value("${security.jwt.expiration-minutes:20}") long expirationMinutes
     ) {
         if (secret == null || secret.isBlank()) {
             throw new IllegalStateException(
@@ -43,6 +43,11 @@ public class JwtService {
     }
 
     public String generateToken(String userId, String email, String fullName, String role) {
+        return generateToken(userId, email, fullName, role, null);
+    }
+
+    /** {@code sessionId} ("sid") binds the token to one sign-in; see ActiveSessionService. */
+    public String generateToken(String userId, String email, String fullName, String role, String sessionId) {
         Instant now = Instant.now();
         Map<String, Object> header = new LinkedHashMap<>();
         header.put("alg", "HS256");
@@ -54,6 +59,9 @@ public class JwtService {
         payload.put("email", email);
         payload.put("fullName", fullName);
         payload.put("role", normalizeRole(role));
+        if (sessionId != null && !sessionId.isBlank()) {
+            payload.put("sid", sessionId);
+        }
         payload.put("iat", now.getEpochSecond());
         payload.put("exp", now.plusSeconds(expirationSeconds).getEpochSecond());
 

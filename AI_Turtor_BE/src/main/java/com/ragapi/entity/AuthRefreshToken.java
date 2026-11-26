@@ -26,6 +26,9 @@ public class AuthRefreshToken {
     @Indexed
     private String userId;
 
+    /** The sign-in this token belongs to; refreshing fails once another sign-in replaced it. */
+    private String sessionId;
+
     private Instant createdAt;
 
     @Indexed
