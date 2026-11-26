@@ -22,6 +22,17 @@ export HOME="/home/node"
 export USER="node"
 export LOGNAME="node"
 
+# The chat flow's agent node uses the credential "Groq Harness" (id groqHarnessAgent).
+# Import it from GROQ_API_KEY on every start so a rotated key takes effect on redeploy.
+if [ -n "${GROQ_API_KEY:-}" ]; then
+  echo "AI Tutor n8n Railway entrypoint: importing Groq credential"
+  GROQ_CRED_FILE="$(mktemp /tmp/groq-cred.XXXXXX)"
+  node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify([{id: "groqHarnessAgent", name: "Groq Harness", type: "groqApi", data: {apiKey: process.env.GROQ_API_KEY}}]))' "$GROQ_CRED_FILE"
+  chown node:node "$GROQ_CRED_FILE"
+  su -p node -s /bin/sh -c 'exec n8n import:credentials --input="$0"' "$GROQ_CRED_FILE"
+  rm -f "$GROQ_CRED_FILE"
+fi
+
 if [ ! -f "$WORKFLOW_MARKER" ]; then
   echo "AI Tutor n8n Railway entrypoint: importing bundled workflows"
   rm -rf "$WORKFLOW_IMPORT_DIR"
@@ -37,7 +48,6 @@ if [ ! -f "$WORKFLOW_MARKER" ]; then
 
   for workflow_id in \
     uGR95kYN1WImLDJt \
-    AI_TUTOR_TEACHER_AI_GRADING \
     AI_TUTOR_V2_PROACTIVE; do
     echo "AI Tutor n8n Railway entrypoint: publishing $workflow_id"
     su -p node -s /bin/sh -c 'exec n8n publish:workflow --id="$0"' "$workflow_id"
