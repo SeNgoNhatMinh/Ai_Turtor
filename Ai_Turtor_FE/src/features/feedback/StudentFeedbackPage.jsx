@@ -183,9 +183,10 @@ function FeedbackForm({ saved, loadError, courseId, classId, triggerToast }) {
         </fieldset>
 
         <fieldset className="feedback-question">
-          <legend><label htmlFor="fb-liked">9. Điều bạn thích nhất</label></legend>
+          <legend id="fb-liked-legend">9. Điều bạn thích nhất</legend>
           <Input.TextArea
             id="fb-liked"
+            aria-labelledby="fb-liked-legend"
             value={form.liked || ''}
             onChange={(event) => set('liked')(event.target.value)}
             placeholder="Không bắt buộc"
@@ -195,9 +196,10 @@ function FeedbackForm({ saved, loadError, courseId, classId, triggerToast }) {
         </fieldset>
 
         <fieldset className="feedback-question">
-          <legend><label htmlFor="fb-improve">10. Điều cần cải thiện</label></legend>
+          <legend id="fb-improve-legend">10. Điều cần cải thiện</legend>
           <Input.TextArea
             id="fb-improve"
+            aria-labelledby="fb-improve-legend"
             value={form.improve || ''}
             onChange={(event) => set('improve')(event.target.value)}
             placeholder="Không bắt buộc"

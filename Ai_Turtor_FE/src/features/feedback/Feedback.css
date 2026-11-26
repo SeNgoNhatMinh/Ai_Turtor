@@ -8,6 +8,11 @@
   min-width: 0;
 }
 
+/* The survey is one centred column; the admin summary uses the full width. */
+.feedback-page {
+  margin-inline: auto;
+}
+
 .feedback-admin-page {
   max-width: 100%;
 }
@@ -41,6 +46,11 @@
 
 .feedback-question legend + * {
   clear: both;
+}
+
+/* antd draws the character count below the textarea; keep it inside the card. */
+.feedback-question .ant-input-textarea-show-count {
+  margin-bottom: 22px;
 }
 
 .feedback-question.is-missing {
