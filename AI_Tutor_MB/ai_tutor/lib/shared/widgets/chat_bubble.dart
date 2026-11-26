@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/utils/ai_chat_content.dart';
 import '../../core/utils/code_mentor_mode.dart';
+import '../../features/ai_tutor/data/guided_practice.dart';
 import '../models/rag_source_evidence.dart';
 import '../models/rag_visual_evidence.dart';
 import 'ai_markdown_body.dart';
@@ -79,6 +80,7 @@ class ChatBubble extends StatelessWidget {
     this.onDownloadSource,
     this.showSourceReferences = true,
     this.answerAction,
+    this.guidedPracticeBuilder,
   });
 
   final bool isUser;
@@ -103,6 +105,9 @@ class ChatBubble extends StatelessWidget {
   final void Function(String materialId, String title)? onDownloadSource;
   final bool showSourceReferences;
   final Widget? answerAction;
+
+  /// Renders the "Bài tập có hướng dẫn" section as an interactive card.
+  final Widget Function(GuidedPractice practice)? guidedPracticeBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -192,6 +197,7 @@ class ChatBubble extends StatelessWidget {
                               onStudyTipTap: onStudyTipTap,
                               onComplete: onRevealComplete,
                               answerAction: answerAction,
+                              guidedPracticeBuilder: guidedPracticeBuilder,
                             )
                           : AiMarkdownBody(
                               data: prepareAiChatMarkdown(
@@ -199,6 +205,7 @@ class ChatBubble extends StatelessWidget {
                               ),
                               onStudyTipTap: onStudyTipTap,
                               answerAction: answerAction,
+                              guidedPracticeBuilder: guidedPracticeBuilder,
                             ),
                     if (betweenContent != null) betweenContent!,
                     if ((afterContent ?? '').trim().isNotEmpty)
@@ -207,6 +214,7 @@ class ChatBubble extends StatelessWidget {
                           rewriteSuggestionJson(afterContent!),
                         ),
                         onStudyTipTap: onStudyTipTap,
+                        guidedPracticeBuilder: guidedPracticeBuilder,
                       ),
                   ] else
                     Text(

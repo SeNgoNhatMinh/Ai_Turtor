@@ -18,6 +18,13 @@ class CoursesRepository {
     return parseList(response.data, Course.fromJson);
   }
 
+  /// Danh mục môn (`GET /api/courses`) — nguồn tên môn đầy đủ, vì enrollment
+  /// thường không lưu `courseName`.
+  Future<List<Course>> fetchCourseCatalog() async {
+    final response = await _dio.get<dynamic>('/api/courses');
+    return parseList(response.data, Course.fromJson);
+  }
+
   Future<List<CourseMaterial>> fetchMaterials(
     String courseId, {
     String? classId,

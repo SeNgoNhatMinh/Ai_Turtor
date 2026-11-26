@@ -7,7 +7,9 @@ import 'package:markdown/markdown.dart' as md;
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/utils/ai_markdown_normalizer.dart';
 import '../../core/utils/ai_study_tips.dart';
+import '../../features/ai_tutor/data/guided_practice.dart';
 import 'ai_study_path_widgets.dart';
 import 'ai_suggestion_json.dart';
 import 'markdown_code_block.dart';
@@ -24,11 +26,16 @@ class AiMarkdownBody extends StatefulWidget {
     required this.data,
     this.onStudyTipTap,
     this.answerAction,
+    this.guidedPracticeBuilder,
   });
 
   final String data;
   final ValueChanged<String>? onStudyTipTap;
   final Widget? answerAction;
+
+  /// When set, the "Bài tập có hướng dẫn" section is replaced by this widget
+  /// (an interactive exercise card) instead of a static code block.
+  final Widget Function(GuidedPractice practice)? guidedPracticeBuilder;
 
   static const Color _studyTipColor = AppColors.studyTipLink;
 
@@ -54,7 +61,9 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data ||
         (oldWidget.onStudyTipTap == null) != (widget.onStudyTipTap == null) ||
-        oldWidget.answerAction != widget.answerAction) {
+        oldWidget.answerAction != widget.answerAction ||
+        (oldWidget.guidedPracticeBuilder == null) !=
+            (widget.guidedPracticeBuilder == null)) {
       _parse();
     }
   }
@@ -69,15 +78,41 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
     _disposeRecognizers();
     _failed = false;
     _children = null;
-    final segments = splitStudyPathSegments(widget.data);
     _plain = widget.data;
     try {
+      final builder = widget.guidedPracticeBuilder;
+      final practice = builder == null
+          ? null
+          : extractGuidedPractice(widget.data);
+      if (practice == null) {
+        _children = _buildSegments(widget.data, widget.answerAction);
+      } else {
+        final before = _buildSegments(practice.before, widget.answerAction);
+        _children = [
+          ...before,
+          if (before.isEmpty && widget.answerAction != null)
+            widget.answerAction!,
+          builder!(practice),
+          ..._buildSegments(practice.after, null),
+        ];
+      }
+    } catch (error, stack) {
+      debugPrint('AiMarkdownBody parse failed: $error\n$stack');
+      _failed = true;
+      _children = null;
+    }
+  }
+
+  List<Widget> _buildSegments(String data, Widget? answerAction) {
+    if (data.trim().isEmpty) return <Widget>[];
+    final segments = splitStudyPathSegments(data);
+    {
       final children = <Widget>[];
       var actionInserted = false;
       for (final segment in segments) {
         if (segment.isStudy) {
-          if (children.isEmpty && widget.answerAction != null) {
-            children.add(widget.answerAction!);
+          if (children.isEmpty && answerAction != null) {
+            children.add(answerAction);
             actionInserted = true;
           }
           if (segment.isNextLessonHeading) continue;
@@ -92,24 +127,57 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
           continue;
         }
         children.addAll(
-          _parseMarkdown(
+          _parseMarkdownSafely(
             segment.markdown,
             answerAction: children.isEmpty && !actionInserted
-                ? widget.answerAction
+                ? answerAction
                 : null,
           ),
         );
-        if (children.isNotEmpty && widget.answerAction != null) {
+        if (children.isNotEmpty && answerAction != null) {
           actionInserted = true;
         }
       }
-      if (!actionInserted && widget.answerAction != null) {
-        children.add(widget.answerAction!);
+      if (!actionInserted && answerAction != null) {
+        children.add(answerAction);
       }
-      _children = children;
-    } catch (_) {
-      _failed = true;
-      _children = null;
+      return children;
+    }
+  }
+
+  /// Renders [raw]; if flutter_markdown rejects it, renders block by block so
+  /// one bad block never turns the whole answer into raw markdown. A block
+  /// that still fails is shown as clean plain text.
+  List<Widget> _parseMarkdownSafely(String raw, {Widget? answerAction}) {
+    final recognizerCount = _recognizers.length;
+    try {
+      return _parseMarkdown(raw, answerAction: answerAction);
+    } catch (error, stack) {
+      debugPrint('AiMarkdownBody falls back to blocks: $error\n$stack');
+      _disposeRecognizersFrom(recognizerCount);
+    }
+
+    final children = <Widget>[];
+    for (final block in splitMarkdownBlocks(raw)) {
+      final blockRecognizers = _recognizers.length;
+      try {
+        children.addAll(_parseMarkdown(block));
+      } catch (error) {
+        debugPrint('AiMarkdownBody renders a block as text: $error');
+        _disposeRecognizersFrom(blockRecognizers);
+        final plain = markdownToPlainText(block);
+        if (plain.isNotEmpty) children.add(_PlainAnswerText(plain));
+      }
+    }
+    if (answerAction != null) {
+      children.insert(children.isEmpty ? 0 : 1, answerAction);
+    }
+    return children;
+  }
+
+  void _disposeRecognizersFrom(int start) {
+    while (_recognizers.length > start) {
+      _recognizers.removeLast().dispose();
     }
   }
 
@@ -252,13 +320,9 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
   @override
   Widget build(BuildContext context) {
     if (_failed || _children == null) {
-      return SelectableText(
-        _plain.trim().isEmpty ? ' ' : _plain,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          color: AppColors.textPrimary,
-          height: 1.55,
-        ),
-      );
+      // Never show raw "##" / "**" syntax to the student.
+      final plain = markdownToPlainText(_plain);
+      return _PlainAnswerText(plain.isEmpty ? ' ' : plain);
     }
     final children = _children!;
     if (children.length == 1) return children.single;
@@ -270,7 +334,34 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
   }
 }
 
+class _PlainAnswerText extends StatelessWidget {
+  const _PlainAnswerText(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return SelectableText(
+      text,
+      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+        color: AppColors.textPrimary,
+        fontSize: 15.5,
+        height: 1.75,
+      ),
+    );
+  }
+}
+
 class _ChatGptCodeBlockBuilder extends MarkdownElementBuilder {
+  /// flutter_markdown routes text inside `pre` to this builder. Returning null
+  /// leaves an empty inline on its stack, which trips `_inlines.isEmpty` and
+  /// made every answer containing a code fence fall back to raw markdown.
+  /// The placeholder is discarded: [visitElementAfter] builds the real block.
+  @override
+  Widget? visitText(md.Text text, TextStyle? preferredStyle) {
+    return const SizedBox.shrink();
+  }
+
   @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     md.Element? codeElement;

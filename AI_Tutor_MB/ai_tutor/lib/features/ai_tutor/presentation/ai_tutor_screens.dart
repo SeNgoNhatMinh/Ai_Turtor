@@ -51,6 +51,7 @@ import '../data/student_own_llm.dart';
 import '../data/understanding_check.dart';
 import 'widgets/ai_chat_widgets.dart';
 import 'widgets/curriculum_study_suggestions.dart';
+import 'widgets/guided_practice_card.dart';
 import 'widgets/lesson_deep_dive_cta.dart';
 import 'widgets/student_own_llm_dialog.dart';
 import 'widgets/tts_widgets.dart';
@@ -1195,7 +1196,7 @@ class _CourseCurriculumOpening extends StatelessWidget {
   });
 
   final CourseLearningGuide guide;
-  final ValueChanged<String> onSuggestionSelected;
+  final ValueChanged<StudyPathSuggestion> onSuggestionSelected;
   final bool enabled;
 
   @override
@@ -1360,7 +1361,10 @@ class ChatScreen extends HookConsumerWidget {
               .map(
                 (item) => ImproveSuggestionItem.fromLabel(
                   item.suggestionText,
-                ).copyWith(interactionType: 'CURRICULUM_STARTER'),
+                ).copyWith(
+                  interactionType: 'CURRICULUM_STARTER',
+                  chapterTitle: item.chapterTitle,
+                ),
               )
               .toList();
     final ttsScope = ttsScopeForChat(
@@ -1584,25 +1588,53 @@ class ChatScreen extends HookConsumerWidget {
       }
     }
 
+    /// Same request as the web `handleStudySuggestion` for a curriculum chip:
+    /// shows the Vietnamese label, sends "Bắt đầu bài N: …" as a guided
+    /// lesson and passes the original outline heading for retrieval.
+    void startCurriculumLesson({
+      required String label,
+      String? chapterTitle,
+      String? studySuggestionKey,
+    }) {
+      final text = label.trim();
+      if (text.isEmpty) return;
+      final prompt = buildStudySuggestionPrompt(text);
+      final chapter = (chapterTitle ?? '').trim();
+      unawaited(
+        sendStudyPromptInChat(
+          prompt,
+          displayMessage: text,
+          interactionType: isGuidedLessonPrompt(prompt) ? 'GUIDED_LESSON' : null,
+          clickedSuggestion: text,
+          studySuggestionKey: studySuggestionKey,
+          chapterTitle: chapter.isEmpty ? null : chapter,
+        ),
+      );
+    }
+
     void handleLearnSuggestion(ImproveSuggestionItem item) {
       final text = item.effectiveText.trim().isNotEmpty
           ? item.effectiveText
           : item.title;
       final isCurriculumStarter = item.interactionType == 'CURRICULUM_STARTER';
-      final prompt = isCurriculumStarter
-          ? text
-          : buildStudySuggestionPrompt(
-              text,
-              improvePlanId: item.improvePlanId,
-              planItemId: item.planItemId,
-            );
+      if (isCurriculumStarter) {
+        startCurriculumLesson(
+          label: text,
+          chapterTitle: item.chapterTitle,
+          studySuggestionKey: item.key,
+        );
+        return;
+      }
+      final prompt = buildStudySuggestionPrompt(
+        text,
+        improvePlanId: item.improvePlanId,
+        planItemId: item.planItemId,
+      );
       unawaited(
         sendStudyPromptInChat(
           prompt,
           displayMessage: text,
-          interactionType: isCurriculumStarter
-              ? null
-              : item.hasImprovePlanGrounding
+          interactionType: item.hasImprovePlanGrounding
               ? 'IMPROVE_PLAN_REVIEW'
               : item.interactionType ??
                     (isGuidedLessonPrompt(prompt)
@@ -2113,10 +2145,16 @@ class ChatScreen extends HookConsumerWidget {
                       itemCount: courseItems.length,
                       itemBuilder: (_, index) {
                         final course = courseItems[index];
+                        final classLabel = course.classLabel;
                         return ListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: Text('${course.code} — ${course.name}'),
-                          trailing: course.id == activeCourse?.id
+                          title: Text(course.code),
+                          // A course can be taken in several classes; the
+                          // class tells those rows apart.
+                          subtitle: classLabel.isEmpty
+                              ? null
+                              : Text('Lớp $classLabel'),
+                          trailing: course == activeCourse
                               ? const Icon(
                                   LucideIcons.checkCircle2,
                                   color: AppColors.primary,
@@ -2126,7 +2164,7 @@ class ChatScreen extends HookConsumerWidget {
                             ref.read(selectedCourseProvider.notifier).state =
                                 course;
                             Navigator.of(sheetContext).pop();
-                            if (course.id == activeCourse?.id) return;
+                            if (course == activeCourse) return;
                             final created = await ref
                                 .read(conversationsControllerProvider.notifier)
                                 .createNew(
@@ -2302,15 +2340,11 @@ class ChatScreen extends HookConsumerWidget {
                           return _CourseCurriculumOpening(
                             guide: guide,
                             enabled: !isPending && !composerLocked,
-                            onSuggestionSelected: (prompt) {
-                              unawaited(
-                                sendStudyPromptInChat(
-                                  prompt,
-                                  displayMessage: prompt,
-                                  clickedSuggestion: prompt,
+                            onSuggestionSelected: (item) =>
+                                startCurriculumLesson(
+                                  label: item.suggestionText,
+                                  chapterTitle: item.chapterTitle,
                                 ),
-                              );
-                            },
                           );
                         }
                         if (learningGuide?.isLoading == true) {
@@ -2428,7 +2462,10 @@ class ChatScreen extends HookConsumerWidget {
                       ...curriculumSuggestions.map(
                         (item) => ImproveSuggestionItem.fromLabel(
                           item.suggestionText,
-                        ).copyWith(interactionType: 'CURRICULUM_STARTER'),
+                        ).copyWith(
+                          interactionType: 'CURRICULUM_STARTER',
+                          chapterTitle: item.chapterTitle,
+                        ),
                       ),
                       ...pathSuggestions,
                       ...nextLessonTips.map(ImproveSuggestionItem.fromLabel),
@@ -2451,6 +2488,22 @@ class ChatScreen extends HookConsumerWidget {
                                 codeSnippet: message.codeSnippet,
                                 revealMarkdown: revealMarkdown,
                                 onRevealComplete: onRevealComplete,
+                                guidedPracticeBuilder: message.isUser
+                                    ? null
+                                    : (practice) => GuidedPracticeCard(
+                                        practice: practice,
+                                        draftKey: message.id,
+                                        enabled: !isPending && !composerLocked,
+                                        onSubmit: (filled) => unawaited(
+                                          sendStudyPromptInChat(
+                                            filled,
+                                            displayMessage:
+                                                'Nộp bài tập có hướng dẫn',
+                                            clickedSuggestion:
+                                                'Nộp bài tập có hướng dẫn',
+                                          ),
+                                        ),
+                                      ),
                                 content: quiz == null
                                     ? curriculumDisplayContent
                                     : extracted.before,
@@ -2584,15 +2637,10 @@ class ChatScreen extends HookConsumerWidget {
                               child: CurriculumStudySuggestions(
                                 suggestions: curriculumSuggestions,
                                 enabled: !isPending && !composerLocked,
-                                onSelected: (prompt) {
-                                  unawaited(
-                                    sendStudyPromptInChat(
-                                      prompt,
-                                      displayMessage: prompt,
-                                      clickedSuggestion: prompt,
-                                    ),
-                                  );
-                                },
+                                onSelected: (item) => startCurriculumLesson(
+                                  label: item.suggestionText,
+                                  chapterTitle: item.chapterTitle,
+                                ),
                               ),
                             ),
                           if (showStudySuggestions &&
@@ -3123,11 +3171,9 @@ class CodeMentorScreen extends HookConsumerWidget {
                       (c) => DropdownMenuItem(
                         value: c,
                         child: Text(
-                          c.className != null && c.className!.isNotEmpty
-                              ? '${c.code} — ${c.className}'
-                              : (c.name.isNotEmpty
-                                    ? '${c.code} — ${c.name}'
-                                    : c.code),
+                          c.classLabel.isEmpty
+                              ? c.label
+                              : '${c.label} · Lớp ${c.classLabel}',
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),

@@ -17,10 +17,25 @@ final _curriculumStarterNoise = RegExp(
   r'^(?:bạn có thể bắt đầu|mẹo\b)',
   caseSensitive: false,
 );
-final _numberedCurriculumPrefix = RegExp(
-  r'^(?:bài|bai)\s+\d+\s*[:：.\-–—]\s*',
-  caseSensitive: false,
-);
+/// Backend `StudyLessonTitles.SOURCE_SEPARATOR`: each chip is
+/// "<Vietnamese lesson label> || <original outline heading>".
+const lessonSourceSeparator = ' || ';
+
+/// Port of web `splitLessonChip`: only the Vietnamese label is shown; the
+/// original (often English) chapter heading is kept for retrieval.
+StudyPathSuggestion splitLessonChip(String line) {
+  final text = line.trim();
+  final at = text.indexOf(lessonSourceSeparator);
+  if (at < 0) return StudyPathSuggestion(title: text, suggestionText: text);
+  final label = text.substring(0, at).trim();
+  final chapterTitle = text.substring(at + lessonSourceSeparator.length).trim();
+  final title = label.isEmpty ? text : label;
+  return StudyPathSuggestion(
+    title: title,
+    suggestionText: title,
+    chapterTitle: chapterTitle,
+  );
+}
 
 List<StudyPathSuggestion> parseCurriculumStudySuggestions(String markdown) {
   final result = <StudyPathSuggestion>[];
@@ -28,46 +43,19 @@ List<StudyPathSuggestion> parseCurriculumStudySuggestions(String markdown) {
   for (final raw in parseBulletsUnderHeadings(
     markdown,
     _curriculumStarterHeading,
+    // The widget pages through results itself; keep every lesson.
+    maxItems: null,
   )) {
-    final item = _collapseRepeatedCurriculumTitle(raw);
+    final item = splitLessonChip(raw.title);
     if (_curriculumStarterNoise.hasMatch(item.title) ||
         item.title.endsWith(':')) {
       continue;
     }
-    final key = item.title.toLowerCase();
+    final key = item.title.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
     if (!seen.add(key)) continue;
     result.add(item);
   }
   return result;
-}
-
-StudyPathSuggestion _collapseRepeatedCurriculumTitle(
-  StudyPathSuggestion suggestion,
-) {
-  final parts = suggestion.title
-      .split(RegExp(r'\s*\|\|\s*'))
-      .map((part) => part.trim())
-      .where((part) => part.isNotEmpty)
-      .toList();
-  if (parts.length < 2) return suggestion;
-
-  final firstKey = _curriculumTitleKey(parts.first);
-  final allRepeated =
-      firstKey.isNotEmpty &&
-      parts.skip(1).every((part) => _curriculumTitleKey(part) == firstKey);
-  if (!allRepeated) return suggestion;
-
-  final title = parts.first;
-  return StudyPathSuggestion(title: title, suggestionText: title);
-}
-
-String _curriculumTitleKey(String value) {
-  return value
-      .replaceFirst(_numberedCurriculumPrefix, '')
-      .toLowerCase()
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .replaceAll(RegExp(r'[.!?]+$'), '')
-      .trim();
 }
 
 List<StudyPathSuggestion> curriculumStudySuggestionsForMessage({
@@ -105,7 +93,7 @@ class CurriculumStudySuggestions extends StatefulWidget {
   });
 
   final List<StudyPathSuggestion> suggestions;
-  final ValueChanged<String> onSelected;
+  final ValueChanged<StudyPathSuggestion> onSelected;
   final bool enabled;
 
   @override
@@ -257,8 +245,7 @@ class _CurriculumStudySuggestionsState
                 key: ValueKey(visibleSuggestions[index].suggestionText),
                 suggestion: visibleSuggestions[index],
                 enabled: widget.enabled,
-                onTap: () =>
-                    widget.onSelected(visibleSuggestions[index].suggestionText),
+                onTap: () => widget.onSelected(visibleSuggestions[index]),
               ),
               if (index != visibleSuggestions.length - 1) const Gap(Insets.sm),
             ],

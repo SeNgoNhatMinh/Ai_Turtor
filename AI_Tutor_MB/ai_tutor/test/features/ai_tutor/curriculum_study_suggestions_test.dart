@@ -1,3 +1,4 @@
+import 'package:ai_tutor/core/utils/study_suggestion_prompt.dart';
 import 'package:ai_tutor/features/ai_tutor/presentation/widgets/curriculum_study_suggestions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,12 +22,13 @@ Bạn có thể bắt đầu bằng cách hỏi AI Tutor:
 Mẹo: Hãy chọn một chủ đề cụ thể.
 ''';
 
-const _repeatedCurriculumMarkdown = '''
+const _lessonChipMarkdown = '''
 ## Gợi ý học tập
-- Bài 1: Conditional execution || Conditional execution
-- Bài 2: Dictionaries || Dictionaries
-- Bài 3: Files || Binary files
-- Bài 1: Conditional execution
+- Bài 1: Giới thiệu nền tảng Java EE || Chapter 1: Introducing Java Platform, Enterprise Edition
+- Bài 2: Sử dụng web container || Chapter 2: Using Web Containers
+- Bài 4: Recursion || 4 Recursion
+- Bài 4: Recursion
+- Bài 5: Không có tiêu đề gốc
 ''';
 
 void main() {
@@ -41,20 +43,34 @@ void main() {
     expect(display, isNot(contains('Mẹo:')));
   });
 
-  test('removes only repeated curriculum titles around the double pipe', () {
-    final suggestions = parseCurriculumStudySuggestions(
-      _repeatedCurriculumMarkdown,
-    );
+  test('shows only the Vietnamese label and keeps the source chapter', () {
+    final suggestions = parseCurriculumStudySuggestions(_lessonChipMarkdown);
 
     expect(suggestions.map((item) => item.title).toList(), [
-      'Bài 1: Conditional execution',
-      'Bài 2: Dictionaries',
-      'Bài 3: Files || Binary files',
+      'Bài 1: Giới thiệu nền tảng Java EE',
+      'Bài 2: Sử dụng web container',
+      'Bài 4: Recursion',
+      'Bài 5: Không có tiêu đề gốc',
     ]);
     expect(
       suggestions.map((item) => item.suggestionText).toList(),
       suggestions.map((item) => item.title).toList(),
     );
+    expect(suggestions.map((item) => item.chapterTitle).toList(), [
+      'Chapter 1: Introducing Java Platform, Enterprise Edition',
+      'Chapter 2: Using Web Containers',
+      '4 Recursion',
+      '',
+    ]);
+    expect(suggestions.any((item) => item.title.contains('||')), isFalse);
+  });
+
+  test('keeps every lesson beyond the old eight-item cap', () {
+    final markdown = [
+      '## Gợi ý học tập',
+      for (var i = 1; i <= 12; i++) '- Bài $i: Chủ đề $i || Chapter $i: Topic $i',
+    ].join('\n');
+    expect(parseCurriculumStudySuggestions(markdown), hasLength(12));
   });
 
   test(
@@ -85,7 +101,7 @@ void main() {
   testWidgets('renders web-style study rows and fires one callback', (
     tester,
   ) async {
-    final selected = <String>[];
+    final selected = <StudyPathSuggestion>[];
     final suggestions = parseCurriculumStudySuggestions(_curriculumMarkdown);
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
@@ -120,7 +136,9 @@ void main() {
 
     await tester.tap(find.text('Học ngay').first);
     await tester.pump();
-    expect(selected, ['Tôi muốn tìm hiểu về Servlet và JSP.']);
+    expect(selected.map((item) => item.suggestionText), [
+      'Tôi muốn tìm hiểu về Servlet và JSP.',
+    ]);
     expect(tester.takeException(), isNull);
   });
 

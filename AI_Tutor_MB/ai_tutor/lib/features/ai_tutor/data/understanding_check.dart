@@ -146,18 +146,21 @@ UnderstandingCheckExtract resolveUnderstandingCheck({
   );
 }
 
+// Same as web `CHECK_HEADING`: the heading may lose its "#" when markdown is
+// stripped, may be bold, and may be "Quiz tự luyện".
 final _checkHeading = RegExp(
-  r'^(#{1,6})\s*(?:kiểm tra hiểu|understanding check|câu(?:\s+hỏi)?\s+trắc nghiệm mới(?:\s*\((?:(?:được|đã)\s+)?paraphrase\))?|câu hỏi ôn tập)\s*$',
+  r'^(?:#{1,6}[ \t]*)?(?:\*\*|__)?[ \t]*(?:\d+\.[ \t]*)?(?:ki[eể]m tra hi[eể]u(?:[ \t]+b[aà]i)?|understanding check|quiz tự luyện|câu(?:[ \t]+hỏi)?[ \t]+trắc nghiệm mới(?:[ \t]*\((?:(?:được|đã)[ \t]+)?paraphrase\))?|câu hỏi ôn tập)[ \t]*[:：]?[ \t]*(?:\*\*|__)?[ \t]*$',
   caseSensitive: false,
   multiLine: true,
 );
 final _optionMark = RegExp(r'(?:^|\s)(?:\(([A-Da-d])\)|([A-Da-d])\.)\s+');
+// Models often emit "Đáp án đúng:* C" when bold markers are half-stripped.
 final _canonicalAnswer = RegExp(
-  r'(?:^|\s)(?<!chọn\s)(?<!choose\s)(?<!pick\s)(?:đáp án|dap an|(?:the\s+)?(?:correct\s+)?answer)(?:\s+đúng)?\s*(?:là|is|:|：|-)?\s*([A-Da-d])\b[^\n]*',
+  r'(?:^|\s)(?<!chọn\s)(?<!choose\s)(?<!pick\s)(?:đáp án|dap an|(?:the\s+)?(?:correct\s+)?answer)(?:\s+đúng)?\s*(?:là|is|:|：|-)?\s*\**\s*([A-Da-d])\b[^\n]*',
   caseSensitive: false,
 );
 final _revealedAnswer = RegExp(
-  r'(?:^|\s)\s*[-*+]?\s*chọn đáp án đúng\s*[:：-]\s*(?:\n\s*[-*+]?\s*)?([A-Da-d])\s*[.)]?\s*[^\n]*',
+  r'(?:^|\s)\s*[-*+]?\s*chọn đáp án đúng\s*[:：-]\s*\**\s*(?:\n\s*[-*+]?\s*)?([A-Da-d])\s*[.)]?\s*[^\n]*',
   caseSensitive: false,
 );
 final _answerPromptMarker = RegExp(
@@ -177,14 +180,79 @@ final _lineOption = RegExp(
   r'^\s*(?:[-*+]\s+)?(?:\(([A-Da-d])\)|([A-Da-d])[.)])\s+(.+?)\s*$',
 );
 final _explainMarker = RegExp(
-  r'(?:^|\s)(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*',
+  r'(?:^|\s)(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*\**\s*',
   caseSensitive: false,
 );
+// "Câu hỏi:", "Câu hỏi trắc nghiệm:", "Question:" and the Worker-2 "Q1." form.
 final _questionPrefix = RegExp(
-  r'^(?:câu hỏi|cau hoi|question)\s*[:：]\s*',
+  r'^(?:(?:\*{0,2}Q\d+\.?\*{0,2})|(?:câu hỏi(?:\s+trắc nghiệm)?|cau hoi(?:\s+trac nghiem)?|question))\s*[:：.*]?\s*',
   caseSensitive: false,
   multiLine: true,
 );
+final _quizItemQ = RegExp(r'^\s*\*{0,2}Q\d+\.?\*{0,2}(?:\s+|\s*$)', caseSensitive: false, multiLine: true);
+final _quizItemCau = RegExp(
+  r'^\s*(?:câu(?:\s+hỏi)?\s+)?\d+\s*[:.：]',
+  caseSensitive: false,
+  multiLine: true,
+);
+final _quizItemNum = RegExp(r'^\s*\d+\.\s', multiLine: true);
+
+List<String> _splitAt(String text, Iterable<RegExpMatch> matches) {
+  final starts = matches.map((match) => match.start).toList();
+  if (starts.isEmpty || starts.first != 0) starts.insert(0, 0);
+  final chunks = <String>[];
+  for (var index = 0; index < starts.length; index++) {
+    final end = index + 1 < starts.length ? starts[index + 1] : text.length;
+    final chunk = text.substring(starts[index], end).trim();
+    if (chunk.isNotEmpty) chunks.add(chunk);
+  }
+  return chunks;
+}
+
+/// Splits one "Kiểm tra hiểu" section that holds several questions
+/// (Q1./Q2., "Câu 1:"/"Câu 2:", or "1."/"2.") — port of web `splitQuizItems`.
+List<String> splitQuizItems(String sectionBody) {
+  final text = sectionBody
+      .replaceFirst(
+        RegExp(r'^\s*câu hỏi trắc nghiệm\s*[*:.：-]?\s*', caseSensitive: false),
+        '',
+      )
+      .trim();
+  if (text.isEmpty) return const [];
+
+  if (RegExp(r'\*{0,2}Q\d+\.?\*{0,2}', caseSensitive: false).hasMatch(text)) {
+    return _splitAt(text, _quizItemQ.allMatches(text));
+  }
+  final cau = _quizItemCau.allMatches(text).toList();
+  if (cau.isNotEmpty) {
+    final chunks = _splitAt(text, cau);
+    if (chunks.length > 1) return chunks;
+  }
+  final numbered = _quizItemNum.allMatches(text).toList();
+  if (numbered.length >= 2) {
+    final chunks = _splitAt(text, numbered);
+    if (chunks.length > 1) return chunks;
+  }
+  return [text];
+}
+
+/// Repairs answers stored with literal "\n" instead of real newlines.
+String normalizeQuizNewlines(String markdown) {
+  // Only a single-line payload is an escaped one; a real multi-line answer
+  // may legitimately contain "\n" inside code.
+  if (!markdown.contains(r'\n') || markdown.contains('\n')) return markdown;
+  if (RegExp(
+        r'\n\s*#{1,6}\s*(?:kiểm tra hiểu|quiz tự luyện)',
+        caseSensitive: false,
+      ).hasMatch(markdown) ||
+      RegExp(r'\n\s*Q\d+\.', caseSensitive: false).hasMatch(markdown)) {
+    return markdown;
+  }
+  return markdown
+      .replaceAll(r'\r\n', '\n')
+      .replaceAll(r'\n', '\n')
+      .replaceAll(r'\t', '\t');
+}
 final _headingBreak = RegExp(r'(?:^|\n)#{1,6}\s+\S');
 
 int javaStringHash(String value) {
@@ -470,8 +538,25 @@ UnderstandingQuiz? parseUnderstandingQuiz(String sectionBody) {
   );
 }
 
+/// Parses every question in one section; falls back to the whole section.
+List<UnderstandingQuiz> parseUnderstandingSection(String sectionBody) {
+  final items = splitQuizItems(sectionBody);
+  final quizzes = <UnderstandingQuiz>[];
+  if (items.length > 1) {
+    for (final item in items) {
+      final quiz = parseUnderstandingQuiz(item);
+      if (quiz != null) quizzes.add(quiz);
+    }
+  }
+  if (quizzes.isEmpty) {
+    final single = parseUnderstandingQuiz(sectionBody);
+    if (single != null) quizzes.add(single);
+  }
+  return quizzes;
+}
+
 UnderstandingCheckExtract extractUnderstandingCheck(String markdown) {
-  final text = markdown;
+  final text = normalizeQuizNewlines(markdown);
   final firstHeading = _checkHeading.firstMatch(text);
   if (firstHeading == null) {
     return UnderstandingCheckExtract(before: text, after: '');
@@ -485,9 +570,9 @@ UnderstandingCheckExtract extractUnderstandingCheck(String markdown) {
     final breakAt = nextSectionBreak(rest);
     final sectionBody = (breakAt < 0 ? rest : rest.substring(0, breakAt))
         .trim();
-    final quiz = parseUnderstandingQuiz(sectionBody);
-    if (quiz == null) break;
-    quizzes.add(quiz);
+    final parsed = parseUnderstandingSection(sectionBody);
+    if (parsed.isEmpty) break;
+    quizzes.addAll(parsed);
     if (breakAt < 0) break;
 
     final absoluteBreak = headingEnd + breakAt;

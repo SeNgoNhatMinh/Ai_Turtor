@@ -1,5 +1,6 @@
 // Luôn loại bỏ "Nguồn tài liệu đã dùng" và materialId khỏi câu trả lời AI trong chat.
 
+import 'ai_markdown_normalizer.dart';
 import 'ai_study_tips.dart';
 
 String sanitizeAiChatContent(String content) {
@@ -25,8 +26,10 @@ bool hasMeaningfulAiChatContent(String content) {
 }
 
 /// Markdown hiển thị chat: bỏ nguồn, giữ "Lưu ý..." và biến bullet thành link bấm được.
+/// Thứ tự giống FE web: chuẩn hoá cấu trúc markdown trước khi gắn link học.
 String prepareAiChatMarkdown(String content) {
-  final enhanced = enhanceStudyTips(sanitizeAiChatContent(content));
+  final normalized = normalizeAiMarkdown(sanitizeAiChatContent(content));
+  final enhanced = enhanceStudyTips(normalized);
   return splitLongProseParagraphs(enhanced);
 }
 
