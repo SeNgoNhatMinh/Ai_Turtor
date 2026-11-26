@@ -285,11 +285,11 @@
   color: #2f8a32;
 }
 
+/* Short labels wrap to a second line instead of being cut ("Hỏi giảng vi…" at 390 px, UI audit). */
 .student-quick-card strong {
-  overflow: hidden;
+  overflow-wrap: anywhere;
   font-size: 0.92rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
 }
 
 /* Real learning analytics */
@@ -345,12 +345,11 @@
 }
 
 .student-dashboard-metric small {
-  overflow: hidden;
   color: #66788d;
   font-size: 0.76rem;
   font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .student-activity-chart {

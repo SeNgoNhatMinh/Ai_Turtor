@@ -30,6 +30,22 @@ export function normalizeSourceDisplayName(value) {
     .trim();
 }
 
+/**
+ * Material title as a student should read it. Stored titles carry internal workflow
+ * names ("Senior-approved knowledge: …", "Ghi chú giảng dạy (Gold Q&A)") that the UI
+ * audit found shown verbatim under answers.
+ */
+export function studentEvidenceTitle(value) {
+  const raw = cleanLabel(value);
+  if (!raw) return '';
+  if (/^senior-approved/i.test(raw)) {
+    const topic = normalizeSourceDisplayName(raw);
+    return topic ? `Kiến thức bổ sung: ${topic}` : 'Kiến thức bổ sung của môn học';
+  }
+  if (/gold\s+q&a/i.test(raw)) return 'Ghi chú giảng dạy của môn học';
+  return normalizeSourceDisplayName(raw);
+}
+
 function stripSourcePrefix(value) {
   return normalizeSourceDisplayName(value)
     .replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+)/, '')

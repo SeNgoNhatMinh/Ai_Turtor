@@ -46,7 +46,10 @@ public class TtsController {
             requireRole(authentication, "ROLE_STUDENT");
             return ResponseEntity.ok(service.listStudentVoices(userId, courseId, classId));
         } catch (TtsUnavailableException e) {
-            return error(HttpStatus.SERVICE_UNAVAILABLE, "TTS_UNAVAILABLE", e.getMessage());
+            // TTS switched off (e.g. the offline LAN build) is a normal state: no voices.
+            // A 503 here was retried 4 times on every chat visit and filled the browser
+            // console with errors (UI audit); the chat hides read-aloud for an empty list.
+            return ResponseEntity.ok(List.of());
         } catch (SecurityException e) {
             return error(HttpStatus.FORBIDDEN, "TTS_FORBIDDEN", e.getMessage());
         } catch (IllegalArgumentException e) {

@@ -225,15 +225,19 @@
         display: none;
     }
 
+    /* Up to two lines: one line cut every page name at 390 px ("Trò chuyệ…", UI audit). */
     .mobile-page-title {
-        display: block;
+        display: -webkit-box;
         min-width: 0;
         overflow: hidden;
         color: #202123;
         font-size: 0.9rem;
         font-weight: 750;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        line-height: 1.15;
+        text-align: left;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow-wrap: anywhere;
     }
 
     .role-switcher-container {
@@ -262,6 +266,14 @@
         min-width: 38px;
     }
 
+    /* 44 px touch area around the 22 px switch (UI audit: tap target too small). */
+    .theme-mode-switch.ant-switch::before {
+        content: '';
+        position: absolute;
+        inset: -11px -4px;
+    }
+
+
     .main-sidebar {
         display: none;
     }
@@ -278,6 +290,13 @@
 
     .app-container.dark .mobile-navigation-trigger:active {
         background: #2a2a2a;
+    }
+}
+
+@media (max-width: 420px) {
+    /* The page name matters more than the logo mark on narrow phones. */
+    .top-nav .logo-area .fpt-brand {
+        display: none;
     }
 }
 

@@ -397,7 +397,7 @@ public class HumanLearningService {
         CourseMaterial material = courseMaterialRepository
                 .findFirstByKnowledgeCandidateId(candidate.getId())
                 .orElseGet(CourseMaterial::new);
-        material.setTitle("Senior-approved knowledge: " + candidate.getQuestion());
+        material.setTitle("Kiến thức bổ sung: " + candidate.getQuestion());
         material.setCategory("senior-approved-knowledge");
         material.setCourseId(candidate.getCourseId());
         material.setClassId(null);
@@ -550,7 +550,7 @@ public class HumanLearningService {
 
         CourseMaterial material = knowledge().loadMaterialForCandidate(candidate);
         if (material != null) {
-            material.setTitle("Senior-approved knowledge: " + candidate.getQuestion());
+            material.setTitle("Kiến thức bổ sung: " + candidate.getQuestion());
             material.setContent(content);
             if (reindex || STATUS_INDEXED.equalsIgnoreCase(candidate.getStatus())) {
                 knowledge().rewriteCandidateIndex(candidate, material, content);

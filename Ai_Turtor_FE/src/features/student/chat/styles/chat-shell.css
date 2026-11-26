@@ -119,13 +119,27 @@
 }
 
 @media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
+    /* The button sits in its own row above the conversation. As an absolutely
+       positioned overlay it covered the first lines of every answer (UI audit). */
+    .student-chat-main-pane {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .student-chat-main-pane > .chat-workspace-dark {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto !important;
+    }
+
     .chat-history-open-button {
         display: inline-flex;
+        flex: 0 0 auto;
+        align-self: flex-start;
         align-items: center;
         gap: 7px;
-        position: absolute;
-        top: max(10px, env(safe-area-inset-top));
-        left: 10px;
+        position: relative;
+        margin: max(8px, env(safe-area-inset-top)) 10px 6px;
         z-index: 25;
         min-height: 44px;
         padding: 0 13px;

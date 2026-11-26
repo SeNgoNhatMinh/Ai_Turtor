@@ -30,6 +30,24 @@ class TtsControllerTest {
             new TtsReadRequest("message-1", "PRJ301", "SE1832", "Xin chào");
 
     @Test
+    void voicesAreAnEmptyListWhenTtsIsSwitchedOff() {
+        CourseEnrollmentRepository enrollments = mock(CourseEnrollmentRepository.class);
+        ClassSectionRepository sections = mock(ClassSectionRepository.class);
+        TtsProvider provider = mock(TtsProvider.class);
+        when(enrollments.findByStudentIdAndCourseIdAndClassId("student-1", "PRJ301", "SE1832"))
+                .thenReturn(Optional.of(CourseEnrollment.builder().studentId("student-1").build()));
+        when(sections.findByCourseIdAndClassId("PRJ301", "SE1832"))
+                .thenReturn(Optional.of(ClassSection.builder().teacherId("teacher-1").build()));
+        when(provider.isAvailable()).thenReturn(false);
+        TtsController controller = new TtsController(new TtsService(provider, enrollments, sections));
+
+        var response = controller.voices("PRJ301", "SE1832", authentication("ROLE_STUDENT"));
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(List.of(), response.getBody());
+    }
+
+    @Test
     void returnsServiceUnavailableWithoutAffectingTheTextAnswer() {
         CourseEnrollmentRepository enrollments = mock(CourseEnrollmentRepository.class);
         ClassSectionRepository sections = mock(ClassSectionRepository.class);

@@ -292,12 +292,14 @@ export function parseLessonSuggestionsFromAnswer(answer) {
   return items;
 }
 
-const INTERNAL_LESSON_TITLE = /senior-approved|gold\s+q\s*&\s*a|gold\s+qa/i;
+// "Kiến thức bổ sung:" is the title prefix the backend now gives approved notes.
+const INTERNAL_LESSON_TITLE = /senior-approved|gold\s+q\s*&\s*a|gold\s+qa|^\s*kiến thức bổ sung\s*:/i;
 
 function withoutInternalLessonLabel(value) {
   return String(value || '')
     .replace(/senior-approved(?:\s+knowledge|\s+v2(?:\s+gold\s+q&a)?)?\s*:\s*/ig, '')
     .replace(/gold\s+q&a\s*:\s*/ig, '')
+    .replace(/^\s*kiến thức bổ sung\s*:\s*/i, '')
     .trim();
 }
 

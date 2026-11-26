@@ -59,7 +59,7 @@ export default function MentorsTab({ mentors }) {
       key: 'active',
       width: 90,
       render: (value, record) => (
-        <Switch size="small" checked={value !== false} onChange={(checked) => mentors.toggle(record.id, 'isActive', checked)} />
+        <Switch size="small" aria-label={`Hoạt động: ${record.mentorName || record.name || 'giảng viên'}`} checked={value !== false} onChange={(checked) => mentors.toggle(record.id, 'isActive', checked)} />
       ),
     },
     {
@@ -70,6 +70,7 @@ export default function MentorsTab({ mentors }) {
       render: (value, record) => (
         <Switch
           size="small"
+          aria-label={`Đã xác minh: ${record.mentorName || record.name || 'giảng viên'}`}
           checked={Boolean(value)}
           checkedChildren={<UserCheck size={12} />}
           onChange={(checked) => mentors.toggle(record.id, 'verified', checked)}

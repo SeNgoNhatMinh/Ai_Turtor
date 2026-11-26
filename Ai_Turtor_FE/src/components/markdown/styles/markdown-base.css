@@ -148,7 +148,13 @@
 }
 
 .ai-answer-study-tip {
-  display: inline;
+  /* A <button> is laid out as inline-block whatever its display, so a wrapped label
+     pushed the list bullet down to its last line, and the 44 px phone tap height
+     centred a one-line label below its bullet (UI audit). Inline-flex aligned to the
+     top keeps the bullet on the first text line in both cases. */
+  display: inline-flex;
+  align-items: flex-start;
+  max-width: 100%;
   padding: 0;
   border: 0;
   background: transparent;

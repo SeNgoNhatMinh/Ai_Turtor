@@ -135,7 +135,7 @@ public class CourseAnswerSourceService {
                     .materialId(chunk.materialId())
                     .chunkId(chunk.chunkId())
                     .materialTitle(teachingNote
-                            ? "Ghi chú giảng dạy (Gold Q&A)"
+                            ? "Ghi chú giảng dạy của môn học"
                             : (material == null ? chunk.materialId() : material.getTitle()))
                     .chapter(hierarchyTitle != null ? hierarchyTitle : (toc == null ? null : toc.getTitle()))
                     .pageStart(page > 0 ? page : null)

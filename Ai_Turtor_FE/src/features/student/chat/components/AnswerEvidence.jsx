@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, FileText, LifeBuoy, ShieldCheck, Sparkles } from 'lucide-react';
-import { formatSourceItems } from '../../../../utils/sourceLabels';
+import { formatSourceItems, studentEvidenceTitle } from '../../../../utils/sourceLabels';
 
 const getAnswerType = (mode) => {
   if (mode === 'CODE' || mode === 'CODE_MENTOR') return 'Xem xét mã nguồn';
@@ -83,7 +83,7 @@ function AnswerEvidence({ message, sourceMap = {} }) {
   const primaryEvidence = evidence[0] || null;
   const evidenceLocation = primaryEvidence
     ? [
-        primaryEvidence.materialTitle,
+        studentEvidenceTitle(primaryEvidence.materialTitle),
         primaryEvidence.chapter,
         primaryEvidence.pageStart != null && !primaryEvidence.pageEstimated
           ? `Trang ${primaryEvidence.pageStart}`
@@ -147,7 +147,7 @@ function AnswerEvidence({ message, sourceMap = {} }) {
               <span><b>Môn học:</b> {item.courseName || item.courseId || 'Chưa xác định'}</span>
               <span>
                 <b>Tài liệu:</b>{' '}
-                {item.materialTitle || item.materialId || 'Chưa xác định'}
+                {studentEvidenceTitle(item.materialTitle) || 'Chưa xác định'}
               </span>
               {item.chapter && <span><b>Chương/phần:</b> {item.chapter}</span>}
               {item.pageStart != null && !item.pageEstimated && (
