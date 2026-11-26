@@ -35,6 +35,18 @@ class ChapterOutlineReader {
     private static final Pattern HTML_SECTION_SPLIT = Pattern.compile("\\n\\n---+\\n\\n");
     private static final Pattern HTML_PAGE_TITLE = Pattern.compile("(?im)^Page title:\\s*(.+)$");
     private static final Pattern HTML_SOURCE_URL = Pattern.compile("(?im)^Source URL:\\s*(.+)$");
+    /** "Chapter 3. Basic Logic" / "Chương 2: Hàm" / running header "Chapter 3 - Basic Logic Page 21". */
+    private static final Pattern TEXT_CHAPTER_HEADING = Pattern.compile(
+            "(?im)^[ \\t]*(chapter|chương|chuong)[ \\t]+(\\d{1,3})[ \\t]*[.:\\-–—][ \\t]*(\\p{L}[^\\n]{0,110}?)[ \\t]*$"
+    );
+    private static final Pattern TRAILING_PAGE_LABEL = Pattern.compile(
+            "(?i)(?:[\\s.…]+(?:page|trang)?\\s*\\d{1,4})$"
+    );
+    static final int MIN_TEXT_HEADINGS = 2;
+
+    /** A chapter heading found in extracted text; offset is its first occurrence. */
+    record TextHeading(int number, String title, int offset) {
+    }
 
     void ensureTableOfContents(CourseMaterial material) {
         if (material.getTableOfContents() != null && !material.getTableOfContents().isEmpty()) {
@@ -75,6 +87,13 @@ class ChapterOutlineReader {
         List<MaterialTocEntry> toc = material.getTableOfContents();
         if (toc != null && !toc.isEmpty()) {
             ingestMaterialFromBookmarks(material, aggregated, toc, content);
+            return;
+        }
+
+        // PDFs without bookmarks: use "Chapter N. Title" lines from the text itself.
+        List<TextHeading> headings = textChapterHeadings(content);
+        if (headings.size() >= MIN_TEXT_HEADINGS) {
+            ingestMaterialFromTextHeadings(material, aggregated, headings, content);
             return;
         }
 
@@ -181,6 +200,86 @@ class ChapterOutlineReader {
         return value == null ? null : value.trim();
     }
 
+    /**
+     * Chapter headings written in the text, one per chapter number, in document order.
+     * Running page headers repeat a chapter, so only its first occurrence counts.
+     */
+    static List<TextHeading> textChapterHeadings(String content) {
+        if (content == null || content.isBlank()) {
+            return List.of();
+        }
+        Map<Integer, TextHeading> byNumber = new java.util.LinkedHashMap<>();
+        Matcher matcher = TEXT_CHAPTER_HEADING.matcher(content);
+        while (matcher.find()) {
+            int number = Integer.parseInt(matcher.group(2));
+            if (byNumber.containsKey(number)) {
+                continue;
+            }
+            String name = TRAILING_PAGE_LABEL.matcher(matcher.group(3).trim()).replaceFirst("").trim();
+            if (name.isBlank() || name.codePoints().filter(Character::isLetter).count() < 3) {
+                continue;
+            }
+            String word = Character.toUpperCase(matcher.group(1).charAt(0))
+                    + matcher.group(1).substring(1).toLowerCase(java.util.Locale.ROOT);
+            byNumber.put(number, new TextHeading(number, word + " " + number + ". " + name, matcher.start()));
+        }
+        List<TextHeading> headings = new ArrayList<>(byNumber.values());
+        headings.sort(java.util.Comparator.comparingInt(TextHeading::offset));
+        return List.copyOf(headings);
+    }
+
+    /** Text of one chapter: from its heading to the next detected chapter heading. */
+    static String extractTextHeadingSection(String content, String title) {
+        if (content == null || title == null || title.isBlank()) {
+            return "";
+        }
+        String key = ChapterKeyUtils.toChapterKey(title);
+        List<TextHeading> headings = textChapterHeadings(content);
+        for (int i = 0; i < headings.size(); i++) {
+            TextHeading heading = headings.get(i);
+            if (!ChapterKeyUtils.toChapterKey(heading.title()).equals(key)) {
+                continue;
+            }
+            int end = i + 1 < headings.size() ? headings.get(i + 1).offset() : content.length();
+            return content.substring(heading.offset(), Math.max(heading.offset(), end)).trim();
+        }
+        return "";
+    }
+
+    private void ingestMaterialFromTextHeadings(
+            CourseMaterial material,
+            Map<String, AggregatedChapter> aggregated,
+            List<TextHeading> headings,
+            String content
+    ) {
+        int totalPages = material.getPageCount() != null && material.getPageCount() > 0
+                ? material.getPageCount()
+                : 0;
+        for (int i = 0; i < headings.size(); i++) {
+            TextHeading heading = headings.get(i);
+            int end = i + 1 < headings.size() ? headings.get(i + 1).offset() : content.length();
+            String section = content.substring(heading.offset(), Math.max(heading.offset(), end));
+            // Estimated page from the text position keeps document order next to other materials.
+            Integer pageStart = totalPages > 0
+                    ? Math.max(1, (int) ((long) heading.offset() * totalPages / content.length()) + 1)
+                    : null;
+            Integer pageEnd = totalPages > 0
+                    ? Math.max(pageStart, (int) ((long) end * totalPages / content.length()))
+                    : null;
+            mergeChapter(
+                    aggregated,
+                    heading.title(),
+                    ChapterOutlineService.DETECTED_FROM_TEXT_HEADING,
+                    material.getId(),
+                    Math.max(1, chunkingService.chunk(section).size()),
+                    section.length(),
+                    0,
+                    pageStart,
+                    pageEnd
+            );
+        }
+    }
+
     private void ingestMaterialFromBookmarks(
             CourseMaterial material,
             Map<String, AggregatedChapter> aggregated,
@@ -253,6 +352,14 @@ class ChapterOutlineReader {
                 && !outline.getSourceMaterialIds().isEmpty()
                 && !outline.getSourceMaterialIds().contains(material.getId())) {
             return;
+        }
+
+        if (ChapterOutlineService.DETECTED_FROM_TEXT_HEADING.equalsIgnoreCase(outline.getDetectedFrom())) {
+            String sectionText = extractTextHeadingSection(material.getContent(), outline.getTitle());
+            if (!sectionText.isBlank()) {
+                appendExcerptText(excerpt, sectionText, excerptLimit, fullSectionRequested);
+                return;
+            }
         }
 
         if (ChapterOutlineService.DETECTED_FROM_BOOKMARK.equalsIgnoreCase(outline.getDetectedFrom())

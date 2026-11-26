@@ -204,7 +204,7 @@ public class CourseCurriculumOverviewService {
             }
             return StudyLessonTitles.welcomeLines(titles);
         } catch (Exception error) {
-            log.debug("Could not load material chapters for course {}: {}", courseId, error.getMessage());
+            log.warn("Could not load material chapters for course {}: {}", courseId, error.getMessage());
             return List.of();
         }
     }
