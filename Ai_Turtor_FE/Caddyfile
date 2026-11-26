@@ -9,6 +9,18 @@ http://:{$PORT:8080} {
 	encode zstd gzip
 	root * /srv
 
+	# Security headers for every response. HSTS only takes effect over HTTPS (Railway);
+	# browsers ignore it on the plain-HTTP LAN build. Microphone stays allowed for chat
+	# speech-to-text.
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), microphone=(self)"
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
 	handle /health {
 		respond "ok" 200
 	}

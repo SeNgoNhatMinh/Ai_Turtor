@@ -3,18 +3,31 @@
 
 Usage: ADMIN_EMAIL=.. ADMIN_PASSWORD=.. python3 -I seed_users.py BASE_URL POOL.json OUT.json [N]
 
-Accounts: loadtest001@loadtest.local ... (password LOADTEST_PASSWORD, default Loadtest@123).
-Existing accounts are logged in instead of re-registered, so the script is re-runnable.
-Only ever run against the isolated tutor_db_loadtest stack.
+Accounts: <EMAIL_PREFIX>001@<EMAIL_DOMAIN> ... (default loadtest001@loadtest.local), name
+"<NAME_PREFIX> 001". Password: LOADTEST_PASSWORD (default Loadtest@123) for every account,
+or RANDOM_PASSWORDS=1 for a different random password per account (written to OUT.json,
+so keep that file private). Existing accounts are logged in instead of re-registered
+(with RANDOM_PASSWORDS=1 they are reported as failed, since their password is unknown).
 """
 import json
 import os
+import secrets
 import sys
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 PASSWORD = os.environ.get("LOADTEST_PASSWORD", "Loadtest@123")
+RANDOM_PASSWORDS = os.environ.get("RANDOM_PASSWORDS") == "1"
+EMAIL_PREFIX = os.environ.get("EMAIL_PREFIX", "loadtest")
+EMAIL_DOMAIN = os.environ.get("EMAIL_DOMAIN", "loadtest.local")
+NAME_PREFIX = os.environ.get("NAME_PREFIX", "Load Test")
+# No look-alike characters (0/O, 1/l/I) so passwords can be typed from a printed list.
+ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+
+def new_password():
+    return "".join(secrets.choice(ALPHABET) for _ in range(10))
 
 
 def call(base, method, path, body=None, token=None):
@@ -46,14 +59,17 @@ def find(obj, *keys):
 
 
 def ensure_student(base, i):
-    email = f"loadtest{i:03d}@loadtest.local"
+    email = f"{EMAIL_PREFIX}{i:03d}@{EMAIL_DOMAIN}"
+    password = new_password() if RANDOM_PASSWORDS else PASSWORD
     status, body = call(base, "POST", "/api/users/register",
-                        {"email": email, "password": PASSWORD, "fullName": f"Load Test {i:03d}"})
+                        {"email": email, "password": password, "fullName": f"{NAME_PREFIX} {i:03d}"})
     if status not in (200, 201):
-        status, body = call(base, "POST", "/api/users/login", {"email": email, "password": PASSWORD})
+        if RANDOM_PASSWORDS:
+            return {"i": i, "email": email, "error": f"register {status} {str(body)[:200]}"}
+        status, body = call(base, "POST", "/api/users/login", {"email": email, "password": password})
         if status != 200:
             return {"i": i, "email": email, "error": f"{status} {str(body)[:200]}"}
-    return {"i": i, "email": email, "userId": find(body, "userId", "id"),
+    return {"i": i, "email": email, "password": password, "userId": find(body, "userId", "id"),
             "studentCode": find(body, "studentCode")}
 
 
@@ -79,14 +95,15 @@ def main(base, pool_path, out_path, n):
     enroll_errors = []
     for (course, klass), members in by_class.items():
         students = [{"studentId": u["userId"], "studentCode": u.get("studentCode") or "",
-                     "studentName": f"Load Test {u['i']:03d}", "studentEmail": u["email"]} for u in members]
+                     "studentName": f"{NAME_PREFIX} {u['i']:03d}", "studentEmail": u["email"]} for u in members]
         st, resp = call(base, "POST", f"/api/admin/class-sections/{course}/{klass}/students",
                         {"students": students}, admin)
         if st != 200:
             enroll_errors.append(f"{course}/{klass}: {st} {str(resp)[:200]}")
 
-    json.dump([{k: u.get(k) for k in ("email", "userId", "courseId", "classId")} for u in ok],
-              open(out_path, "w"), indent=1)
+    keys = ("email", "password", "userId", "courseId", "classId") if RANDOM_PASSWORDS else ("email", "userId", "courseId", "classId")
+    with open(os.open(out_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as fh:
+        json.dump([{k: u.get(k) for k in keys} for u in ok], fh, ensure_ascii=False, indent=1)
     print(f"students ok={len(ok)} failed={len(failed)} classes={len(by_class)} enroll_errors={len(enroll_errors)}")
     for f in failed[:10]:
         print("  user error:", f)

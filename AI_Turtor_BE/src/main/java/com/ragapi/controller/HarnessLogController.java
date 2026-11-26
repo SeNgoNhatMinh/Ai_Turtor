@@ -1,6 +1,8 @@
 package com.ragapi.controller;
 
 import com.ragapi.util.ErrorStatus;
+import com.ragapi.service.security.RateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
 
 import com.ragapi.dto.HarnessLogRequest;
 import com.ragapi.harness.trace.HarnessLogService;
@@ -32,13 +34,30 @@ import java.util.Map;
 public class HarnessLogController {
 
     private final HarnessLogService harnessLogService;
+    private final RateLimiter rateLimiter;
+
+    // These endpoints are public (n8n and the browser report errors), so cap size and rate.
+    static final long MAX_LOG_BYTES = 32 * 1024;
+    static final int LOGS_PER_IP_PER_MINUTE = 600;
+
+    private ResponseEntity<?> rejectAbuse(HttpServletRequest httpRequest) {
+        if (httpRequest.getContentLengthLong() > MAX_LOG_BYTES) {
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(Map.of("error", "Log entry is too large"));
+        }
+        if (!rateLimiter.tryAcquire("harness-log:" + RateLimiter.clientIp(httpRequest), LOGS_PER_IP_PER_MINUTE, 60_000L)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", "Too many log entries"));
+        }
+        return null;
+    }
 
     @PostMapping("/logs")
     @Operation(
             summary = "Create an AI Harness trace log",
             description = "Use from n8n after important nodes such as Intent Classifier, Course RAG Query, Code Mentor, Improve Suggestions, Update Memory, and Respond."
     )
-    public ResponseEntity<?> createLog(@RequestBody HarnessLogRequest request) {
+    public ResponseEntity<?> createLog(@RequestBody HarnessLogRequest request, HttpServletRequest httpRequest) {
+        ResponseEntity<?> rejected = rejectAbuse(httpRequest);
+        if (rejected != null) return rejected;
         try {
             return ResponseEntity.ok(harnessLogService.createLog(request));
         } catch (IllegalArgumentException e) {
@@ -55,7 +74,9 @@ public class HarnessLogController {
             summary = "Create an AI Harness error log",
             description = "Use this from n8n error branches when Elasticsearch, LLM, backend HTTP calls, memory update, or webhook processing fails. The API forces eventType=ERROR and status=FAILED."
     )
-    public ResponseEntity<?> createErrorLog(@RequestBody HarnessLogRequest request) {
+    public ResponseEntity<?> createErrorLog(@RequestBody HarnessLogRequest request, HttpServletRequest httpRequest) {
+        ResponseEntity<?> rejected = rejectAbuse(httpRequest);
+        if (rejected != null) return rejected;
         try {
             return ResponseEntity.ok(harnessLogService.createErrorLog(request));
         } catch (IllegalArgumentException e) {

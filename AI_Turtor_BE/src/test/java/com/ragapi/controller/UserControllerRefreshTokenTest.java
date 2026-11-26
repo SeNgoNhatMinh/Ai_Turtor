@@ -4,6 +4,7 @@ import com.ragapi.dto.UserLoginRequest;
 import com.ragapi.dto.UserLoginResponse;
 import com.ragapi.service.auth.InvalidRefreshTokenException;
 import com.ragapi.service.auth.JwtService;
+import com.ragapi.service.security.RateLimiter;
 import com.ragapi.service.notification.RealtimeEventService;
 import com.ragapi.service.auth.RefreshTokenCookieService;
 import com.ragapi.service.auth.RefreshTokenService;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.time.Instant;
 
@@ -29,7 +31,8 @@ class UserControllerRefreshTokenTest {
             mock(RealtimeEventService.class),
             refreshTokenService,
             new RefreshTokenCookieService(true, 30),
-            jwtService
+            jwtService,
+            new RateLimiter()
     );
 
     @Test
@@ -51,7 +54,7 @@ class UserControllerRefreshTokenTest {
         when(jwtService.generateToken("student-1", "student@example.com", null, "STUDENT", "session-1"))
                 .thenReturn("session-bound-token");
 
-        ResponseEntity<?> response = controller.login(request, null);
+        ResponseEntity<?> response = controller.login(request, null, new MockHttpServletRequest());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo(login);
@@ -72,5 +75,22 @@ class UserControllerRefreshTokenTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE)).isNull();
+    }
+
+    @Test
+    void tenFailedLoginsLockTheAccountForAWhile() {
+        UserLoginRequest request = new UserLoginRequest();
+        request.setEmail("victim@example.com");
+        request.setPassword("guess");
+        when(userService.login(request)).thenThrow(new RuntimeException("Email hoặc Password không chính xác"));
+
+        for (int i = 0; i < 10; i++) {
+            assertThat(controller.login(request, null, new MockHttpServletRequest()).getStatusCode())
+                    .isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+        ResponseEntity<?> blocked = controller.login(request, null, new MockHttpServletRequest());
+
+        assertThat(blocked.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(blocked.getHeaders().getFirst(HttpHeaders.RETRY_AFTER)).isNotBlank();
     }
 }

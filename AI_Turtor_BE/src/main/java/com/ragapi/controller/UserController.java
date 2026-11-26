@@ -11,12 +11,14 @@ import com.ragapi.service.student.UserService;
 import com.ragapi.service.notification.RealtimeEventService;
 import com.ragapi.service.auth.RefreshTokenCookieService;
 import com.ragapi.service.auth.JwtService;
+import com.ragapi.service.security.RateLimiter;
 import com.ragapi.service.auth.RefreshTokenService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -44,6 +46,12 @@ public class UserController {
     private RefreshTokenService refreshTokenService;
     private RefreshTokenCookieService refreshTokenCookieService;
     private JwtService jwtService;
+    private RateLimiter rateLimiter;
+
+    // Password guessing: 10 failures per account or 50 per client address per 15 minutes.
+    static final long LOGIN_WINDOW_MS = 15 * 60_000L;
+    static final int LOGIN_FAILURES_PER_ACCOUNT = 10;
+    static final int LOGIN_FAILURES_PER_IP = 50;
 
     @PostMapping("/register")
     @Operation(summary = "Register student account")
@@ -72,8 +80,21 @@ public class UserController {
     @Operation(summary = "Login student or mentor account")
     public ResponseEntity<?> login(
             @RequestBody UserLoginRequest request,
-            @CookieValue(value = RefreshTokenCookieService.COOKIE_NAME, required = false) String existingRefreshToken
+            @CookieValue(value = RefreshTokenCookieService.COOKIE_NAME, required = false) String existingRefreshToken,
+            HttpServletRequest httpRequest
     ) {
+        String accountKey = "login:account:" + (request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase());
+        String ipKey = "login:ip:" + RateLimiter.clientIp(httpRequest);
+        if (rateLimiter.count(accountKey, LOGIN_WINDOW_MS) >= LOGIN_FAILURES_PER_ACCOUNT
+                || rateLimiter.count(ipKey, LOGIN_WINDOW_MS) >= LOGIN_FAILURES_PER_IP) {
+            long retryAfter = Math.max(rateLimiter.retryAfterSeconds(accountKey, LOGIN_WINDOW_MS),
+                    rateLimiter.count(ipKey, LOGIN_WINDOW_MS) >= LOGIN_FAILURES_PER_IP
+                            ? rateLimiter.retryAfterSeconds(ipKey, LOGIN_WINDOW_MS) : 1);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfter))
+                    .body(Map.of("error", "Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau "
+                            + Math.max(1, (retryAfter + 59) / 60) + " phút.", "code", "TOO_MANY_LOGIN_ATTEMPTS"));
+        }
         try {
             UserLoginResponse response = userService.login(request);
             refreshTokenService.revoke(existingRefreshToken);
@@ -82,13 +103,16 @@ public class UserController {
             response.setToken(jwtService.generateToken(response.getUserId(), response.getEmail(),
                     response.getFullName(), response.getRole(), session.sessionId()));
             RefreshTokenService.IssuedRefreshToken refreshToken = session.refreshToken();
+            rateLimiter.reset(accountKey);
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.create(refreshToken.value()).toString())
                     .body(response);
         } catch (Exception e) {
-            log.error("Error logging in user", e);
+            rateLimiter.record(accountKey, LOGIN_WINDOW_MS);
+            rateLimiter.record(ipKey, LOGIN_WINDOW_MS);
+            log.warn("Login failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", e.getMessage()));
+                    .body(Map.of("error", "Email hoặc mật khẩu không chính xác"));
         }
     }
 
