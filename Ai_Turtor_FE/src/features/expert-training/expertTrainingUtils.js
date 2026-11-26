@@ -42,6 +42,7 @@ export function getChapterSessionState(chapter, tasks = [], goldQa = []) {
 const DETECTED_FROM_LABELS = {
   PDF_BOOKMARK: 'Mục lục PDF',
   PDF_TOC: 'Mục lục PDF',
+  TEXT_HEADING: 'Tiêu đề chương trong PDF',
   MATERIAL: 'Học liệu đã index',
   MATERIAL_TITLE: 'Tiêu đề học liệu',
   HTML_SECTION: 'Mục website',
