@@ -1,5 +1,5 @@
 # RAG API - LLM Diagnostics & Troubleshooting Script
-# Usage: .\diagnose-llm.ps1
+# Usage: .\scripts\powershell\diagnose-llm.ps1
 
 Write-Host "===========================================" -ForegroundColor Cyan
 Write-Host "🔧 RAG API - LLM Diagnostics Tool" -ForegroundColor Cyan

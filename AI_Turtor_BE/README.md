@@ -220,6 +220,8 @@ Xem các biến endpoint, language, sample rate, cache voice và giới hạn ch
 
 ## 6. Tài Liệu Quan Trọng
 
+Tài liệu backend nằm trong [`../docs/backend/`](../docs/backend/); hướng dẫn triển khai nằm trong [`../docs/deploy/`](../docs/deploy/).
+
 - `N8N_HARNESS_TRACE_AND_ERROR_HANDLING.md`: n8n trace context, retry, error logging, fallback handling, and debugging by traceId.
 - `N8N_HARNESS_FLOW_AFTER_IMPROVEMENTS.md`: sơ đồ và hướng dẫn dựng n8n AI Harness.
 - `N8N_LOCAL_DOCKER_GUIDE.md`: hướng dẫn chạy n8n local bằng Docker và chuyển workflow từ n8n Cloud.

@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
-$source = Join-Path $PSScriptRoot "n8n-import\AI tutor flow.json"
-$target = Join-Path $PSScriptRoot "n8n-import\AI-tutor-workflow-runtime-fixed.json"
+$root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$source = Join-Path $root "n8n-import\AI tutor flow.json"
+$target = Join-Path $root "n8n-import\AI-tutor-workflow-runtime-fixed.json"
 
 $fixes = @{
     "Respond RAG" = @'

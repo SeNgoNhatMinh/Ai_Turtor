@@ -145,7 +145,7 @@ function Patch-WorkflowFile([string]$path) {
     Write-Host "Patched $path -> set nodes: $setFixed, message replacements: $messageFixed"
 }
 
-$root = $PSScriptRoot
+$root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 Patch-WorkflowFile (Join-Path $root "n8n-import\docker-ready\AI-tutor-workflow-runtime-fixed.json")
 Patch-WorkflowFile (Join-Path $root "n8n-import\AI-tutor-workflow-runtime-fixed.json")
 

@@ -33,7 +33,8 @@ mvn spring-boot:run
 
 The backend runs at `http://localhost:8085`. Deployment and environment details
 are documented in `AI_Turtor_BE/README.md`,
-`AI_Turtor_BE/AI_TUTOR_DEPLOY_HANDOFF.md`, and `RAILWAY_DEPLOY.md`.
+`docs/backend/AI_TUTOR_DEPLOY_HANDOFF.md`, and `docs/deploy/RAILWAY_DEPLOY.md`.
+All project documentation lives in [`docs/`](docs/README.md).
 
 ## Verification
 

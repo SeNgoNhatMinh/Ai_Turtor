@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]  # AI_Turtor_BE/
 
 SET_NODE_EXPRESSIONS = {
     "Set Normalize Review Input": r"""=={{

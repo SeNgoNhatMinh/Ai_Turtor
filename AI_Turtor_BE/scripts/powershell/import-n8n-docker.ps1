@@ -6,7 +6,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$root = $PSScriptRoot
+$root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $importDir = Join-Path $root 'n8n-import'
 $readyDir = Join-Path $importDir 'docker-ready'
 $files = @(

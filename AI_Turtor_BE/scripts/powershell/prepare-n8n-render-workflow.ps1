@@ -5,9 +5,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$root = $PSScriptRoot
-& (Join-Path $root 'fix-n8n-respond-nodes.ps1')
-& (Join-Path $root 'remove-bom.ps1')
+$root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+& (Join-Path $PSScriptRoot 'fix-n8n-respond-nodes.ps1')
+& (Join-Path $PSScriptRoot 'remove-bom.ps1')
 
 $source = Join-Path $root 'n8n-import\AI-tutor-workflow-runtime-fixed.json'
 $target = Join-Path $root 'n8n-import\AI-tutor-workflow-render-ready.json'

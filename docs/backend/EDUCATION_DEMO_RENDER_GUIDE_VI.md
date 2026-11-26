@@ -150,7 +150,7 @@ Khong copy `application-local.yml`, `.env.deploy`, JWT secret hay API key vao Gi
 Workflow local dung `host.docker.internal:8085`. Tao file import cho Render bang lenh:
 
 ```powershell
-.\prepare-n8n-render-workflow.ps1 -BackendBaseUrl https://YOUR-BACKEND.onrender.com
+.\scripts\powershell\prepare-n8n-render-workflow.ps1 -BackendBaseUrl https://YOUR-BACKEND.onrender.com
 ```
 
 Import `n8n-import/AI-tutor-workflow-render-ready.json` vao n8n public, kiem tra lai credential, sau do Publish. Khong import de len workflow dang demo neu chua backup.

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]  # AI_Turtor_BE/
 FILES = [
     ROOT / "n8n-import" / "AI-tutor-workflow-runtime-fixed.json",
     ROOT / "n8n-import" / "docker-ready" / "AI-tutor-workflow-runtime-fixed.json",
