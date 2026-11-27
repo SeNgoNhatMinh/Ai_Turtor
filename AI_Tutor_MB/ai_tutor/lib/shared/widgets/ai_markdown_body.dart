@@ -115,7 +115,8 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
             children.add(answerAction);
             actionInserted = true;
           }
-          if (segment.isNextLessonHeading) continue;
+          // Like web: "Bài tiếp theo" stays inside the answer as tappable
+          // lesson chips (web `ai-answer-study-tip--lesson`).
           children.add(
             AiStudyPathBlock(
               heading: segment.heading,

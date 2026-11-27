@@ -36,6 +36,7 @@ class UnderstandingCheckQuiz extends StatefulWidget {
     this.localLockedKey = '',
     this.restoredGrade,
     this.onLockAnswer,
+    this.revealGrade = true,
   });
 
   final UnderstandingQuiz quiz;
@@ -43,6 +44,10 @@ class UnderstandingCheckQuiz extends StatefulWidget {
   final String lockedKey;
   final String localLockedKey;
   final UnderstandingCheckGrade? restoredGrade;
+
+  /// Web `revealGrade`: right/wrong shows only once every quiz item is
+  /// answered and the guided exercise (if any) is saved.
+  final bool revealGrade;
   final FutureOr<UnderstandingCheckGrade?> Function(
     String key,
     UnderstandingCheckAttempt attempt,
@@ -126,11 +131,14 @@ class _UnderstandingCheckQuizState extends State<UnderstandingCheckQuiz> {
     final isCorrect =
         effectiveGrade?.correct ?? (hasKey && selectedKey == correctKey);
     final correctOption = quiz.optionFor(correctKey);
+    final reveal = widget.revealGrade;
     final hint = !widget.enabled && !locked
         ? 'Đã hết lượt đặt câu hỏi hôm nay. Bạn vẫn có thể xem lại nội dung quiz.'
+        : locked && !reveal
+        ? 'Đã lưu lựa chọn. Đúng/sai hiện khi bạn làm xong cả quiz và bài tập có hướng dẫn.'
         : locked
-        ? 'Đã khóa đáp án. Giáo viên xem được kết quả này để gửi chỉ dẫn cho lần học sau.'
-        : 'Chọn một lần. Kết quả đúng/sai và giải thích được giữ; không đổi được sau khi chọn.';
+        ? 'Đã khóa đáp án. Đúng/sai hiện trên câu này. AI Tutor giảng lại concept và chỗ sai ở tin nhắn tiếp theo.'
+        : 'Chọn một lần. Đúng/sai hiện khi bạn làm xong cả phần, và không đổi được sau khi chọn.';
 
     return Semantics(
       label: 'Kiểm tra hiểu',
@@ -191,14 +199,34 @@ class _UnderstandingCheckQuizState extends State<UnderstandingCheckQuiz> {
                 child: _OptionButton(
                   option: option,
                   selected: selectedKey == option.key,
-                  showGrade: locked && hasKey,
+                  showGrade: locked && hasKey && reveal,
                   isCorrectChoice: option.key == correctKey,
                   locked: locked,
                   enabled: widget.enabled,
                   onTap: () => _lockAnswer(option.key),
                 ),
               ),
-            if (selected != null) ...[
+            if (selected != null && !reveal) ...[
+              const Gap(Insets.xs),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(Insets.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(Radii.sm),
+                  border: Border.all(color: AppColors.borderHairline),
+                ),
+                child: Text(
+                  'Đã lưu lựa chọn ${selected.key}. Đúng/sai hiện khi bạn làm '
+                  'xong cả quiz và bài tập có hướng dẫn.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+            if (selected != null && reveal) ...[
               const Gap(Insets.xs),
               _ResultCard(
                 hasKey: hasKey,

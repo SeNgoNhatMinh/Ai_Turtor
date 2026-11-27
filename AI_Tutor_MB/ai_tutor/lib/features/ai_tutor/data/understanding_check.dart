@@ -684,6 +684,70 @@ String buildIncorrectAnswersRemediationPrompt(
   ].join('\n');
 }
 
+/// Label shown for the hidden grading turn (web `FINISHED_WORK_REVIEW_LABEL`).
+const finishedWorkReviewLabel = 'Ôn tập lại';
+
+/// Port of web `buildFinishedWorkReviewPrompt`: one hidden turn sent only after
+/// BOTH the guided practice and the quiz are finished. It grades the filled
+/// blanks and wrong quiz answers against the concept the student asked about.
+String buildFinishedWorkReviewPrompt({
+  required String draftText,
+  Iterable<UnderstandingRemediationAttempt> incorrectAnswers = const [],
+  String originalQuestion = '',
+}) {
+  final draft = draftText.trim();
+  if (draft.isEmpty) return '';
+  final source = originalQuestion.trim();
+  final conceptLine = RegExp(
+    r'^\s*Concept học sinh đã hỏi:\s*(.+)$',
+    multiLine: true,
+    caseSensitive: false,
+  ).firstMatch(source);
+  final concept = conceptLine != null
+      ? conceptLine[1]!.trim()
+      : source.split(RegExp(r'\r?\n')).first.trim();
+  final mistakes = incorrectAnswers.toList()
+    ..sort((left, right) => left.quizIndex.compareTo(right.quizIndex));
+  final mistakeLines = <String>[
+    for (final attempt in mistakes)
+      if (attempt.quiz.question.trim().isNotEmpty &&
+          attempt.selected.key.trim().isNotEmpty)
+        () {
+          final correctKey = (attempt.grade.correctKey.isNotEmpty
+                  ? attempt.grade.correctKey
+                  : attempt.quiz.correctKey)
+              .trim()
+              .toUpperCase();
+          final correctText = attempt.grade.correctOptionText.isNotEmpty
+              ? attempt.grade.correctOptionText
+              : attempt.quiz.optionFor(correctKey)?.text ?? '';
+          return [
+            '- Câu ${attempt.quizIndex + 1}: ${attempt.quiz.question.trim()}',
+            '  Đã chọn: ${attempt.selected.key}. ${attempt.selected.text.trim()}',
+            if (correctKey.isNotEmpty)
+              '  Đáp án đúng: $correctKey. ${correctText.trim()}',
+          ].join('\n');
+        }(),
+  ];
+  return [
+    'Học sinh đã nộp cả bài tập có hướng dẫn và quiz. Hãy sửa bài.',
+    if (concept.isNotEmpty) 'Concept học sinh đã hỏi: $concept',
+    'Bài tập có hướng dẫn đã điền:',
+    draft,
+    mistakeLines.isNotEmpty
+        ? ['Câu trắc nghiệm chưa đúng:', ...mistakeLines].join('\n')
+        : 'Các câu trắc nghiệm đều đúng.',
+    'Chấm từng chỗ đã điền: Đúng hoặc Chưa đúng. Chỗ sai thì viết lại đúng đoạn đó.',
+    'Chỗ để trống hoặc điền chữ vô nghĩa (như "aaa", "abc", "...") là Chưa điền: chỉ gợi ý, không đưa đáp án.',
+    'Với mỗi chỗ sai (bài tập và quiz), chỉ rõ sai ở đâu và hiểu nhầm gì so với concept học sinh đã hỏi.',
+    'Sau đó giảng lại ngắn gọn đúng phần bị hiểu nhầm của concept đó. Không giảng lại nội dung các câu quiz, không tóm tắt lại chương trong tài liệu.',
+    'Nếu tất cả đều đúng, chỉ xác nhận ngắn, không giảng lại.',
+    'Nếu đoạn tài liệu không có một phương thức, vẫn chấm chỗ điền theo yêu cầu của bài và nói một câu là đoạn trích chưa nêu phương thức đó.',
+    'Không từ chối cả bài. Không chép lại cả bài code. Không nhắc lại đề quiz hay các lựa chọn.',
+    'Không mở chủ đề mới, không tạo quiz hay bài tập mới.',
+  ].join('\n\n');
+}
+
 String buildMissingAnswerKeyRemediationPrompt(
   UnderstandingQuiz quiz,
   UnderstandingOption selected,

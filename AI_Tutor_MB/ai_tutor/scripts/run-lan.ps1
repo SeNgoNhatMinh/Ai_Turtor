@@ -1,6 +1,6 @@
 # Run or build the mobile app against an AI Tutor stack reached through the router (LAN).
 #
-# Offline stack (default) - the Mac on the TP-Link router, reserved IP 192.168.0.101.
+# Offline stack (default) - the Mac on the TP-Link router, reserved IP 192.168.0.100.
 #   docker-compose.offline.yml serves Caddy on port 80, which proxies /api, /ws and
 #   /webhook to the backend and n8n, so the app only needs http://<ip> without ports.
 #     .\scripts\run-lan.ps1                    # flutter run on the connected phone
@@ -39,7 +39,7 @@ if ($Deploy) {
     $configFile = 'config/lan.json'
     $checks = @("$($config.API_BASE_URL)/actuator/health", "http://${HostIp}:5678/healthz")
 } else {
-    if (-not $HostIp) { $HostIp = '192.168.0.101' }   # LAN_PUBLIC_URL in BE .env.offline
+    if (-not $HostIp) { $HostIp = '192.168.0.100' }   # reserved IP of the Mac on the TP-Link router
     $config = [ordered]@{
         API_BASE_URL = "http://${HostIp}"
         N8N_WEBHOOK  = "http://${HostIp}/webhook"

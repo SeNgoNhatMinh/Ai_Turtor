@@ -27,7 +27,6 @@ import '../../student/student_route_handoff.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/models/improve_suggestion.dart';
 import '../../../shared/models/rag_source_evidence.dart';
-import '../../memory/presentation/widgets/improve_suggestion_widgets.dart';
 import '../../../shared/models/ai_conversation.dart';
 import '../../../shared/models/course.dart';
 import '../../../shared/models/escalation.dart';
@@ -45,6 +44,7 @@ import '../application/tts_controller.dart';
 import '../data/chat_improve_suggestions.dart';
 import '../data/code_mentor.dart';
 import '../data/course_learning_guide.dart';
+import '../data/guided_practice.dart';
 import '../data/tutor_session.dart';
 import '../data/tts_models.dart';
 import '../data/student_own_llm.dart';
@@ -1353,11 +1353,12 @@ class ChatScreen extends HookConsumerWidget {
     final learningGuide = guideCourseId.isEmpty
         ? null
         : ref.watch(courseLearningGuideProvider(guideCourseId));
-    final courseGuideSuggestions = learningGuide?.valueOrNull == null
-        ? const <ImproveSuggestionItem>[]
+    final courseCurriculumSuggestions = learningGuide?.valueOrNull == null
+        ? const <StudyPathSuggestion>[]
         : parseCurriculumStudySuggestions(
-                learningGuide!.valueOrNull!.welcomeMarkdown,
-              )
+            learningGuide!.valueOrNull!.welcomeMarkdown,
+          );
+    final courseGuideSuggestions = courseCurriculumSuggestions
               .map(
                 (item) => ImproveSuggestionItem.fromLabel(
                   item.suggestionText,
@@ -1389,6 +1390,7 @@ class ChatScreen extends HookConsumerWidget {
     final consumedKeys = ref.watch(
       consumedSuggestionKeysProvider(conversationId),
     );
+    final practiceDrafts = ref.watch(guidedPracticeDraftsProvider);
     final turnNotice = ref.watch(chatTurnLimitNoticeProvider);
     final serverMaxTurnsReached = ref.watch(
       conversationServerMaxTurnsReachedProvider(conversationId),
@@ -1612,61 +1614,6 @@ class ChatScreen extends HookConsumerWidget {
       );
     }
 
-    void handleLearnSuggestion(ImproveSuggestionItem item) {
-      final text = item.effectiveText.trim().isNotEmpty
-          ? item.effectiveText
-          : item.title;
-      final isCurriculumStarter = item.interactionType == 'CURRICULUM_STARTER';
-      if (isCurriculumStarter) {
-        startCurriculumLesson(
-          label: text,
-          chapterTitle: item.chapterTitle,
-          studySuggestionKey: item.key,
-        );
-        return;
-      }
-      final prompt = buildStudySuggestionPrompt(
-        text,
-        improvePlanId: item.improvePlanId,
-        planItemId: item.planItemId,
-      );
-      unawaited(
-        sendStudyPromptInChat(
-          prompt,
-          displayMessage: text,
-          interactionType: item.hasImprovePlanGrounding
-              ? 'IMPROVE_PLAN_REVIEW'
-              : item.interactionType ??
-                    (isGuidedLessonPrompt(prompt)
-                        ? 'GUIDED_LESSON'
-                        : item.sourceMaterialIds.isNotEmpty
-                        ? 'SOURCE_BACKED_STUDY_TIP'
-                        : null),
-          improvePlanId: item.improvePlanId,
-          planItemId: item.planItemId,
-          clickedSuggestion: text,
-          studySuggestionKey: item.key,
-          chapterKey: item.chapterKey,
-          chapterTitle: item.chapterTitle,
-          sourceMaterialIds: item.sourceMaterialIds,
-          sourceChunkIds: item.sourceChunkIds,
-        ),
-      );
-    }
-
-    void handleQuizFromSuggestion(ImproveSuggestionItem item) {
-      if (activeCourse == null) return;
-      final topic = item.effectiveText.trim().isNotEmpty
-          ? item.effectiveText
-          : item.title;
-      openQuizFromSuggestion(
-        context,
-        ref,
-        courseRouteId: activeCourse.id,
-        suggestionText: topic,
-      );
-    }
-
     void handleStudyTipTap(
       String tipText, {
       String currentQuestion = '',
@@ -1707,26 +1654,10 @@ class ChatScreen extends HookConsumerWidget {
       return sendStudyPromptInChat(prompt);
     }
 
-    Future<UnderstandingCheckGrade?> handleUnderstandingCheckAnswer({
-      required AiMessage message,
-      required String selectedKey,
-      required UnderstandingCheckAttempt attempt,
-      required int quizIndex,
-      required List<UnderstandingQuiz> quizzes,
-    }) async {
-      final grade = await ref
-          .read(chatControllerProvider(conversationId).notifier)
-          .lockUnderstandingAnswer(
-            conversationId: conversationId,
-            message: message,
-            selectedKey: selectedKey,
-            quizIndex: quizIndex,
-            quiz: attempt.quiz,
-          );
-      if (grade == null || !context.mounted || activeCourse == null) {
-        return grade;
-      }
-
+    Map<int, UnderstandingRemediationAttempt> mergedQuizProgress(
+      AiMessage message,
+      List<UnderstandingQuiz> quizzes,
+    ) {
       final progress = understandingProgress.putIfAbsent(
         message.id,
         () => <int, UnderstandingRemediationAttempt>{},
@@ -1757,26 +1688,57 @@ class ChatScreen extends HookConsumerWidget {
           ),
         );
       }
-      progress[quizIndex] = UnderstandingRemediationAttempt(
-        quizIndex: quizIndex,
-        quiz: attempt.quiz,
-        selected: attempt.selected,
-        grade: grade,
+      return progress;
+    }
+
+    bool isIncorrectAttempt(UnderstandingRemediationAttempt entry) {
+      final correctKey = entry.grade.correctKey.isNotEmpty
+          ? entry.grade.correctKey
+          : entry.quiz.correctKey;
+      return entry.grade.correct == false ||
+          correctKey.isEmpty ||
+          entry.selected.key != correctKey;
+    }
+
+    /// Web `buildFinishedWorkReviewPrompt` turn, sent once per answer.
+    void sendFinishedWorkReview(
+      AiMessage message,
+      List<UnderstandingQuiz> quizzes,
+      GuidedPracticeDraft draft, {
+      String originalQuestion = '',
+    }) {
+      if (activeCourse == null || composerLocked) return;
+      if (!remediationStarted.add(message.id)) return;
+      final progress = mergedQuizProgress(message, quizzes);
+      final prompt = buildFinishedWorkReviewPrompt(
+        draftText: draft.text,
+        incorrectAnswers: progress.values.where(isIncorrectAttempt),
+        originalQuestion: originalQuestion,
       );
-      if (progress.length < quizzes.length ||
-          !remediationStarted.add(message.id)) {
+      if (prompt.isEmpty) return;
+      writeGuidedPracticeDraft(
+        ref,
+        message.id,
+        draft.copyWith(locked: true, reviewed: true),
+      );
+      unawaited(
+        sendStudyPromptInChat(
+          prompt,
+          displayMessage: finishedWorkReviewLabel,
+          interactionType: 'GUIDED_PRACTICE_REVIEW',
+          clickedSuggestion: finishedWorkReviewLabel,
+        ),
+      );
+    }
+
+    UnderstandingCheckGrade? sendQuizRemediation(
+      AiMessage message,
+      List<UnderstandingRemediationAttempt> incorrect,
+      UnderstandingCheckGrade? grade,
+    ) {
+      if (incorrect.isEmpty || composerLocked || activeCourse == null) {
         return grade;
       }
-
-      final incorrect = progress.values.where((entry) {
-        final correctKey = entry.grade.correctKey.isNotEmpty
-            ? entry.grade.correctKey
-            : entry.quiz.correctKey;
-        return entry.grade.correct == false ||
-            correctKey.isEmpty ||
-            entry.selected.key != correctKey;
-      }).toList();
-      if (incorrect.isEmpty || composerLocked) return grade;
 
       final firstIncorrect = incorrect.first;
       final gradedFirstQuiz = UnderstandingQuiz(
@@ -1845,6 +1807,63 @@ class ChatScreen extends HookConsumerWidget {
         }
       }());
       return grade;
+    }
+
+    Future<UnderstandingCheckGrade?> handleUnderstandingCheckAnswer({
+      required AiMessage message,
+      required String selectedKey,
+      required UnderstandingCheckAttempt attempt,
+      required int quizIndex,
+      required List<UnderstandingQuiz> quizzes,
+      String originalQuestion = '',
+    }) async {
+      final grade = await ref
+          .read(chatControllerProvider(conversationId).notifier)
+          .lockUnderstandingAnswer(
+            conversationId: conversationId,
+            message: message,
+            selectedKey: selectedKey,
+            quizIndex: quizIndex,
+            quiz: attempt.quiz,
+          );
+      if (grade == null || !context.mounted || activeCourse == null) {
+        return grade;
+      }
+
+      final progress = mergedQuizProgress(message, quizzes);
+      progress[quizIndex] = UnderstandingRemediationAttempt(
+        quizIndex: quizIndex,
+        quiz: attempt.quiz,
+        selected: attempt.selected,
+        grade: grade,
+      );
+      if (progress.length < quizzes.length) return grade;
+
+      // Like web: an answer with a guided exercise is graded once, after both
+      // the exercise is saved and the quiz is finished.
+      if (extractGuidedPractice(message.content) != null) {
+        final draft = ref.read(guidedPracticeDraftsProvider)[message.id];
+        if (draft != null && draft.saved && !draft.reviewed) {
+          sendFinishedWorkReview(
+            message,
+            quizzes,
+            draft,
+            originalQuestion: originalQuestion,
+          );
+        }
+        return grade;
+      }
+      if (!remediationStarted.add(message.id)) return grade;
+
+      final incorrect = progress.values.where((entry) {
+        final correctKey = entry.grade.correctKey.isNotEmpty
+            ? entry.grade.correctKey
+            : entry.quiz.correctKey;
+        return entry.grade.correct == false ||
+            correctKey.isEmpty ||
+            entry.selected.key != correctKey;
+      }).toList();
+      return sendQuizRemediation(message, incorrect, grade);
     }
 
     void showReviewSubmittedSnack(String? status) {
@@ -2416,6 +2435,30 @@ class ChatScreen extends HookConsumerWidget {
                     final localQuizProgress =
                         understandingProgress[message.id] ??
                         const <int, UnderstandingRemediationAttempt>{};
+                    // Web `quizFinished`: every quiz item has a chosen answer.
+                    final answeredQuizIndexes = <int>{
+                      ...localQuizProgress.keys,
+                      for (final saved in message.understandingCheckAttempts)
+                        if ((saved.selectedKey ?? '').trim().isNotEmpty &&
+                            saved.quizIndex >= 0)
+                          saved.quizIndex,
+                      if ((message.understandingSelectedKey ?? '')
+                          .trim()
+                          .isNotEmpty)
+                        0,
+                    };
+                    final quizFinished =
+                        quiz != null &&
+                        answeredQuizIndexes.length >= extracted.quizzes.length;
+                    // Web `deferGrade`: with a guided exercise, right/wrong
+                    // stays hidden until that exercise is saved.
+                    final hasGuidedPractice =
+                        !message.isUser &&
+                        extractGuidedPractice(message.content) != null;
+                    final revealQuizGrade =
+                        quizFinished &&
+                        (!hasGuidedPractice ||
+                            (practiceDrafts[message.id]?.saved ?? false));
                     final isWelcomeTurn = isWelcomeTutorTurn(
                       message,
                       precedingUserQuestion: userQuestion,
@@ -2494,15 +2537,30 @@ class ChatScreen extends HookConsumerWidget {
                                         practice: practice,
                                         draftKey: message.id,
                                         enabled: !isPending && !composerLocked,
-                                        onSubmit: (filled) => unawaited(
-                                          sendStudyPromptInChat(
-                                            filled,
-                                            displayMessage:
-                                                'Nộp bài tập có hướng dẫn',
-                                            clickedSuggestion:
-                                                'Nộp bài tập có hướng dẫn',
-                                          ),
-                                        ),
+                                        waitsForQuiz: quiz != null,
+                                        quizFinished: quizFinished,
+                                        // Saving never sends a message by
+                                        // itself; with a finished quiz it
+                                        // starts the one combined review.
+                                        onSaved: (_) {
+                                          if (quiz == null || !quizFinished) {
+                                            return;
+                                          }
+                                          final draft = ref.read(
+                                            guidedPracticeDraftsProvider,
+                                          )[message.id];
+                                          if (draft == null ||
+                                              draft.reviewed) {
+                                            return;
+                                          }
+                                          sendFinishedWorkReview(
+                                            message,
+                                            extracted.quizzes,
+                                            draft,
+                                            originalQuestion:
+                                                userQuestion ?? '',
+                                          );
+                                        },
                                       ),
                                 content: quiz == null
                                     ? curriculumDisplayContent
@@ -2549,6 +2607,7 @@ class ChatScreen extends HookConsumerWidget {
                                               restoredGrade:
                                                   localQuizProgress[quizIndex]
                                                       ?.grade,
+                                              revealGrade: revealQuizGrade,
                                               onLockAnswer: (key, attempt) =>
                                                   handleUnderstandingCheckAnswer(
                                                     message: message,
@@ -2556,6 +2615,8 @@ class ChatScreen extends HookConsumerWidget {
                                                     attempt: attempt,
                                                     quizIndex: quizIndex,
                                                     quizzes: extracted.quizzes,
+                                                    originalQuestion:
+                                                        userQuestion ?? '',
                                                   ),
                                             ),
                                         ],
@@ -2636,6 +2697,7 @@ class ChatScreen extends HookConsumerWidget {
                               ),
                               child: CurriculumStudySuggestions(
                                 suggestions: curriculumSuggestions,
+                                learnedKeys: consumedKeys,
                                 enabled: !isPending && !composerLocked,
                                 onSelected: (item) => startCurriculumLesson(
                                   label: item.suggestionText,
@@ -2643,17 +2705,28 @@ class ChatScreen extends HookConsumerWidget {
                                 ),
                               ),
                             ),
+                          // After the latest answer the same "Gợi ý học tập"
+                          // chapter list comes back, so the student can pick
+                          // the next lesson (studied ones show "Đã học").
                           if (showStudySuggestions &&
-                              studySuggestions.isNotEmpty)
-                            ImproveSuggestionsStrip(
-                              suggestions: studySuggestions,
-                              consumedKeys: consumedKeys,
-                              enabled: !isPending && !composerLocked,
-                              heading: 'Gợi ý học tập',
-                              hint:
-                                  'Bài vừa học được đánh dấu; bạn có thể chọn bài hoặc chương tiếp theo.',
-                              onLearn: handleLearnSuggestion,
-                              onCreateQuiz: handleQuizFromSuggestion,
+                              !isWelcomeTurn &&
+                              !message.isUser &&
+                              !isRetryableError &&
+                              courseCurriculumSuggestions.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 48,
+                                bottom: Insets.sm,
+                              ),
+                              child: CurriculumStudySuggestions(
+                                suggestions: courseCurriculumSuggestions,
+                                learnedKeys: consumedKeys,
+                                enabled: !isPending && !composerLocked,
+                                onSelected: (item) => startCurriculumLesson(
+                                  label: item.suggestionText,
+                                  chapterTitle: item.chapterTitle,
+                                ),
+                              ),
                             ),
                           if (message.isUser)
                             AiUserMessageActions(

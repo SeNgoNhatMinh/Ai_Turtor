@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/utils/study_suggestion_prompt.dart';
+import '../../../../shared/models/improve_suggestion.dart';
 
 const _suggestionPageSize = 5;
 
@@ -17,6 +18,7 @@ final _curriculumStarterNoise = RegExp(
   r'^(?:bạn có thể bắt đầu|mẹo\b)',
   caseSensitive: false,
 );
+
 /// Backend `StudyLessonTitles.SOURCE_SEPARATOR`: each chip is
 /// "<Vietnamese lesson label> || <original outline heading>".
 const lessonSourceSeparator = ' || ';
@@ -90,11 +92,15 @@ class CurriculumStudySuggestions extends StatefulWidget {
     required this.suggestions,
     required this.onSelected,
     this.enabled = true,
+    this.learnedKeys = const {},
   });
 
   final List<StudyPathSuggestion> suggestions;
   final ValueChanged<StudyPathSuggestion> onSelected;
   final bool enabled;
+
+  /// Suggestion keys already studied in this chat (shown as "Đã học").
+  final Set<String> learnedKeys;
 
   @override
   State<CurriculumStudySuggestions> createState() =>
@@ -179,7 +185,7 @@ class _CurriculumStudySuggestionsState
           ),
           const Gap(Insets.xs),
           Text(
-            'Nhấn vào một gợi ý để hỏi AI Tutor ngay nội dung đó.',
+            'Chọn một bài trong tài liệu để bắt đầu học. Bài đã học được đánh dấu.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: colors.textSecondary,
               height: 1.4,
@@ -244,6 +250,11 @@ class _CurriculumStudySuggestionsState
               _CurriculumSuggestionRow(
                 key: ValueKey(visibleSuggestions[index].suggestionText),
                 suggestion: visibleSuggestions[index],
+                learned: widget.learnedKeys.contains(
+                  ImproveSuggestionItem.fromLabel(
+                    visibleSuggestions[index].suggestionText,
+                  ).key,
+                ),
                 enabled: widget.enabled,
                 onTap: () => widget.onSelected(visibleSuggestions[index]),
               ),
@@ -301,27 +312,36 @@ class _CurriculumSuggestionRow extends StatelessWidget {
     required this.suggestion,
     required this.enabled,
     required this.onTap,
+    this.learned = false,
   });
 
   final StudyPathSuggestion suggestion;
   final bool enabled;
   final VoidCallback onTap;
+  final bool learned;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.fpt;
     final foreground = enabled ? colors.textPrimary : colors.textTertiary;
-    final actionColor = enabled ? colors.textSecondary : colors.textTertiary;
+    final actionColor = learned
+        ? AppColors.success
+        : enabled
+        ? colors.textSecondary
+        : colors.textTertiary;
 
     return Semantics(
-      button: true,
-      enabled: enabled,
-      label: 'Học ngay: ${suggestion.title}',
+      button: !learned,
+      enabled: enabled && !learned,
+      label: learned
+          ? '${suggestion.title} - Đã học'
+          : 'Học ngay: ${suggestion.title}',
       child: Material(
         color: colors.card,
         borderRadius: BorderRadius.circular(Radii.md),
         child: InkWell(
-          onTap: enabled ? onTap : null,
+          // Like web: a studied lesson shows "Đã học" instead of the action.
+          onTap: enabled && !learned ? onTap : null,
           borderRadius: BorderRadius.circular(Radii.md),
           focusColor: AppColors.focusRing.withValues(alpha: 0.10),
           child: ConstrainedBox(
@@ -343,10 +363,16 @@ class _CurriculumSuggestionRow extends StatelessWidget {
                     ),
                   ),
                   const Gap(Insets.sm),
-                  Icon(LucideIcons.bookOpenCheck, size: 19, color: actionColor),
+                  Icon(
+                    learned
+                        ? LucideIcons.circleCheck
+                        : LucideIcons.bookOpenCheck,
+                    size: 19,
+                    color: actionColor,
+                  ),
                   const Gap(Insets.xs),
                   Text(
-                    'Học ngay',
+                    learned ? 'Đã học' : 'Học ngay',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: actionColor,
                       fontWeight: FontWeight.w600,

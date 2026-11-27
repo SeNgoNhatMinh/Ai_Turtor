@@ -1,0 +1,4 @@
+{
+  "API_BASE_URL": "https://aiturtor-production.up.railway.app",
+  "N8N_WEBHOOK": "https://n8n-production-2c731e23.up.railway.app/webhook"
+}
